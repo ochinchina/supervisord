@@ -1,8 +1,12 @@
 package main
 
+import(
+	"os"
+)
+
 func main() {
-        s := supervisor.NewSupervisor( os.Args[1] )
+        s := NewSupervisor( os.Args[1] )
         s.Reload()
-        supervisor.NewXmlRPC().Start(":9000", s )
+        NewXmlRPC().Start(":9000", s )
 }
 
