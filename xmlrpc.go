@@ -19,6 +19,7 @@ func (p *XmlRPC) Start( listenAddr string, s *Supervisor )  {
 	RPC.RegisterCodec(xmlrpcCodec, "text/xml")
 	RPC.RegisterService( s, "" )
 	xmlrpcCodec.RegisterAlias( "supervisor.getVersion", "Supervisor.GetVersion" )
+	xmlrpcCodec.RegisterAlias( "supervisor.getSupervisorVersion", "Supervisor.GetVersion" )
 	xmlrpcCodec.RegisterAlias( "supervisor.getAllProcessInfo", "Supervisor.GetAllProcessInfo" )
 	xmlrpcCodec.RegisterAlias( "supervisor.startProcess", "Supervisor.StartProcess" )
 
