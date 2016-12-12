@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 	"github.com/gorilla/rpc"
-	"github.com/divan/gorilla-xmlrpc/xml"
+	"github.com/ochinchina/gorilla-xmlrpc/xml"
 )
 
 type XmlRPC struct {
