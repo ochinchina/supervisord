@@ -1,16 +1,25 @@
 package main
 
 import (
+	"net"
 	"net/http"
 	"github.com/gorilla/rpc"
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
 )
 
 type XmlRPC struct {
+	listener net.Listener
 }
+
 
 func NewXmlRPC() *XmlRPC {
 	return &XmlRPC{}
+}
+
+func (p *XmlRPC) Stop() {
+	if p.listener != nil {
+		p.listener.Close()
+	}
 }
 
 func (p *XmlRPC) Start( listenAddr string, s *Supervisor )  {
@@ -24,6 +33,9 @@ func (p *XmlRPC) Start( listenAddr string, s *Supervisor )  {
 	xmlrpcCodec.RegisterAlias( "supervisor.startProcess", "Supervisor.StartProcess" )
 
 	http.Handle("/RPC2", RPC)
-
-	http.ListenAndServe(listenAddr, nil)
+	var err error
+	p.listener, err = net.Listen( "tcp", listenAddr )
+	if err == nil {
+		http.Serve(p.listener, nil )
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"strconv"
 	"time"
+	log "github.com/Sirupsen/logrus"
 )
 
 type ProcessState int
@@ -249,12 +250,12 @@ func (p *Process) run() {
 	p.state = STARTING
 	err := p.cmd.Start()
 	if err != nil {
-		fmt.Printf("fail to start program:%s", p.config.GetProgramName())
+		log.WithFields( log.Fields{"program":p.config.GetProgramName()}).Error("fail to start program")
 		p.state = FATAL
 		p.stopTime = time.Now()
 		p.lock.Unlock()
 	} else {
-		fmt.Printf("success to start program:%s", p.config.GetProgramName())
+		log.WithFields( log.Fields{"program":p.config.GetProgramName()}).Info("success to start program")
 		startSecs := p.config.GetInt( "startsecs", 1 )
 			//Set startsec to 0 to indicate that the program needn't stay 
 			//running for any particular amount of time.

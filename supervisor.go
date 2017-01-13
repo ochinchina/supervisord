@@ -14,6 +14,7 @@ const (
 type Supervisor struct {
 	config *Config
 	procMgr *ProcessManager
+	xmlRPC *XmlRPC
 }
 
 type processInfo struct {
@@ -60,8 +61,14 @@ type processStateInfo struct {
 
 func NewSupervisor( configFile string ) *Supervisor {
 	return &Supervisor{ config: NewConfig( configFile ),
-			procMgr: newProcessManager() }
+			procMgr: newProcessManager(),
+			xmlRPC: NewXmlRPC() }
 }
+
+func (s* Supervisor) GetConfig() *Config {
+	return s.config
+}
+
 func (s* Supervisor ) GetVersion(r *http.Request, args *struct { }, reply *struct{ Version string} ) error {
 	reply.Version = VERSION
 	return nil
@@ -225,6 +232,7 @@ func (s *Supervisor) SendRemoteCommEvent(  r* http.Request, args* remoteCommEven
 }
 
 func (s *Supervisor) Reload() error {
+	//get the previous loaded programs
 	prevPrograms := s.config.GetProgramNames()
 
 	err := s.config.Load()
@@ -238,6 +246,14 @@ func (s *Supervisor) Reload() error {
 		removedPrograms := sub( prevPrograms, programs )
 		for _, p := range( removedPrograms ) {
 			s.procMgr.Remove( p )
+		}
+		httpServerConfig, ok := s.config.GetInetHttpServer()
+		if ok {
+			addr := httpServerConfig.GetString( "port", "" )
+			if addr != "" {
+				s.xmlRPC.Stop()
+				s.xmlRPC.Start( addr, s )
+			}
 		}
 	}
 	return err

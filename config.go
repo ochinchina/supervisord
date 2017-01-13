@@ -168,6 +168,12 @@ func (c *Config) GetUnitHttpServer() (*ConfigEntry, bool) {
 	return entry, ok
 }
 
+// Get the inet_http_server configuration section
+func (c *Config) GetInetHttpServer()( *ConfigEntry, bool ) {
+	entry, ok := c.entries["inet_http_server"]
+	return entry, ok
+}
+
 func (c* Config) GetGroups() []*ConfigEntry {
 	result := make( []*ConfigEntry, 0 )
 	for key, value := range c.entries {
