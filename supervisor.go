@@ -59,6 +59,11 @@ type processStateInfo struct {
 	Statename string
 }
 
+type logReadInfo struct {
+	Offset int
+	Length int
+}
+
 func NewSupervisor( configFile string ) *Supervisor {
 	return &Supervisor{ config: NewConfig( configFile ),
 			procMgr: newProcessManager(),
@@ -75,19 +80,39 @@ func (s* Supervisor ) GetVersion(r *http.Request, args *struct { }, reply *struc
 }
 
 func (s *Supervisor) GetSupervisorVersion( r *http.Request, args *struct { }, reply *struct{ Version string}  ) error {
+	reply.Version = VERSION
 	return nil
 }
 
 func (s *Supervisor) GetIdentification( r *http.Request, args *struct { }, reply *struct{ Id string}  ) error {
+	entry, ok := s.config.GetSupervisord()
+	if ok {
+		reply.Id = entry.GetString( "identifier", "No-supervisorId-set")
+	} else {
+		reply.Id = "No-supervisorId-set"
+	}
 	return nil
 }
 
 func (s *Supervisor) GetState( r *http.Request, args *struct { }, reply *processStateInfo ) error {
+	//statecode     statename
+	//=======================
+	// 2            FATAL
+	// 1            RUNNING
+	// 0            RESTARTING
+	// -1           SHUTDOWN
+	reply.Statecode = 1
+	reply.Statename = "RUNNING"
 	return nil
 }
 
 func (s *Supervisor) GetPID( r *http.Request, args *struct { }, reply *struct{ Pid int } ) error {
 	reply.Pid = os.Getpid()
+	return nil
+}
+
+func (s *Supervisor) ReadLog( r *http.Request, args *logReadInfo, reply *struct { Log string } ) error {
+	reply.Log = "not implemented"
 	return nil
 }
 
@@ -287,10 +312,12 @@ func (s *Supervisor) ReloadConfig (  r* http.Request, args* struct { }, reply *s
 }
 
 func (s *Supervisor) AddProcessGroup(  r* http.Request, args* struct { Name string }, reply *struct{  Success bool } ) error {
+	reply.Success  = false
         return nil
 }
 
 func (s *Supervisor) RemoveProcessGroup(  r* http.Request, args* struct { Name string }, reply *struct{  Success bool }  ) error {
+	reply.Success = false
 	return nil
 }
 

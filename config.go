@@ -162,9 +162,16 @@ func toRegexp( pattern string ) string {
 	return strings.Join(tmp, "\\." )
 }
 
-func (c *Config) GetUnitHttpServer() (*ConfigEntry, bool) {
+//get the unix_http_server section
+func (c *Config) GetUnixHttpServer() (*ConfigEntry, bool) {
 	entry, ok := c.entries["unix_http_server"]
 
+	return entry, ok
+}
+
+//get the supervisord section
+func (c *Config) GetSupervisord()( *ConfigEntry, bool ) {
+	entry, ok := c.entries["supervisord"]
 	return entry, ok
 }
 
