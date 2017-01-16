@@ -395,7 +395,7 @@ func (c *Config) parseProgram( cfg *ini.File ) {
 					log.WithFields( log.Fields{
 						"numprocs": numProcs,
 						"process_name": procNameKey.Value(),
-					}).Error( "no %(process_num) in process name" )
+					}).Error( "no process_num in process name" )
 				}
 			}
                         for i := 1; i <= numProcs; i += 1 {

@@ -52,7 +52,10 @@ type Process struct {
 	startTime time.Time
 	stopTime  time.Time
 	state     ProcessState
+	//true if process is starting
 	inStart	bool
+	//true if the process is stopped by user
+	stopByUser bool
 	lock      sync.RWMutex
 }
 
@@ -66,36 +69,53 @@ func NewProcess(config *ConfigEntry) *Process {
 	proc.cmd = nil
 	proc.state = STOPPED
 	proc.inStart = false
+	proc.stopByUser = false
 
 	//start the process if autostart is set to true
 	if( proc.isAutoStart() ) {
-		proc.Start()
+		proc.Start( false )
 	}
 
 	return proc
 }
 
-func (p *Process) Start() {
+func (p *Process) Start( wait bool ) {
+	log.WithFields( log.Fields {"program": p.GetName() }).Info( "try to start program" )
 	p.lock.Lock()
 	if p.inStart {
+		log.WithFields( log.Fields{ "program": p.GetName() } ).Info( "Don't start program again, program is already started" )
 		p.lock.Unlock()
 		return
 	}
 
 	p.inStart = true
+	p.stopByUser = false
 	p.lock.Unlock()
+
+	var m sync.Mutex
+	runCond := sync.NewCond( &m )
+	m.Lock()
 
 	go func() {
 		retryTimes := 0
 
 		for {
-			p.run()
+			p.run( runCond )
 			if (p.stopTime.Unix() - p.startTime.Unix()) < int64(p.getStartSeconds()) {
 				retryTimes ++
 			} else {
 				retryTimes = 0
 			}
-			if retryTimes >= p.getStartRetries() || !p.isAutoRestart() {
+			if p.stopByUser {
+				log.WithFields( log.Fields{ "program":p.GetName()}).Info( "Stopped by user, don't start it again")
+				break
+			}
+			if !p.isAutoRestart() {
+				log.WithFields( log.Fields{ "program": p.GetName() } ).Info( "Don't start the stopped program because its autorestart flag is false")
+				break
+			}
+			if retryTimes >= p.getStartRetries()  {
+				log.WithFields( log.Fields { "program": p.GetName() } ).Info( "Don't start the stopped program because its retry times ", retryTimes, " is greater than start retries ", p.getStartRetries() )
 				break
 			}
 		}
@@ -103,10 +123,13 @@ func (p *Process) Start() {
 		p.inStart = false
 		p.lock.Unlock()
 	}()
+	if wait {
+		runCond.Wait()
+	}
 }
 
 func (p *Process) GetName() string {
-	return p.config.Name
+	return p.config.Name[len("program:"):]
 }
 
 func (p *Process) GetGroup() string {
@@ -236,33 +259,49 @@ func (p *Process) getExitCodes() []int {
 	return result
 }
 
-func (p *Process) run() {
-	p.lock.Lock()
-	if p.cmd != nil && !p.cmd.ProcessState.Exited() {
-		p.lock.Unlock()
+func (p *Process) run( runCond *sync.Cond ) {
+	args, err := parseCommand( p.config.GetString( "command", "" ) )
+
+	if err != nil {
+		log.Error( "the command is empty string" )
 		return
 	}
-	p.cmd = exec.Command("/bin/sh", "-c", p.config.GetString("command", ""))
+	p.lock.Lock()
+	if p.cmd != nil {
+		status := p.cmd.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Continued() {
+			log.WithFields( log.Fields{ "program":p.GetName() }).Info( "Don't start program because it is running")
+			p.lock.Unlock()
+			return
+		}
+	}
+	p.cmd = exec.Command( args[0] )
+	if len( args ) > 1 {
+		p.cmd.Args = args
+	}
 	p.setEnv()
 	p.setLog()
 
 	p.startTime = time.Now()
 	p.state = STARTING
-	err := p.cmd.Start()
+	err = p.cmd.Start()
 	if err != nil {
 		log.WithFields( log.Fields{"program":p.config.GetProgramName()}).Error("fail to start program")
 		p.state = FATAL
 		p.stopTime = time.Now()
 		p.lock.Unlock()
+		runCond.Signal()
 	} else {
 		log.WithFields( log.Fields{"program":p.config.GetProgramName()}).Info("success to start program")
 		startSecs := p.config.GetInt( "startsecs", 1 )
-			//Set startsec to 0 to indicate that the program needn't stay 
-			//running for any particular amount of time.
+		//Set startsec to 0 to indicate that the program needn't stay 
+		//running for any particular amount of time.
 		if startSecs > 0 {
 			p.state = RUNNING
 		}
 		p.lock.Unlock()
+		log.WithFields( log.Fields {"program":p.config.GetProgramName()}).Debug( "wait program exit")
+		runCond.Signal()
 		p.cmd.Wait()
 		p.lock.Lock()
 		p.stopTime = time.Now()
@@ -302,7 +341,7 @@ func (p *Process) setLog() {
 	p.cmd.Stdout = NewNullLogger()
 
 	if len(logFile) > 0 {
-		p.cmd.Stdout = NewLogger( logFile,  
+		p.cmd.Stdout = NewLogger( logFile, 
 					int64(p.config.GetBytes( "stdout_logfile_maxbytes", 50*1024*1024 )), 
 					p.config.GetInt( "stdout_logfile_backups", 10 ) )
 
@@ -338,10 +377,12 @@ func toSignal(signalName string) os.Signal {
 }
 
 //send signal to process to stop it
-func (p *Process) Stop() {
+func (p *Process) Stop( wait bool ) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
+	p.stopByUser = true
 	if p.cmd != nil && p.cmd.Process != nil {
+		log.WithFields( log.Fields{"program":p.GetName()} ).Info( "stop the program")
 		p.cmd.Process.Signal(toSignal(p.config.GetString("stopsignal", "")))
 	}
 }

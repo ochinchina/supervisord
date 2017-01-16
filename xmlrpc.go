@@ -53,6 +53,12 @@ func (p *XmlRPC) Start( listenAddr string, s *Supervisor )  {
 	xmlrpcCodec.RegisterAlias( "supervisor.reloadConfig", "Supervisor.Reload" )
 	xmlrpcCodec.RegisterAlias( "supervisor.addProcessGroup", "Supervisor.AddProcessGroup" )
 	xmlrpcCodec.RegisterAlias( "supervisor.removeProcessGroup", "Supervisor.RemoveProcessGroup" )
+	xmlrpcCodec.RegisterAlias( "supervisor.readProcessStdoutLog", "Supervisor.ReadProcessStdoutLog" )
+	xmlrpcCodec.RegisterAlias( "supervisor.readProcessStderrLog", "Supervisor.ReadProcessStderrLog" )
+	xmlrpcCodec.RegisterAlias( "supervisor.tailProcessStdoutLog", "Supervisor.TailProcessStdoutLog" )
+	xmlrpcCodec.RegisterAlias( "supervisor.tailProcessStderrLog", "Supervisor.TailProcessStderrLog" )
+	xmlrpcCodec.RegisterAlias( "supervisor.clearProcessLogs", "Supervisor.ClearProcessLogs" )
+	xmlrpcCodec.RegisterAlias( "supervisor.clearAllProcessLogs", "Supervisor.ClearAllProcessLogs" )
 
 	http.Handle("/RPC2", RPC)
 	var err error

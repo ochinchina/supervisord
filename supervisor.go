@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -17,7 +18,7 @@ type Supervisor struct {
 	xmlRPC *XmlRPC
 }
 
-type processInfo struct {
+type ProcessInfo struct {
 	Name string `xml:"name"`
 	Group string `xml:"group"`
 	Description string `xml:"description"`
@@ -39,27 +40,33 @@ type StartProcessArgs struct {
 	Wait bool `default:"true"`
 }
 
-type processSignal struct {
+type ProcessSignal struct {
 	Name string
 	Signal string
 }
 
-type processStdin struct {
+type ProcessStdin struct {
 	Name string
 	Chars string
 }
 
-type remoteCommEvent struct {
+type RemoteCommEvent struct {
 	Type string
 	Data string
 }
 
-type processStateInfo struct {
-	Statecode int
-	Statename string
+type StateInfo struct {
+	Statecode int `xml:"statecode"`
+	Statename string `xml:"statename"`
 }
 
-type logReadInfo struct {
+type LogReadInfo struct {
+	Offset int
+	Length int
+}
+
+type ProcessLogReadInfo struct {
+	Name string
 	Offset int
 	Length int
 }
@@ -94,15 +101,16 @@ func (s *Supervisor) GetIdentification( r *http.Request, args *struct { }, reply
 	return nil
 }
 
-func (s *Supervisor) GetState( r *http.Request, args *struct { }, reply *processStateInfo ) error {
+func (s *Supervisor) GetState( r *http.Request, args *struct { }, reply *struct { StateInfo StateInfo } ) error {
 	//statecode     statename
 	//=======================
 	// 2            FATAL
 	// 1            RUNNING
 	// 0            RESTARTING
 	// -1           SHUTDOWN
-	reply.Statecode = 1
-	reply.Statename = "RUNNING"
+	log.Debug( "Get state")
+	reply.StateInfo.Statecode = 1
+	reply.StateInfo.Statename = "RUNNING"
 	return nil
 }
 
@@ -111,10 +119,16 @@ func (s *Supervisor) GetPID( r *http.Request, args *struct { }, reply *struct{ P
 	return nil
 }
 
-func (s *Supervisor) ReadLog( r *http.Request, args *logReadInfo, reply *struct { Log string } ) error {
+func (s *Supervisor) ReadLog( r *http.Request, args *LogReadInfo, reply *struct { Log string } ) error {
 	reply.Log = "not implemented"
 	return nil
 }
+
+func (s* Supervisor) ClearLog( r *http.Request, args *struct { }, reply *struct{ Ret bool } ) error {
+	reply.Ret = true
+	return nil
+}
+
 
 func (s* Supervisor) Shutdown( r *http.Request, args *struct { }, reply *struct{ Ret bool } ) error {
 	reply.Ret = true
@@ -126,8 +140,8 @@ func (s* Supervisor) Restart( r *http.Request, args *struct { }, reply *struct{ 
 	return nil
 }
 
-func getProcessInfo( proc *Process) *processInfo {
-	return &processInfo { Name: proc.GetName(),
+func getProcessInfo( proc *Process) *ProcessInfo {
+	return &ProcessInfo { Name: proc.GetName(),
                                 Group: proc.GetGroup(),
                                 Description: proc.GetDescription(),
                                 Start: proc.GetStartTime().Unix(),
@@ -145,8 +159,8 @@ func getProcessInfo( proc *Process) *processInfo {
 }
 
 
-func (s *Supervisor) GetAllProcessInfo( r *http.Request, args *struct { }, reply *struct{ AllProcessInfo []processInfo} ) error {
-	reply.AllProcessInfo = make([]processInfo, 0 )
+func (s *Supervisor) GetAllProcessInfo( r *http.Request, args *struct { }, reply *struct{ AllProcessInfo []ProcessInfo} ) error {
+	reply.AllProcessInfo = make([]ProcessInfo, 0 )
 	s.procMgr.ForEachProcess( func (proc *Process) {
 		procInfo := getProcessInfo( proc )
 		reply.AllProcessInfo = append(  reply.AllProcessInfo, *procInfo )
@@ -155,13 +169,14 @@ func (s *Supervisor) GetAllProcessInfo( r *http.Request, args *struct { }, reply
 	return nil
 }
 
-func (s *Supervisor) GetProcessInfo( r *http.Request, args *struct { name string }, reply *struct{procInfo processInfo} ) error {
-	proc := s.procMgr.Find( args.name )
+func (s *Supervisor) GetProcessInfo( r *http.Request, args *struct { Name string }, reply *struct{ProcInfo ProcessInfo} ) error {
+	log.Debug( "Get process info of: ", args.Name )
+	proc := s.procMgr.Find( args.Name )
 	if proc == nil {
-		return fmt.Errorf( "no process named %s", args.name )
+		return fmt.Errorf( "no process named %s", args.Name )
 	}
 
-	reply.procInfo = *getProcessInfo( proc )
+	reply.ProcInfo = *getProcessInfo( proc )
 	return nil
 }
 
@@ -171,24 +186,27 @@ func (s *Supervisor) StartProcess( r* http.Request, args* StartProcessArgs, repl
 	if proc == nil {
 		return fmt.Errorf( "fail to find process %s", args.Name )
 	}
-	proc.Start()
+	proc.Start( args.Wait )
 	reply.Success = true
 	return nil
 }
 
-func (s *Supervisor) StartAllProcesses( r* http.Request, args* struct { Wait bool `default:"true"`}, reply *struct{ AllProcessInfo []processInfo } ) error {
+func (s *Supervisor) StartAllProcesses( r* http.Request, args* struct { Wait bool `default:"true"`}, reply *struct{ AllProcessInfo []ProcessInfo } ) error {
 	s.procMgr.ForEachProcess( func( proc *Process ) {
-		proc.Start()
+		proc.Start( args.Wait )
 	})
 	return nil
 }
 
-func (s *Supervisor) StartProcessGroup( r* http.Request, args* StartProcessArgs,  reply *struct{ AllProcessInfo []processInfo } ) error {
+func (s *Supervisor) StartProcessGroup( r* http.Request, args* StartProcessArgs,  reply *struct{ AllProcessInfo []ProcessInfo } ) error {
+	log.WithFields( log.Fields{ "group":args.Name}).Info("start process group")
 	s.procMgr.ForEachProcess( func( proc *Process) {
 		if proc.GetGroup() == args.Name {
-			proc.Start()
+			proc.Start( args.Wait )
+			reply.AllProcessInfo = append( reply.AllProcessInfo, *getProcessInfo( proc ) )
 		}
 	})
+
         return nil
 }
 
@@ -198,28 +216,31 @@ func (s *Supervisor) StopProcess( r* http.Request, args* StartProcessArgs, reply
 	if proc == nil {
 		return fmt.Errorf( "fail to find process %s", args.Name )
 	}
-	proc.Stop()
+	proc.Stop( args.Wait )
 	reply.Success = true
 	return nil
 }
 
-func (s *Supervisor) StopProcessGroup( r* http.Request, args* StartProcessArgs,  reply *struct{ AllProcessInfo []processInfo } ) error {
+func (s *Supervisor) StopProcessGroup( r* http.Request, args* StartProcessArgs,  reply *struct{ AllProcessInfo []ProcessInfo } ) error {
+	log.WithFields( log.Fields{"group":args.Name}).Info( "stop process group" )
 	 s.procMgr.ForEachProcess( func( proc *Process) {
                 if proc.GetGroup() == args.Name {
-                        proc.Stop()
+                        proc.Stop( args.Wait )
+			reply.AllProcessInfo = append( reply.AllProcessInfo, *getProcessInfo( proc ) )
                 }
         })
         return nil
 }
 
-func (s *Supervisor) StopAllProcesses( r* http.Request, args* struct { Wait bool `default:"true"`}, reply *struct{ AllProcessInfo []processInfo } ) error {
+func (s *Supervisor) StopAllProcesses( r* http.Request, args* struct { Wait bool `default:"true"`}, reply *struct{ AllProcessInfo []ProcessInfo } ) error {
 	s.procMgr.ForEachProcess( func( proc *Process) {
-		proc.Stop()
+		proc.Stop( args.Wait )
+		reply.AllProcessInfo = append( reply.AllProcessInfo, *getProcessInfo( proc ) )
 	})
         return nil
 }
 
-func (s *Supervisor) SignalProcess( r* http.Request, args* processSignal, reply *struct{ Success bool } ) error {
+func (s *Supervisor) SignalProcess( r* http.Request, args* ProcessSignal, reply *struct{ Success bool } ) error {
 	proc := s.procMgr.Find( args.Name )
 	if proc == nil {
 		return fmt.Errorf( "No process named %s", args.Name )
@@ -228,23 +249,32 @@ func (s *Supervisor) SignalProcess( r* http.Request, args* processSignal, reply 
         return nil
 }
 
-func (s *Supervisor) SignalProcessGroup( r* http.Request, args* processSignal, reply *struct{  AllProcessInfo []processInfo } ) error {
+func (s *Supervisor) SignalProcessGroup( r* http.Request, args* ProcessSignal, reply *struct{  AllProcessInfo []ProcessInfo } ) error {
 	s.procMgr.ForEachProcess( func( proc *Process ) {
 		if proc.GetGroup() == args.Name {
 			proc.Signal( toSignal( args.Signal ) )
 		}
 	})
-        return nil
-}
 
-func (s *Supervisor) SignalAllProcesses( r* http.Request, args* processSignal, reply *struct{  AllProcessInfo []processInfo } ) error {
 	s.procMgr.ForEachProcess( func( proc *Process ) {
-		proc.Signal( toSignal( args.Signal ) )
+		if proc.GetGroup() == args.Name {
+			reply.AllProcessInfo = append( reply.AllProcessInfo, *getProcessInfo( proc ) )
+		}
 	})
         return nil
 }
 
-func (s *Supervisor) SendProcessStdin( r* http.Request, args* processStdin, reply *struct{  Success bool } ) error {
+func (s *Supervisor) SignalAllProcesses( r* http.Request, args* ProcessSignal, reply *struct{  AllProcessInfo []ProcessInfo } ) error {
+	s.procMgr.ForEachProcess( func( proc *Process ) {
+		proc.Signal( toSignal( args.Signal ) )
+	})
+	s.procMgr.ForEachProcess( func( proc *Process ) {
+		reply.AllProcessInfo = append( reply.AllProcessInfo, *getProcessInfo( proc ) )
+	})
+        return nil
+}
+
+func (s *Supervisor) SendProcessStdin( r* http.Request, args* ProcessStdin, reply *struct{  Success bool } ) error {
 	proc := s.procMgr.Find( args.Name )
 	if proc != nil || proc.GetState() != RUNNING {
 		return fmt.Errorf( "NOT_RUNNING" )
@@ -252,7 +282,7 @@ func (s *Supervisor) SendProcessStdin( r* http.Request, args* processStdin, repl
 	return proc.SendProcessStdin( args.Chars )
 }
 
-func (s *Supervisor) SendRemoteCommEvent(  r* http.Request, args* remoteCommEvent, reply *struct{  Success bool } ) error {
+func (s *Supervisor) SendRemoteCommEvent(  r* http.Request, args* RemoteCommEvent, reply *struct{  Success bool } ) error {
 	return fmt.Errorf( "Not implemented" )
 }
 
@@ -320,4 +350,37 @@ func (s *Supervisor) RemoveProcessGroup(  r* http.Request, args* struct { Name s
 	reply.Success = false
 	return nil
 }
+
+func (s *Supervisor) ReadProcessStdoutLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  logData string }  ) error {
+	reply.logData = "Not implemented"
+	return nil
+}
+
+func (s *Supervisor) ReadProcessStderrLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  logData string }  ) error {
+	reply.logData = "Not implemented"
+	return nil
+}
+
+func (s *Supervisor) TailProcessStdoutLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  logData string }  ) error {
+	reply.logData = "Not implemented"
+	return nil
+}
+
+func (s *Supervisor) ClearProcessLogs(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  Success bool }  ) error {
+	reply.Success = true
+	return nil
+}
+
+func (s *Supervisor) ClearAllProcessLogs(  r* http.Request, args* ProcessLogReadInfo, reply *struct{ AllProcessInfo []ProcessInfo}  ) error {
+
+	s.procMgr.ForEachProcess( func (proc *Process) {
+		procInfo := getProcessInfo( proc )
+		reply.AllProcessInfo = append(  reply.AllProcessInfo, *procInfo )
+	} )
+
+	return nil
+}
+
+
+
 

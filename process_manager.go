@@ -1,6 +1,7 @@
 package main
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"sync"
 )
 type ProcessManager struct {
@@ -17,13 +18,15 @@ func newProcessManager() *ProcessManager {
 func (pm *ProcessManager) CreateProcess( config* ConfigEntry ) *Process {
         pm.lock.Lock()
         defer pm.lock.Unlock()
+	procName := config.Name[len("program:"):]
 
-        proc, ok := pm.procs[config.Name]
+        proc, ok := pm.procs[procName]
 
         if !ok {
                 proc = NewProcess( config )
-                pm.procs[config.Name] = proc
+                pm.procs[procName] = proc
         }
+	log.Info( "create process:", procName )
         return proc
 }
 
@@ -31,6 +34,7 @@ func (pm *ProcessManager) Add(name string, proc *Process) {
         pm.lock.Lock()
         defer pm.lock.Unlock()
         pm.procs[name] = proc
+	log.Info( "add process:", name )
 }
 
 func (pm *ProcessManager) Remove(name string) *Process {
@@ -38,6 +42,7 @@ func (pm *ProcessManager) Remove(name string) *Process {
         defer pm.lock.Unlock()
         proc, _ := pm.procs[name]
         delete(pm.procs, name)
+	log.Info( "remove process:", name )
         return proc
 }
 
@@ -45,8 +50,14 @@ func (pm *ProcessManager) Remove(name string) *Process {
 func (pm *ProcessManager) Find(name string) *Process {
         pm.lock.Lock()
         defer pm.lock.Unlock()
-        proc, _ := pm.procs[name]
-        return proc
+        proc, ok := pm.procs[name]
+	if ok {
+		log.Debug( "succeed to find process:", name)
+		return proc
+	} else {
+		log.Info( "fail to find process:", name )
+		return nil
+	}
 }
 
 // clear all the processes

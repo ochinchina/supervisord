@@ -118,7 +118,7 @@ func TestGetBytesFromConfig( t *testing.T ) {
 func TestGetUnitHttpServer(t *testing.T ) {
 	config, _ := parse( []byte( "[program:test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[unix_http_server]\n") )
 
-	entry, ok := config.GetUnitHttpServer()
+	entry, ok := config.GetUnixHttpServer()
 
 	if !ok || entry == nil {
 		t.Error( "Fail to get the unix_http_server")

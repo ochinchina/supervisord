@@ -78,7 +78,7 @@ func (se *StringExpression) Eval(s string) (string, error) {
 			} else if s[typ] == 's' {
 				s = s[0:start] + varValue + s[typ+1:]
 			} else {
-				return "", fmt.Errorf("not implement type:%s", s[typ])
+				return "", fmt.Errorf("not implement type:%v", s[typ])
 			}
 		} else {
 			return "", fmt.Errorf("invalid string expression format")
