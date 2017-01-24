@@ -309,6 +309,10 @@ func (s *Supervisor) Reload() error {
 				s.xmlRPC.Stop()
 				s.xmlRPC.Start( addr, s )
 			}
+		} else {
+			for {
+				time.Sleep( 10 * time.Second )
+			}
 		}
 	}
 	return err
