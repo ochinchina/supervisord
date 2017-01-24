@@ -7,6 +7,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 //implements io.Writer interface
@@ -17,18 +18,23 @@ type Logger struct {
 	curRotate int
 	fileSize int64
 	file *os.File
+	locker sync.Locker
 }
 
 type NullLogger struct {
 }
 
-func NewLogger( name string, maxSize int64, backups int ) *Logger {
+type NullLocker struct {
+}
+
+func NewLogger( name string, maxSize int64, backups int, locker sync.Locker ) *Logger {
 	logger := &Logger{ name: name,
 			maxSize: maxSize,
 			backups: backups,
 			curRotate:-1,
 			fileSize: 0,
-			file: nil }
+			file: nil,
+			locker: locker }
 	logger.updateLatestLog()
 	return logger
 }
@@ -131,4 +137,14 @@ func (l *NullLogger)Write( p []byte)( int, error ) {
 
 func (l* NullLogger) Close() error {
 	return nil
+}
+
+func NewNullLocker() *NullLocker {
+	return &NullLocker{}
+}
+
+func (l *NullLocker) Lock() {
+}
+
+func (l *NullLocker) Unlock() {
 }

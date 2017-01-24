@@ -343,7 +343,8 @@ func (p *Process) setLog() {
 	if len(logFile) > 0 {
 		p.cmd.Stdout = NewLogger( logFile, 
 					int64(p.config.GetBytes( "stdout_logfile_maxbytes", 50*1024*1024 )), 
-					p.config.GetInt( "stdout_logfile_backups", 10 ) )
+					p.config.GetInt( "stdout_logfile_backups", 10 ),
+					NewNullLocker() )
 
 	}
 
@@ -352,7 +353,8 @@ func (p *Process) setLog() {
 	if len(logFile) > 0 {
 		p.cmd.Stderr = NewLogger( logFile,
 					int64( p.config.GetBytes( "stderr_logfile_maxbytes", 50*1024*1024 ) ),
-					 p.config.GetInt( "stderr_logfile_backups", 10 ) )
+					 p.config.GetInt( "stderr_logfile_backups", 10 ),
+				 	NewNullLocker() )
 	}
 }
 
@@ -372,6 +374,7 @@ func toSignal(signalName string) os.Signal {
 		return syscall.SIGUSR2
 	} else {
 		return syscall.SIGTERM
+
 	}
 
 }

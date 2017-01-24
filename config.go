@@ -12,7 +12,7 @@ import (
 )
 
 type ConfigEntry struct {
-	configDir string
+	ConfigDir string
 	Group	string
 	Name      string
 	keyValues map[string]string
@@ -107,10 +107,10 @@ func (c *Config) getIncludeFiles( cfg *ini.File) []string {
 	if includeSection, err := cfg.GetSection("include"); err == nil {
                 key, err := includeSection.GetKey("files")
 		if err == nil && key != nil {
-			env := NewStringExpression("here", c.getConfigFileDir() )
+			env := NewStringExpression("here", c.GetConfigFileDir() )
 			files := strings.Fields( key.Value() )
 			for _, f := range files {
-				dir := c.getConfigFileDir()
+				dir := c.GetConfigFileDir()
 				f, err := env.Eval( f )
 				if err != nil {
 					continue
@@ -141,14 +141,14 @@ func (c *Config) parse( cfg *ini.File) {
         c.parseProgram( cfg )
         for _, section := range cfg.Sections() {
                 if !strings.HasPrefix( section.Name(), "group:" ) && !strings.HasPrefix( section.Name(), "program:" ) {
-                        entry := c.createEntry( section.Name(), c.getConfigFileDir() )
+                        entry := c.createEntry( section.Name(), c.GetConfigFileDir() )
                         c.entries[section.Name()] = entry
                         entry.parse(section)
                 }
         }
 }
 
-func (c *Config) getConfigFileDir() string {
+func (c *Config) GetConfigFileDir() string {
 	return filepath.Dir( c.configFile )
 }
 
@@ -301,7 +301,7 @@ func (c *ConfigEntry) GetEnv(key string) []string {
 		tmp, err := NewStringExpression( "program_name", c.GetProgramName(),
                              "process_num", c.GetString("process_num", "0"),
                              "group_name", c.GetGroupName(),
-                             "here", c.configDir ).Eval( env[i] )
+                             "here", c.ConfigDir ).Eval( env[i] )
 		if err == nil {
 			result = append( result, tmp )
 		}
@@ -370,7 +370,7 @@ func (c *Config) parseGroup( cfg *ini.File ) {
         //parse the group at first
         for _, section := range cfg.Sections() {
                 if strings.HasPrefix( section.Name(), "group:" ) {
-                        entry := c.createEntry( section.Name(), c.getConfigFileDir() )
+                        entry := c.createEntry( section.Name(), c.GetConfigFileDir() )
                         entry.parse( section )
                         groupName := entry.GetGroupName()
                         programs := entry.GetPrograms()
@@ -402,7 +402,7 @@ func (c *Config) parseProgram( cfg *ini.File ) {
                                 envs := NewStringExpression( "program_name", programName, 
 							"process_num", fmt.Sprintf( "%d", i ), 
 							"group_name", c.programGroup.GetGroup(programName, programName ),
-							"here", c.getConfigFileDir() )
+							"here", c.GetConfigFileDir() )
 				cmd, err := envs.Eval(section.Key( "command" ).Value() )
 				if err != nil {
 					continue
@@ -422,7 +422,7 @@ func (c *Config) parseProgram( cfg *ini.File ) {
                                 section.NewKey( "process_name", procName )
                                 section.NewKey( "numprocs_start", fmt.Sprintf("%d", (i - 1 ) ) )
                                 section.NewKey( "process_num", fmt.Sprintf( "%d", i ) )
-                                entry := c.createEntry(procName, c.getConfigFileDir() )
+                                entry := c.createEntry(procName, c.GetConfigFileDir() )
                                 entry.parse(section)
                                 entry.Name = "program:" + procName
                                 group := c.programGroup.GetGroup(programName, programName )

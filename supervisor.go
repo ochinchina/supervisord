@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 	log "github.com/Sirupsen/logrus"
+	"sync"
+	"strings"
 )
 
 const (
@@ -293,6 +295,7 @@ func (s *Supervisor) Reload() error {
 	err := s.config.Load()
 
         if err == nil {
+		s.setSupervisordInfo()
 
 		programs := s.config.GetProgramNames()
 		for _, entry := range s.config.GetPrograms() {
@@ -318,6 +321,48 @@ func (s *Supervisor) Reload() error {
 	return err
 
 }
+
+func (s *Supervisor) setSupervisordInfo() {
+	supervisordConf, ok := s.config.GetSupervisord()
+	if ok {
+		//set supervisord log
+
+		env := NewStringExpression("here", s.config.GetConfigFileDir() )
+		logFile, err := env.Eval( supervisordConf.GetString("logfile", "supervisord.log" ) )
+		if err == nil {
+			logfile_maxbytes := int64(supervisordConf.GetBytes( "logfile_maxbytes", 50*1024*1024))
+			logfile_backups := supervisordConf.GetInt( "logfile_backups", 10 )
+			loglevel := supervisordConf.GetString( "loglevel", "info" )
+			log.SetOutput( NewLogger( logFile, logfile_maxbytes, logfile_backups, &sync.Mutex{} ) )
+			log.SetLevel( toLogLevel( loglevel ) )
+		}
+		//set the pid
+		pidfile, err := env.Eval( supervisordConf.GetString( "pidfile", "supervisord.pid" ))
+		if err == nil {
+			f, err := os.Create( pidfile )
+			if err == nil {
+				fmt.Fprintf( f, "%d", os.Getpid())
+				f.Close()
+			}
+		}
+	}
+}
+
+func toLogLevel( level string ) log.Level {
+	switch strings.ToLower(level ) {
+		case "critical":
+			return log.FatalLevel
+		case "error":
+			return log.ErrorLevel
+		case "warn":
+			return log.WarnLevel
+		case "info":
+			return log.InfoLevel
+		default:
+			return log.DebugLevel
+	}
+}
+
 
 func sub( arr_1 []string, arr_2 []string) []string {
 	result := make([]string,0)
