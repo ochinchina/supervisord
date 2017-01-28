@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
@@ -57,6 +58,7 @@ type Process struct {
 	//true if the process is stopped by user
 	stopByUser bool
 	lock      sync.RWMutex
+	stdin	io.WriteCloser
 }
 
 func NewProcess(config *ConfigEntry) *Process {
@@ -214,6 +216,10 @@ func (p *Process) getNumberProcs() int {
 }
 
 func (p *Process) SendProcessStdin( chars string ) error {
+	if p.stdin != nil {
+		_, err := p.stdin.Write( []byte(chars) )
+		return err
+	}
 	return fmt.Errorf( "NO_FILE")
 }
 
@@ -282,6 +288,7 @@ func (p *Process) run( runCond *sync.Cond ) {
 	p.setEnv()
 	p.setLog()
 
+	p.stdin, _ = p.cmd.StdinPipe()
 	p.startTime = time.Now()
 	p.state = STARTING
 	err = p.cmd.Start()

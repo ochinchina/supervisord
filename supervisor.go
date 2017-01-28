@@ -278,10 +278,21 @@ func (s *Supervisor) SignalAllProcesses( r* http.Request, args* ProcessSignal, r
 
 func (s *Supervisor) SendProcessStdin( r* http.Request, args* ProcessStdin, reply *struct{  Success bool } ) error {
 	proc := s.procMgr.Find( args.Name )
-	if proc != nil || proc.GetState() != RUNNING {
+	if proc == nil {
+		log.WithFields( log.Fields{"program": args.Name } ).Error( "program does not exist" )
 		return fmt.Errorf( "NOT_RUNNING" )
 	}
-	return proc.SendProcessStdin( args.Chars )
+	if proc.GetState() != RUNNING {
+		log.WithFields( log.Fields{"program": args.Name } ).Error( "program does not run" )
+		return fmt.Errorf( "NOT_RUNNING" )
+	}
+	err := proc.SendProcessStdin( args.Chars )
+	if err == nil {
+		reply.Success = true
+	} else {
+		reply.Success = false
+	}
+	return err
 }
 
 func (s *Supervisor) SendRemoteCommEvent(  r* http.Request, args* RemoteCommEvent, reply *struct{  Success bool } ) error {

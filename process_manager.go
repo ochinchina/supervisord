@@ -25,7 +25,7 @@ func (pm *ProcessManager) CreateProcess( config* ConfigEntry ) *Process {
         if !ok {
                 proc = NewProcess( config )
                 pm.procs[procName] = proc
-        }
+        } 
 	log.Info( "create process:", procName )
         return proc
 }
@@ -53,11 +53,10 @@ func (pm *ProcessManager) Find(name string) *Process {
         proc, ok := pm.procs[name]
 	if ok {
 		log.Debug( "succeed to find process:", name)
-		return proc
 	} else {
 		log.Info( "fail to find process:", name )
-		return nil
 	}
+	return proc
 }
 
 // clear all the processes
