@@ -98,6 +98,9 @@ func (l *Logger) openFile( trunc bool ) error {
 }
 // Override the function in io.Writer
 func (l *Logger) Write(p []byte) (int, error){
+	l.locker.Lock()
+	defer l.locker.Unlock()
+
 	n, err := l.file.Write( p )
 
 	if err != nil {

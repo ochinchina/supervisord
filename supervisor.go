@@ -305,20 +305,33 @@ func (s *Supervisor) Reload() error {
 		for _, p := range( removedPrograms ) {
 			s.procMgr.Remove( p )
 		}
-		httpServerConfig, ok := s.config.GetInetHttpServer()
-		if ok {
-			addr := httpServerConfig.GetString( "port", "" )
-			if addr != "" {
-				s.xmlRPC.Stop()
-				s.xmlRPC.Start( addr, s )
-			}
-		} else {
-			for {
-				time.Sleep( 10 * time.Second )
-			}
+		s.startHttpServer()
+		for {
+			time.Sleep( 10 * time.Second )
 		}
 	}
 	return err
+
+}
+
+func (s *Supervisor) startHttpServer() {
+	httpServerConfig, ok := s.config.GetInetHttpServer()
+	if ok {
+		addr := httpServerConfig.GetString( "port", "" )
+		if addr != "" {
+			go s.xmlRPC.StartInetHttpServer( addr, s )
+		}
+	}
+
+	httpServerConfig, ok = s.config.GetUnixHttpServer()
+	if ok {
+		env := NewStringExpression("here", s.config.GetConfigFileDir() )
+		sockFile, err := env.Eval( httpServerConfig.GetString( "file", "/tmp/supervisord.sock" ) )
+		if err == nil {
+			go s.xmlRPC.StartUnixHttpServer( sockFile, s )
+		}
+	}
+
 
 }
 
