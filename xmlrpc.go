@@ -1,53 +1,93 @@
 package main
 
 import (
+	"io"
 	"net"
 	"net/http"
 	"github.com/gorilla/rpc"
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	"strings"
+	"crypto/sha1"
+	log "github.com/Sirupsen/logrus"
+	"encoding/hex"
+	"os"
 )
 
 type XmlRPC struct {
-	unixListener net.Listener
-	inetListener net.Listener
+	listeners map[string]net.Listener
 }
 
+type httpBasicAuth struct {
+	user    string
+	password string
+	handler http.Handler
+
+}
+
+func NewHttpBasicAuth( user string, password string, handler http.Handler ) *httpBasicAuth {
+	if user != "" && password != "" {
+		log.Debug( "require authentication" )
+	}
+	return &httpBasicAuth{ user: user, password: password, handler: handler }
+}
+
+func (h *httpBasicAuth)ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.user == "" || h.password == "" {
+		log.Debug( "no auth required" )
+		h.handler.ServeHTTP( w, r )
+		return
+	}
+	username, password, ok := r.BasicAuth()
+	if ok && username == h.user {
+		if strings.HasPrefix( h.password, "{SHA}") {
+			log.Debug( "auth with SHA")
+			hash := sha1.New()
+			io.WriteString( hash, password )
+			if hex.EncodeToString(hash.Sum(nil) )  == h.password[5:] {
+				h.handler.ServeHTTP(w,r)
+				return
+			}
+		} else if  password == h.password {
+			log.Debug( "Auth with normal password")
+			h.handler.ServeHTTP( w, r )
+			return
+		}
+	}
+	w.Header().Set( "WWW-Authenticate", "Basic realm=\"supervisor\"" )
+	w.WriteHeader( 401 )
+}
 
 func NewXmlRPC() *XmlRPC {
-	return &XmlRPC{}
+	return &XmlRPC{listeners:make(map[string]net.Listener)}
 }
 
 func (p *XmlRPC) Stop() {
-	if p.unixListener != nil {
-		p.unixListener.Close()
-	}
-	if p.inetListener != nil {
-		p.inetListener.Close()
+	for _, listener := range p.listeners {
+		listener.Close()
 	}
 }
 
-func (p *XmlRPC) StartUnixHttpServer( listenAddr string, s *Supervisor ) {
+func (p *XmlRPC) StartUnixHttpServer( user string, password string, listenAddr string, s *Supervisor ) {
+	os.Remove( listenAddr )
+	p.startHttpServer( user, password, "unix", listenAddr, s )
+}
+
+func (p *XmlRPC) StartInetHttpServer( user string, password string, listenAddr string, s *Supervisor )  {
+	p.startHttpServer( user, password, "tcp", listenAddr, s )
+}
+
+func (p *XmlRPC) startHttpServer( user string, password string, protocol string, listenAddr string, s *Supervisor ) {
 	mux := http.NewServeMux()
-	mux.Handle("/RPC2", p.createRPCServer(s) )
-	var err error
-	p.unixListener, err = net.Listen( "unix", listenAddr )
+	mux.Handle("/RPC2", NewHttpBasicAuth( user, password, p.createRPCServer(s) ) )
+	listener, err := net.Listen( protocol, listenAddr )
 	if err == nil {
-		http.Serve(p.unixListener, mux )
+		p.listeners[protocol] = listener
+		http.Serve(listener, mux )
+	} else {
+		log.WithFields( log.Fields{"addr":listenAddr, "protocol":protocol}).Error( "fail to listen on address" )
 	}
 
-
 }
-
-func (p *XmlRPC) StartInetHttpServer( listenAddr string, s *Supervisor )  {
-	mux := http.NewServeMux()
-	mux.Handle("/RPC2", p.createRPCServer(s) )
-	var err error
-	p.inetListener, err = net.Listen( "tcp", listenAddr )
-	if err == nil {
-		http.Serve(p.inetListener, mux )
-	}
-}
-
 func (p *XmlRPC) createRPCServer( s* Supervisor ) *rpc.Server {
 	RPC := rpc.NewServer()
         xmlrpcCodec := xml.NewCodec()

@@ -330,7 +330,7 @@ func (s *Supervisor) startHttpServer() {
 	if ok {
 		addr := httpServerConfig.GetString( "port", "" )
 		if addr != "" {
-			go s.xmlRPC.StartInetHttpServer( addr, s )
+			go s.xmlRPC.StartInetHttpServer( httpServerConfig.GetString( "username", ""), httpServerConfig.GetString( "password",""), addr, s )
 		}
 	}
 
@@ -339,7 +339,7 @@ func (s *Supervisor) startHttpServer() {
 		env := NewStringExpression("here", s.config.GetConfigFileDir() )
 		sockFile, err := env.Eval( httpServerConfig.GetString( "file", "/tmp/supervisord.sock" ) )
 		if err == nil {
-			go s.xmlRPC.StartUnixHttpServer( sockFile, s )
+			go s.xmlRPC.StartUnixHttpServer( httpServerConfig.GetString( "username", ""), httpServerConfig.GetString( "password",""), sockFile, s )
 		}
 	}
 
