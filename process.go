@@ -59,6 +59,8 @@ type Process struct {
 	stopByUser bool
 	lock      sync.RWMutex
 	stdin	io.WriteCloser
+	stdoutLog Logger
+	stderrLog Logger
 }
 
 func NewProcess(config *ConfigEntry) *Process {
@@ -348,21 +350,27 @@ func (p *Process) setLog() {
 	p.cmd.Stdout = NewNullLogger()
 
 	if len(logFile) > 0 {
-		p.cmd.Stdout = NewLogger( logFile, 
+		p.stdoutLog = NewFileLogger( logFile, 
 					int64(p.config.GetBytes( "stdout_logfile_maxbytes", 50*1024*1024 )), 
 					p.config.GetInt( "stdout_logfile_backups", 10 ),
 					NewNullLocker() )
 
+	} else {
+		p.stdoutLog = NewNullLogger()
 	}
 
+	p.cmd.Stdout = p.stdoutLog
+
 	logFile = p.config.GetString("stderr_logfile", "")
-	p.cmd.Stderr = NewNullLogger()
 	if len(logFile) > 0 {
-		p.cmd.Stderr = NewLogger( logFile,
+		p.stderrLog= NewFileLogger( logFile,
 					int64( p.config.GetBytes( "stderr_logfile_maxbytes", 50*1024*1024 ) ),
 					 p.config.GetInt( "stderr_logfile_backups", 10 ),
 				 	NewNullLocker() )
+	} else {
+		p.stderrLog = NewNullLogger()
 	}
+	p.cmd.Stderr = p.stderrLog
 }
 
 //convert a signal name to signal

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,7 +12,16 @@ import (
 )
 
 //implements io.Writer interface
-type Logger struct {
+
+type Logger interface {
+	io.WriteCloser
+	ReadLog(offset int64, length int64)(string,error)
+	ReadTailLog(offset int64, length int64)(string,  int64, bool, error )
+	ClearCurLogFile() error
+	ClearAllLogFile() error
+}
+
+type FileLogger struct {
 	name string
 	maxSize int64
 	backups int
@@ -27,8 +37,8 @@ type NullLogger struct {
 type NullLocker struct {
 }
 
-func NewLogger( name string, maxSize int64, backups int, locker sync.Locker ) *Logger {
-	logger := &Logger{ name: name,
+func NewFileLogger( name string, maxSize int64, backups int, locker sync.Locker ) *FileLogger {
+	logger := &FileLogger{ name: name,
 			maxSize: maxSize,
 			backups: backups,
 			curRotate:-1,
@@ -40,14 +50,14 @@ func NewLogger( name string, maxSize int64, backups int, locker sync.Locker ) *L
 }
 
 // return the next log file name
-func (l *Logger) nextLogFile() {
+func (l *FileLogger) nextLogFile() {
 	l.curRotate += 1
 	if l.curRotate >= l.backups {
 		l.curRotate = 0
 	}
 }
 
-func (l *Logger)updateLatestLog() {
+func (l *FileLogger)updateLatestLog() {
 	dir := path.Dir( l.name )
 	files, err := ioutil.ReadDir( dir )
 
@@ -56,7 +66,7 @@ func (l *Logger)updateLatestLog() {
 	} else {
 		//find all the rotate files
 		var latestFile os.FileInfo = nil
-		latestNum := -1 
+		latestNum := -1
 		for _, fileInfo := range files {
 			if strings.HasPrefix( fileInfo.Name(), l.name + "." ) {
 				n, err := strconv.Atoi( fileInfo.Name()[len( l.name ) + 1:] )
@@ -83,12 +93,13 @@ func (l *Logger)updateLatestLog() {
 	}
 }
 
-func (l *Logger) openFile( trunc bool ) error {
+// open the file and truncate the file if trunc is true
+func (l *FileLogger) openFile( trunc bool ) error {
 	if l.file != nil {
 		l.file.Close()
 	}
 	var err error = nil
-	fileName :=  fmt.Sprintf( "%s.%d", l.name, l.curRotate )
+	fileName :=  l.GetCurrentLogFile()
 	if trunc {
 		l.file, err = os.Create( fileName)
 	} else {
@@ -96,8 +107,133 @@ func (l *Logger) openFile( trunc bool ) error {
 	}
 	return err
 }
+
+// get the name of current log file
+func (l* FileLogger) GetCurrentLogFile() string {
+	return l.getLogFileName( l.curRotate )
+}
+
+// get the name of previous log file
+func (l *FileLogger)GetPrevLogFile() string {
+	i := ( l.curRotate - 1 + l.backups ) % l.backups
+
+	return l.getLogFileName( i )
+}
+
+func (l* FileLogger) getLogFileName(index int) string {
+	return fmt.Sprintf( "%s.%d",l.name, index )
+}
+
+// clear the current log file contents
+func (l *FileLogger)ClearCurLogFile() error {
+	l.locker.Lock()
+	defer l.locker.Unlock()
+
+	return l.openFile( true )
+}
+
+func (l *FileLogger)ClearAllLogFile() error {
+	l.locker.Lock()
+	defer l.locker.Unlock()
+
+	for i := 0; i < l.backups; i++ {
+		logFile := l.getLogFileName( i )
+		os.Remove( logFile )
+	}
+	return l.openFile( true )
+}
+
+func (l* FileLogger)ReadLog( offset int64, length int64 ) (string,error) {
+	if length <= 0 {
+		return "", fmt.Errorf( "length must be greater than 0" )
+	}
+	if offset < 0 {
+		return "", fmt.Errorf( "offset must not be less than 0" )
+	}
+
+	l.locker.Lock()
+	defer l.locker.Unlock()
+	f, err := os.Open( l.GetCurrentLogFile() )
+
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	//check the length of file
+	statInfo, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+
+	fileLen := statInfo.Size()
+
+	//if the offset exceeds the length of file
+	if offset >= fileLen {
+		return "", nil
+	}
+
+	//compute actual bytes should be read
+
+	if offset + length > fileLen {
+		length = fileLen - offset
+	}
+
+	b := make( []byte, length )
+	n, err := f.ReadAt( b, offset )
+	if err != nil {
+		return "", err
+	}
+	return string( b[:n] ), nil
+}
+
+func (l* FileLogger)ReadTailLog( offset int64, length int64 ) (string, int64, bool, error ) {
+	if offset < 0 {
+		return "", offset, false, fmt.Errorf( "offset should not be less than 0" )
+	}
+	if length < 0 {
+		return "", offset, false, fmt.Errorf( "length should be not be less than 0" )
+	}
+	l.locker.Lock()
+	defer l.locker.Unlock()
+
+	//open the file
+	f, err := os.Open( l.GetCurrentLogFile() )
+	if err != nil {
+		return "", 0, false, err
+	}
+
+	defer f.Close()
+
+	//get the length of file
+	statInfo, err := f.Stat()
+	if err != nil {
+		return "", 0, false, err
+	}
+
+	fileLen := statInfo.Size()
+
+	//check if offset exceeds the length of file
+	if offset >= fileLen  {
+		return "", fileLen, true, nil
+	}
+
+	//get the length
+	if offset + length > fileLen {
+		length = fileLen - offset
+	}
+
+	b := make( []byte, length )
+	n, err := f.ReadAt( b, offset )
+	if err != nil {
+		return "", offset, false, err
+	}
+	return string( b[:n] ), offset + int64(n), false, nil
+
+}
+
 // Override the function in io.Writer
-func (l *Logger) Write(p []byte) (int, error){
+func (l *FileLogger) Write(p []byte) (int, error){
 	l.locker.Lock()
 	defer l.locker.Unlock()
 
@@ -122,7 +258,7 @@ func (l *Logger) Write(p []byte) (int, error){
 	return n, err
 }
 
-func (l *Logger) Close() error {
+func (l *FileLogger) Close() error {
 	if l.file != nil {
 		return l.file.Close()
 	} else {
@@ -140,6 +276,22 @@ func (l *NullLogger)Write( p []byte)( int, error ) {
 
 func (l* NullLogger) Close() error {
 	return nil
+}
+
+func (l* NullLogger)ReadLog(offset int64, length int64)(string, error ) {
+	return "", fmt.Errorf( "No log" )
+}
+
+func (l *NullLogger)ReadTailLog(offset int64, length int64)(string, int64, bool, error ) {
+	return "", 0, false, fmt.Errorf( "No log" )
+}
+
+func (l *NullLogger)ClearCurLogFile()error {
+	return fmt.Errorf( "No log" )
+}
+
+func (l *NullLogger)ClearAllLogFile() error {
+	return fmt.Errorf( "No log" )
 }
 
 func NewNullLocker() *NullLocker {

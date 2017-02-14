@@ -73,6 +73,12 @@ type ProcessLogReadInfo struct {
 	Length int
 }
 
+type ProcessTailLog struct {
+	LogData string
+	Offset int64
+	Overflow bool
+}
+
 func NewSupervisor( configFile string ) *Supervisor {
 	return &Supervisor{ config: NewConfig( configFile ),
 			procMgr: newProcessManager(),
@@ -122,8 +128,7 @@ func (s *Supervisor) GetPID( r *http.Request, args *struct { }, reply *struct{ P
 }
 
 func (s *Supervisor) ReadLog( r *http.Request, args *LogReadInfo, reply *struct { Log string } ) error {
-	reply.Log = "not implemented"
-	return nil
+	return fmt.Errorf( "not implemented" )
 }
 
 func (s* Supervisor) ClearLog( r *http.Request, args *struct { }, reply *struct{ Ret bool } ) error {
@@ -357,7 +362,7 @@ func (s *Supervisor) setSupervisordInfo() {
 			logfile_maxbytes := int64(supervisordConf.GetBytes( "logfile_maxbytes", 50*1024*1024))
 			logfile_backups := supervisordConf.GetInt( "logfile_backups", 10 )
 			loglevel := supervisordConf.GetString( "loglevel", "info" )
-			log.SetOutput( NewLogger( logFile, logfile_maxbytes, logfile_backups, &sync.Mutex{} ) )
+			log.SetOutput( NewFileLogger( logFile, logfile_maxbytes, logfile_backups, &sync.Mutex{} ) )
 			log.SetLevel( toLogLevel( loglevel ) )
 		}
 		//set the pid
@@ -424,29 +429,56 @@ func (s *Supervisor) RemoveProcessGroup(  r* http.Request, args* struct { Name s
 	return nil
 }
 
-func (s *Supervisor) ReadProcessStdoutLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  logData string }  ) error {
-	reply.logData = "Not implemented"
-	return nil
+func (s *Supervisor) ReadProcessStdoutLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  LogData string }  ) error {
+        proc := s.procMgr.Find( args.Name )
+        if proc == nil {
+                return fmt.Errorf( "No such process %s", proc )
+        }
+        var err error
+        reply.LogData, err = proc.stdoutLog.ReadLog( int64(args.Offset), int64(args.Length) )
+        return err
 }
 
-func (s *Supervisor) ReadProcessStderrLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  logData string }  ) error {
-	reply.logData = "Not implemented"
-	return nil
+func (s *Supervisor) ReadProcessStderrLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  LogData string }  ) error {
+	proc := s.procMgr.Find( args.Name )
+	if proc == nil {
+		return fmt.Errorf( "No such process %s", proc )
+	}
+	var err error
+	reply.LogData, err = proc.stderrLog.ReadLog( int64(args.Offset), int64(args.Length) )
+	return err
 }
 
-func (s *Supervisor) TailProcessStdoutLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  logData string }  ) error {
-	reply.logData = "Not implemented"
-	return nil
+func (s *Supervisor) TailProcessStdoutLog(  r* http.Request, args* ProcessLogReadInfo, reply *ProcessTailLog  ) error {
+	proc := s.procMgr.Find( args.Name )
+	if proc == nil {
+		return fmt.Errorf( "No such process %s", proc )
+	}
+	var err error
+	reply.LogData, reply.Offset, reply.Overflow, err = proc.stdoutLog.ReadTailLog( int64(args.Offset), int64(args.Length) )
+	return err
 }
 
-func (s *Supervisor) ClearProcessLogs(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  Success bool }  ) error {
-	reply.Success = true
-	return nil
+func (s *Supervisor) ClearProcessLogs(  r* http.Request, args* struct { Name string}, reply *struct{  Success bool }  ) error {
+	proc := s.procMgr.Find( args.Name )
+	if proc == nil  {
+		return fmt.Errorf( "No such process %s", proc )
+	}
+	err1 := proc.stdoutLog.ClearAllLogFile()
+	err2 := proc.stderrLog.ClearAllLogFile()
+	reply.Success = err1 == nil && err2 == nil
+	if err1 != nil {
+		return err1
+	} else {
+		return err2
+	}
 }
 
-func (s *Supervisor) ClearAllProcessLogs(  r* http.Request, args* ProcessLogReadInfo, reply *struct{ AllProcessInfo []ProcessInfo}  ) error {
+func (s *Supervisor) ClearAllProcessLogs(  r* http.Request, args* struct{}, reply *struct{ AllProcessInfo []ProcessInfo}  ) error {
 
 	s.procMgr.ForEachProcess( func (proc *Process) {
+		proc.stdoutLog.ClearAllLogFile()
+		proc.stderrLog.ClearAllLogFile()
 		procInfo := getProcessInfo( proc )
 		reply.AllProcessInfo = append(  reply.AllProcessInfo, *procInfo )
 	} )
