@@ -28,6 +28,48 @@ $ cat supervisor.conf
 command = /your/program args
 $ supervisord supervisor.conf
 ```
+
+# features supported
+
+## http server
+
+the unix socket & TCP http server is supported. Basic auth is supported.
+
+The unix socket setting is in the "unix_http_server" section.
+The TCP http server setting is in "inet_http_server" section.
+
+If both "inet_http_server" and "unix_http_server" is not configured in the configuration file, no http server will be started.
+
+## supervisord information
+
+The log & pid of supervisord process is supported by section "supervisord" setting.
+
+## program
+
+the following features is supported in the "program:x" section:
+
+- program command
+- process name
+- numprocs
+- numprocs_start
+- autostart
+- startsecs
+- startretries
+- autorestart
+- exitcodes
+- stopsignal
+- stopwaitsecs
+- stdout_logfile
+- stdout_logfile_maxbytes
+- stdout_logfile_backups
+- stderr_logfile
+- stderr_logfile_maxbytes
+- stderr_logfile_backups
+- environment
+
+## group
+the "group" section is supported and you can set "programs" item
+
 # The MIT License (MIT)
 
 Copyright (c) <year> <copyright holders>
