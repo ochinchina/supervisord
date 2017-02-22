@@ -138,17 +138,25 @@ func (l *FileLogger)ClearAllLogFile() error {
 
 	for i := 0; i < l.backups; i++ {
 		logFile := l.getLogFileName( i )
-		os.Remove( logFile )
+		err := os.Remove( logFile )
+		if err != nil {
+			return NewFault( FAILED, "FAILED" )
+		}
 	}
-	return l.openFile( true )
+	l.curRotate = 0
+	err := l.openFile( true )
+	if err != nil {
+		return NewFault( FAILED, "FAILED" )
+	}
+	return nil
 }
 
 func (l* FileLogger)ReadLog( offset int64, length int64 ) (string,error) {
-	if length <= 0 {
-		return "", fmt.Errorf( "length must be greater than 0" )
+	if offset < 0 && length != 0 {
+		return "", NewFault( BAD_ARGUMENTS, "BAD_ARGUMENTS" )
 	}
-	if offset < 0 {
-		return "", fmt.Errorf( "offset must not be less than 0" )
+	if offset >= 0 && length < 0 {
+		return "", NewFault( BAD_ARGUMENTS, "BAD_ARGUMENTS" )
 	}
 
 	l.locker.Lock()
@@ -156,33 +164,47 @@ func (l* FileLogger)ReadLog( offset int64, length int64 ) (string,error) {
 	f, err := os.Open( l.GetCurrentLogFile() )
 
 	if err != nil {
-		return "", err
+		return "", NewFault( FAILED, "FAILED" )
 	}
 	defer f.Close()
 
 	//check the length of file
 	statInfo, err := f.Stat()
 	if err != nil {
-		return "", err
+		return "", NewFault( FAILED, "FAILED" )
 	}
 
 	fileLen := statInfo.Size()
 
-	//if the offset exceeds the length of file
-	if offset >= fileLen {
-		return "", nil
-	}
-
-	//compute actual bytes should be read
-
-	if offset + length > fileLen {
+	if offset < 0 { //offset < 0 && length == 0
+		offset = fileLen + offset
+		if offset < 0 {
+			offset = 0
+		}
 		length = fileLen - offset
+	} else if length == 0 {//offset >= 0 && length == 0
+		if offset > fileLen {
+			return "", nil
+		}
+		length = fileLen - offset
+	} else { //offset >= 0 && length > 0
+
+		//if the offset exceeds the length of file
+		if offset >= fileLen {
+			return "", nil
+		}
+
+		//compute actual bytes should be read
+
+		if offset + length > fileLen {
+			length = fileLen - offset
+		}
 	}
 
 	b := make( []byte, length )
 	n, err := f.ReadAt( b, offset )
 	if err != nil {
-		return "", err
+		return "", NewFault( FAILED, "FAILED" )
 	}
 	return string( b[:n] ), nil
 }
@@ -279,11 +301,11 @@ func (l* NullLogger) Close() error {
 }
 
 func (l* NullLogger)ReadLog(offset int64, length int64)(string, error ) {
-	return "", fmt.Errorf( "No log" )
+	return "", NewFault( NO_FILE, "NO_FILE" )
 }
 
 func (l *NullLogger)ReadTailLog(offset int64, length int64)(string, int64, bool, error ) {
-	return "", 0, false, fmt.Errorf( "No log" )
+	return "", 0, false, NewFault( NO_FILE, "NO_FILE" )
 }
 
 func (l *NullLogger)ClearCurLogFile()error {
@@ -291,7 +313,7 @@ func (l *NullLogger)ClearCurLogFile()error {
 }
 
 func (l *NullLogger)ClearAllLogFile() error {
-	return fmt.Errorf( "No log" )
+	return NewFault( NO_FILE, "NO_FILE" )
 }
 
 func NewNullLocker() *NullLocker {

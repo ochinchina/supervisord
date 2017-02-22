@@ -3,6 +3,7 @@ package main
 import (
 	log "github.com/Sirupsen/logrus"
 	"sync"
+	"strings"
 )
 type ProcessManager struct {
         procs map[string]*Process
@@ -54,7 +55,13 @@ func (pm *ProcessManager) Find(name string) *Process {
 	if ok {
 		log.Debug( "succeed to find process:", name)
 	} else {
-		log.Info( "fail to find process:", name )
+		//remove group field if it is included
+		if pos := strings.Index( name, ":" ); pos != -1 {
+			proc, ok = pm.procs[name[pos+1:]]
+		}
+		if ! ok {
+			log.Info( "fail to find process:", name )
+		}
 	}
 	return proc
 }

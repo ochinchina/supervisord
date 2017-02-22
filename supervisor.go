@@ -18,6 +18,7 @@ type Supervisor struct {
 	config *Config
 	procMgr *ProcessManager
 	xmlRPC *XmlRPC
+	logger Logger
 }
 
 type ProcessInfo struct {
@@ -128,12 +129,15 @@ func (s *Supervisor) GetPID( r *http.Request, args *struct { }, reply *struct{ P
 }
 
 func (s *Supervisor) ReadLog( r *http.Request, args *LogReadInfo, reply *struct { Log string } ) error {
-	return fmt.Errorf( "not implemented" )
+	data, err := s.logger.ReadLog( int64(args.Offset), int64(args.Length ) )
+	reply.Log = data
+	return err
 }
 
 func (s* Supervisor) ClearLog( r *http.Request, args *struct { }, reply *struct{ Ret bool } ) error {
-	reply.Ret = true
-	return nil
+	err := s.logger.ClearAllLogFile()
+	reply.Ret = err == nil
+	return err
 }
 
 
@@ -358,12 +362,15 @@ func (s *Supervisor) setSupervisordInfo() {
 
 		env := NewStringExpression("here", s.config.GetConfigFileDir() )
 		logFile, err := env.Eval( supervisordConf.GetString("logfile", "supervisord.log" ) )
+		s.logger = NewNullLogger()
 		if err == nil {
 			logfile_maxbytes := int64(supervisordConf.GetBytes( "logfile_maxbytes", 50*1024*1024))
 			logfile_backups := supervisordConf.GetInt( "logfile_backups", 10 )
 			loglevel := supervisordConf.GetString( "loglevel", "info" )
-			log.SetOutput( NewFileLogger( logFile, logfile_maxbytes, logfile_backups, &sync.Mutex{} ) )
+			s.logger = NewFileLogger( logFile, logfile_maxbytes, logfile_backups, &sync.Mutex{} )
+			log.SetOutput( s.logger )
 			log.SetLevel( toLogLevel( loglevel ) )
+			log.SetFormatter(&log.TextFormatter{DisableColors:true})
 		}
 		//set the pid
 		pidfile, err := env.Eval( supervisordConf.GetString( "pidfile", "supervisord.pid" ))
@@ -430,7 +437,7 @@ func (s *Supervisor) RemoveProcessGroup(  r* http.Request, args* struct { Name s
 }
 
 func (s *Supervisor) ReadProcessStdoutLog(  r* http.Request, args* ProcessLogReadInfo, reply *struct{  LogData string }  ) error {
-        proc := s.procMgr.Find( args.Name )
+	proc := s.procMgr.Find( args.Name )
         if proc == nil {
                 return fmt.Errorf( "No such process %s", proc )
         }
