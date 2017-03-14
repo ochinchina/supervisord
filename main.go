@@ -1,9 +1,9 @@
 package main
 
-import(
-	"os"
-	"github.com/jessevdk/go-flags"
+import (
 	log "github.com/Sirupsen/logrus"
+	"github.com/jessevdk/go-flags"
+	"os"
 )
 
 type Options struct {
@@ -19,9 +19,7 @@ func main() {
 	var options Options
 	var parser = flags.NewParser(&options, flags.Default)
 	parser.Parse()
-	s := NewSupervisor( options.Configuration )
+	s := NewSupervisor(options.Configuration)
 	s.Reload()
 
-
 }
-
