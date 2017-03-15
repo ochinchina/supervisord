@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sort"
 )
 
 type ConfigEntry struct {
@@ -18,6 +19,7 @@ type ConfigEntry struct {
 	keyValues map[string]string
 	dict      map[string]string
 }
+
 
 func (c *ConfigEntry) IsProgram() bool {
 	return strings.HasPrefix(c.Name, "program:")
@@ -54,6 +56,20 @@ func (c *ConfigEntry) GetPrograms() []string {
 func (c *ConfigEntry) setGroup(group string) {
 	c.Group = group
 	c.dict["group_name"] = group
+}
+
+type ByPriority []*ConfigEntry
+
+func (p ByPriority) Len()int {
+	return len( p )
+}
+
+func (p ByPriority) Swap(i,j int ) {
+	p[i],p[j] = p[j],p[i]
+}
+
+func (p ByPriority) Less(i,j int ) bool {
+	return p[i].GetInt( "priority", 999 ) < p[j].GetInt( "priority", 999 )
 }
 
 type Config struct {
@@ -195,15 +211,22 @@ func (c *Config) GetPrograms() []*ConfigEntry {
 			result = append(result, entry)
 		}
 	}
+	sort.Sort( ByPriority( result ) )
 	return result
 }
 
 func (c *Config) GetProgramNames() []string {
+	entries := make([]*ConfigEntry, 0 )
 	result := make([]string, 0)
+	//sort by the priority
 	for _, entry := range c.entries {
 		if entry.IsProgram() {
-			result = append(result, entry.GetProgramName())
+			entries = append( entries, entry )
 		}
+	}
+	sort.Sort( ByPriority( entries ) )
+	for _, entry := range entries {
+		result = append( result, entry.GetProgramName() )
 	}
 	return result
 }

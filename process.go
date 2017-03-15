@@ -63,6 +63,8 @@ type Process struct {
 	stderrLog  Logger
 }
 
+type ProcessSortByPriority []*Process
+
 func NewProcess(config *ConfigEntry) *Process {
 	proc := &Process{config: config,
 		cmd:       nil,
@@ -411,4 +413,16 @@ func (p *Process) GetStatus() string {
 	} else {
 		return "running"
 	}
+}
+
+func (p ProcessSortByPriority)Len()int {
+	return len( p )
+}
+
+func (p ProcessSortByPriority)Swap(i, j int) {
+	p[i],p[j] = p[j],p[i]
+}
+
+func (p ProcessSortByPriority) Less(i, j int) bool {
+	return p[i].GetPriority() < p[j].GetPriority()
 }

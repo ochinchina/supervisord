@@ -438,7 +438,7 @@ func (s *Supervisor) RemoveProcessGroup(r *http.Request, args *struct{ Name stri
 func (s *Supervisor) ReadProcessStdoutLog(r *http.Request, args *ProcessLogReadInfo, reply *struct{ LogData string }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", proc)
+		return fmt.Errorf("No such process %s", args.Name )
 	}
 	var err error
 	reply.LogData, err = proc.stdoutLog.ReadLog(int64(args.Offset), int64(args.Length))
@@ -448,7 +448,7 @@ func (s *Supervisor) ReadProcessStdoutLog(r *http.Request, args *ProcessLogReadI
 func (s *Supervisor) ReadProcessStderrLog(r *http.Request, args *ProcessLogReadInfo, reply *struct{ LogData string }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", proc)
+		return fmt.Errorf("No such process %s", args.Name )
 	}
 	var err error
 	reply.LogData, err = proc.stderrLog.ReadLog(int64(args.Offset), int64(args.Length))
@@ -458,7 +458,7 @@ func (s *Supervisor) ReadProcessStderrLog(r *http.Request, args *ProcessLogReadI
 func (s *Supervisor) TailProcessStdoutLog(r *http.Request, args *ProcessLogReadInfo, reply *ProcessTailLog) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", proc)
+		return fmt.Errorf("No such process %s", args.Name )
 	}
 	var err error
 	reply.LogData, reply.Offset, reply.Overflow, err = proc.stdoutLog.ReadTailLog(int64(args.Offset), int64(args.Length))
@@ -468,7 +468,7 @@ func (s *Supervisor) TailProcessStdoutLog(r *http.Request, args *ProcessLogReadI
 func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string }, reply *struct{ Success bool }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", proc)
+		return fmt.Errorf("No such process %s", args.Name)
 	}
 	err1 := proc.stdoutLog.ClearAllLogFile()
 	err2 := proc.stderrLog.ClearAllLogFile()
