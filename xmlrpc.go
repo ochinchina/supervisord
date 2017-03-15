@@ -1,16 +1,16 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
+	log "github.com/Sirupsen/logrus"
+	"github.com/gorilla/rpc"
+	"github.com/ochinchina/gorilla-xmlrpc/xml"
 	"io"
 	"net"
 	"net/http"
-	"github.com/gorilla/rpc"
-	"github.com/ochinchina/gorilla-xmlrpc/xml"
-	"strings"
-	"crypto/sha1"
-	log "github.com/Sirupsen/logrus"
-	"encoding/hex"
 	"os"
+	"strings"
 )
 
 type XmlRPC struct {
@@ -18,47 +18,46 @@ type XmlRPC struct {
 }
 
 type httpBasicAuth struct {
-	user    string
+	user     string
 	password string
-	handler http.Handler
-
+	handler  http.Handler
 }
 
-func NewHttpBasicAuth( user string, password string, handler http.Handler ) *httpBasicAuth {
+func NewHttpBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
 	if user != "" && password != "" {
-		log.Debug( "require authentication" )
+		log.Debug("require authentication")
 	}
-	return &httpBasicAuth{ user: user, password: password, handler: handler }
+	return &httpBasicAuth{user: user, password: password, handler: handler}
 }
 
-func (h *httpBasicAuth)ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.user == "" || h.password == "" {
-		log.Debug( "no auth required" )
-		h.handler.ServeHTTP( w, r )
+		log.Debug("no auth required")
+		h.handler.ServeHTTP(w, r)
 		return
 	}
 	username, password, ok := r.BasicAuth()
 	if ok && username == h.user {
-		if strings.HasPrefix( h.password, "{SHA}") {
-			log.Debug( "auth with SHA")
+		if strings.HasPrefix(h.password, "{SHA}") {
+			log.Debug("auth with SHA")
 			hash := sha1.New()
-			io.WriteString( hash, password )
-			if hex.EncodeToString(hash.Sum(nil) )  == h.password[5:] {
-				h.handler.ServeHTTP(w,r)
+			io.WriteString(hash, password)
+			if hex.EncodeToString(hash.Sum(nil)) == h.password[5:] {
+				h.handler.ServeHTTP(w, r)
 				return
 			}
-		} else if  password == h.password {
-			log.Debug( "Auth with normal password")
-			h.handler.ServeHTTP( w, r )
+		} else if password == h.password {
+			log.Debug("Auth with normal password")
+			h.handler.ServeHTTP(w, r)
 			return
 		}
 	}
-	w.Header().Set( "WWW-Authenticate", "Basic realm=\"supervisor\"" )
-	w.WriteHeader( 401 )
+	w.Header().Set("WWW-Authenticate", "Basic realm=\"supervisor\"")
+	w.WriteHeader(401)
 }
 
 func NewXmlRPC() *XmlRPC {
-	return &XmlRPC{listeners:make(map[string]net.Listener)}
+	return &XmlRPC{listeners: make(map[string]net.Listener)}
 }
 
 func (p *XmlRPC) Stop() {
@@ -67,64 +66,64 @@ func (p *XmlRPC) Stop() {
 	}
 }
 
-func (p *XmlRPC) StartUnixHttpServer( user string, password string, listenAddr string, s *Supervisor ) {
-	os.Remove( listenAddr )
-	p.startHttpServer( user, password, "unix", listenAddr, s )
+func (p *XmlRPC) StartUnixHttpServer(user string, password string, listenAddr string, s *Supervisor) {
+	os.Remove(listenAddr)
+	p.startHttpServer(user, password, "unix", listenAddr, s)
 }
 
-func (p *XmlRPC) StartInetHttpServer( user string, password string, listenAddr string, s *Supervisor )  {
-	p.startHttpServer( user, password, "tcp", listenAddr, s )
+func (p *XmlRPC) StartInetHttpServer(user string, password string, listenAddr string, s *Supervisor) {
+	p.startHttpServer(user, password, "tcp", listenAddr, s)
 }
 
-func (p *XmlRPC) startHttpServer( user string, password string, protocol string, listenAddr string, s *Supervisor ) {
+func (p *XmlRPC) startHttpServer(user string, password string, protocol string, listenAddr string, s *Supervisor) {
 	mux := http.NewServeMux()
-	mux.Handle("/RPC2", NewHttpBasicAuth( user, password, p.createRPCServer(s) ) )
-	listener, err := net.Listen( protocol, listenAddr )
+	mux.Handle("/RPC2", NewHttpBasicAuth(user, password, p.createRPCServer(s)))
+	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
 		p.listeners[protocol] = listener
-		http.Serve(listener, mux )
+		http.Serve(listener, mux)
 	} else {
-		log.WithFields( log.Fields{"addr":listenAddr, "protocol":protocol}).Error( "fail to listen on address" )
+		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Error("fail to listen on address")
 	}
 
 }
-func (p *XmlRPC) createRPCServer( s* Supervisor ) *rpc.Server {
+func (p *XmlRPC) createRPCServer(s *Supervisor) *rpc.Server {
 	RPC := rpc.NewServer()
-        xmlrpcCodec := xml.NewCodec()
-        RPC.RegisterCodec(xmlrpcCodec, "text/xml")
-        RPC.RegisterService( s, "" )
+	xmlrpcCodec := xml.NewCodec()
+	RPC.RegisterCodec(xmlrpcCodec, "text/xml")
+	RPC.RegisterService(s, "")
 
-        xmlrpcCodec.RegisterAlias( "supervisor.getVersion", "Supervisor.GetVersion" )
-        xmlrpcCodec.RegisterAlias( "supervisor.getAPIVersion", "Supervisor.GetVersion" )
-        xmlrpcCodec.RegisterAlias( "supervisor.getIdentification", "Supervisor.GetIdentification" )
-        xmlrpcCodec.RegisterAlias( "supervisor.getState", "Supervisor.GetState" )
-        xmlrpcCodec.RegisterAlias( "supervisor.getPID", "Supervisor.GetPID" )
-        xmlrpcCodec.RegisterAlias( "supervisor.readLog", "Supervisor.ReadLog" )
-        xmlrpcCodec.RegisterAlias( "supervisor.clearLog", "Supervisor.ClearLog" )
-        xmlrpcCodec.RegisterAlias( "supervisor.shutdown", "Supervisor.Shutdown" )
-        xmlrpcCodec.RegisterAlias( "supervisor.restart", "Supervisor.Restart" )
-        xmlrpcCodec.RegisterAlias( "supervisor.getProcessInfo", "Supervisor.GetProcessInfo" )
-        xmlrpcCodec.RegisterAlias( "supervisor.getSupervisorVersion", "Supervisor.GetVersion" )
-        xmlrpcCodec.RegisterAlias( "supervisor.getAllProcessInfo", "Supervisor.GetAllProcessInfo" )
-        xmlrpcCodec.RegisterAlias( "supervisor.startProcess", "Supervisor.StartProcess" )
-        xmlrpcCodec.RegisterAlias( "supervisor.startAllProcesses", "Supervisor.StartAllProcesses" )
-        xmlrpcCodec.RegisterAlias( "supervisor.startProcessGroup", "Supervisor.StartProcessGroup" )
-        xmlrpcCodec.RegisterAlias( "supervisor.stopProcess", "Supervisor.StopProcess" )
-        xmlrpcCodec.RegisterAlias( "supervisor.stopProcessGroup", "Supervisor.StopProcessGroup" )
-        xmlrpcCodec.RegisterAlias( "supervisor.stopAllProcesses", "Supervisor.StopAllProcesses" )
-        xmlrpcCodec.RegisterAlias( "supervisor.signalProcess", "Supervisor.SignalProcess" )
-        xmlrpcCodec.RegisterAlias( "supervisor.signalProcessGroup", "Supervisor.SignalProcessGroup" )
-        xmlrpcCodec.RegisterAlias( "supervisor.signalAllProcesses", "Supervisor.SignalAllProcesses" )
-        xmlrpcCodec.RegisterAlias( "supervisor.sendProcessStdin", "Supervisor.SendProcessStdin" )
-        xmlrpcCodec.RegisterAlias( "supervisor.sendRemoteCommEvent", "Supervisor.SendRemoteCommEvent" )
-        xmlrpcCodec.RegisterAlias( "supervisor.reloadConfig", "Supervisor.Reload" )
-        xmlrpcCodec.RegisterAlias( "supervisor.addProcessGroup", "Supervisor.AddProcessGroup" )
-        xmlrpcCodec.RegisterAlias( "supervisor.removeProcessGroup", "Supervisor.RemoveProcessGroup" )
-        xmlrpcCodec.RegisterAlias( "supervisor.readProcessStdoutLog", "Supervisor.ReadProcessStdoutLog" )
-        xmlrpcCodec.RegisterAlias( "supervisor.readProcessStderrLog", "Supervisor.ReadProcessStderrLog" )
-        xmlrpcCodec.RegisterAlias( "supervisor.tailProcessStdoutLog", "Supervisor.TailProcessStdoutLog" )
-        xmlrpcCodec.RegisterAlias( "supervisor.tailProcessStderrLog", "Supervisor.TailProcessStderrLog" )
-        xmlrpcCodec.RegisterAlias( "supervisor.clearProcessLogs", "Supervisor.ClearProcessLogs" )
-        xmlrpcCodec.RegisterAlias( "supervisor.clearAllProcessLogs", "Supervisor.ClearAllProcessLogs" )
+	xmlrpcCodec.RegisterAlias("supervisor.getVersion", "Supervisor.GetVersion")
+	xmlrpcCodec.RegisterAlias("supervisor.getAPIVersion", "Supervisor.GetVersion")
+	xmlrpcCodec.RegisterAlias("supervisor.getIdentification", "Supervisor.GetIdentification")
+	xmlrpcCodec.RegisterAlias("supervisor.getState", "Supervisor.GetState")
+	xmlrpcCodec.RegisterAlias("supervisor.getPID", "Supervisor.GetPID")
+	xmlrpcCodec.RegisterAlias("supervisor.readLog", "Supervisor.ReadLog")
+	xmlrpcCodec.RegisterAlias("supervisor.clearLog", "Supervisor.ClearLog")
+	xmlrpcCodec.RegisterAlias("supervisor.shutdown", "Supervisor.Shutdown")
+	xmlrpcCodec.RegisterAlias("supervisor.restart", "Supervisor.Restart")
+	xmlrpcCodec.RegisterAlias("supervisor.getProcessInfo", "Supervisor.GetProcessInfo")
+	xmlrpcCodec.RegisterAlias("supervisor.getSupervisorVersion", "Supervisor.GetVersion")
+	xmlrpcCodec.RegisterAlias("supervisor.getAllProcessInfo", "Supervisor.GetAllProcessInfo")
+	xmlrpcCodec.RegisterAlias("supervisor.startProcess", "Supervisor.StartProcess")
+	xmlrpcCodec.RegisterAlias("supervisor.startAllProcesses", "Supervisor.StartAllProcesses")
+	xmlrpcCodec.RegisterAlias("supervisor.startProcessGroup", "Supervisor.StartProcessGroup")
+	xmlrpcCodec.RegisterAlias("supervisor.stopProcess", "Supervisor.StopProcess")
+	xmlrpcCodec.RegisterAlias("supervisor.stopProcessGroup", "Supervisor.StopProcessGroup")
+	xmlrpcCodec.RegisterAlias("supervisor.stopAllProcesses", "Supervisor.StopAllProcesses")
+	xmlrpcCodec.RegisterAlias("supervisor.signalProcess", "Supervisor.SignalProcess")
+	xmlrpcCodec.RegisterAlias("supervisor.signalProcessGroup", "Supervisor.SignalProcessGroup")
+	xmlrpcCodec.RegisterAlias("supervisor.signalAllProcesses", "Supervisor.SignalAllProcesses")
+	xmlrpcCodec.RegisterAlias("supervisor.sendProcessStdin", "Supervisor.SendProcessStdin")
+	xmlrpcCodec.RegisterAlias("supervisor.sendRemoteCommEvent", "Supervisor.SendRemoteCommEvent")
+	xmlrpcCodec.RegisterAlias("supervisor.reloadConfig", "Supervisor.Reload")
+	xmlrpcCodec.RegisterAlias("supervisor.addProcessGroup", "Supervisor.AddProcessGroup")
+	xmlrpcCodec.RegisterAlias("supervisor.removeProcessGroup", "Supervisor.RemoveProcessGroup")
+	xmlrpcCodec.RegisterAlias("supervisor.readProcessStdoutLog", "Supervisor.ReadProcessStdoutLog")
+	xmlrpcCodec.RegisterAlias("supervisor.readProcessStderrLog", "Supervisor.ReadProcessStderrLog")
+	xmlrpcCodec.RegisterAlias("supervisor.tailProcessStdoutLog", "Supervisor.TailProcessStdoutLog")
+	xmlrpcCodec.RegisterAlias("supervisor.tailProcessStderrLog", "Supervisor.TailProcessStderrLog")
+	xmlrpcCodec.RegisterAlias("supervisor.clearProcessLogs", "Supervisor.ClearProcessLogs")
+	xmlrpcCodec.RegisterAlias("supervisor.clearAllProcessLogs", "Supervisor.ClearAllProcessLogs")
 	return RPC
 }
