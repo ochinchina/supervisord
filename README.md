@@ -67,6 +67,7 @@ the following features is supported in the "program:x" section:
 - stderr_logfile_backups
 - environment
 - priority
+- user
 
 ## group
 the "group" section is supported and you can set "programs" item

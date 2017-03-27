@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"strings"
 	"sync"
@@ -289,6 +290,11 @@ func (p *Process) run(runCond *sync.Cond) {
 	if len(args) > 1 {
 		p.cmd.Args = args
 	}
+	if p.setUser() != nil {
+		log.WithFields( log.Fields{"user":p.config.GetString("user","")}).Error("fail to run as user")
+		p.lock.Unlock()
+		return
+	}
 	p.setEnv()
 	p.setLog()
 
@@ -373,6 +379,28 @@ func (p *Process) setLog() {
 		p.stderrLog = NewNullLogger()
 	}
 	p.cmd.Stderr = p.stderrLog
+}
+
+func (p *Process) setUser() error {
+	userName := p.config.GetString( "user", "" )
+	if len( userName ) == 0 {
+		return nil
+	}
+	u, err := user.Lookup( userName )
+	if err != nil {
+		return err
+	}
+	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
+	uid, err := strconv.ParseUint( u.Uid, 10, 32 )
+	if err != nil {
+		return err
+	}
+	gid, err := strconv.ParseUint( u.Gid, 10, 32 )
+	if err != nil {
+		return err
+	}
+	p.cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}
+	return nil
 }
 
 //convert a signal name to signal
