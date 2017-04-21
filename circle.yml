@@ -1,9 +1,3 @@
-machine:
-  environment:
-    GOROOT: ""
-    PATH: "/usr/local/go/bin:/usr/local/go_workspace/bin:~/.go_workspace/bin:${PATH}"
-    GOPATH: "${HOME}/.go_workspace:/usr/local/go_workspace:${HOME}/.go_project"
-
 dependencies:
   override:
 	- mkdir -p ~/.go_project/src/github.com/${CIRCLE_PROJECT_USERNAME}
@@ -15,11 +9,11 @@ test:
   override:
     - go test -v -race ./...
 
-# deployment:
-#   release:
-#   branch: master
-#   commands:
-#     — go get github.com/mitchellh/gox
-#     — go get github.com/tcnksm/ghr
-#     — gox -ldflags "-X main.Version $BUILD_VERSION -X main.BuildDate $BUILD_DATE" -output "dist/ncd_{{.OS}}_{{.Arch}}"
-#     — ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` dist/
+deployment:
+  release:
+  branch: master
+  commands:
+    — go get github.com/mitchellh/gox
+    — go get github.com/tcnksm/ghr
+    — gox -ldflags "-X main.Version $BUILD_VERSION -X main.BuildDate $BUILD_DATE" -output "dist/ncd_{{.OS}}_{{.Arch}}"
+    — ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` dist/
