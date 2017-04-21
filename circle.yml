@@ -1,3 +1,19 @@
+machine:
+  environment:
+    GOROOT: ""
+    PATH: "/usr/local/go/bin:/usr/local/go_workspace/bin:~/.go_workspace/bin:${PATH}"
+    GOPATH: "${HOME}/.go_workspace:/usr/local/go_workspace:${HOME}/.go_project"
+
+dependencies:
+  override:
+	- mkdir -p ~/.go_project/src/github.com/${CIRCLE_PROJECT_USERNAME}
+	- ln -s ${HOME}/${CIRCLE_PROJECT_REPONAME} ${HOME}/.go_project/src/github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}
+    - go get -t -d -v ./...
+    - go build -v
+
+test:
+  override:
+    - go test -v -race ./...
 
 # deployment:
 #   release:
