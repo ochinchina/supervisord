@@ -295,6 +295,7 @@ func (p *Process) run(runCond *sync.Cond) {
 		p.lock.Unlock()
 		return
 	}
+	p.cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
 	p.setEnv()
 	p.setLog()
 
