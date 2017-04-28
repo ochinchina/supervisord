@@ -1,13 +1,14 @@
 package main
 
 import (
+	"os"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
-	"os"
 )
 
 type Options struct {
-	Configuration string `short:"c" long:"configuration" description:"the configuration file" optional:"yes" default:"supervisord.conf"`
+	Configuration string `short:"c" long:"configuration" description:"the configuration file" default:"supervisord.conf"`
 }
 
 func init() {
@@ -20,6 +21,7 @@ func main() {
 	var parser = flags.NewParser(&options, flags.Default)
 	parser.Parse()
 	s := NewSupervisor(options.Configuration)
-	s.Reload()
-
+	if err := s.Reload(); err != nil {
+		panic(err)
+	}
 }

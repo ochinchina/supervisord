@@ -3,14 +3,15 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	log "github.com/Sirupsen/logrus"
-	"github.com/gorilla/rpc"
-	"github.com/ochinchina/gorilla-xmlrpc/xml"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/gorilla/rpc"
+	"github.com/ochinchina/gorilla-xmlrpc/xml"
 )
 
 type XmlRPC struct {

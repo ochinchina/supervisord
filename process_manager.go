@@ -1,14 +1,15 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"sort"
 	"strings"
 	"sync"
-	"sort"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type ProcessManager struct {
-	procs	map[string]*Process
+	procs map[string]*Process
 	lock  sync.Mutex
 }
 
@@ -81,15 +82,15 @@ func (pm *ProcessManager) ForEachProcess(procFunc func(p *Process)) {
 
 	procs := pm.getAllProcess()
 	for _, proc := range procs {
-		procFunc( proc )
+		procFunc(proc)
 	}
 }
 
 func (pm *ProcessManager) getAllProcess() []*Process {
-	tmpProcs := make([]*Process,0)
+	tmpProcs := make([]*Process, 0)
 	for _, proc := range pm.procs {
-		tmpProcs = append( tmpProcs, proc )
+		tmpProcs = append(tmpProcs, proc)
 	}
-	sort.Sort( ProcessSortByPriority( tmpProcs ) )
+	sort.Sort(ProcessSortByPriority(tmpProcs))
 	return tmpProcs
 }
