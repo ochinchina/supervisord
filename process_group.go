@@ -64,7 +64,6 @@ func (pg *ProcessGroup) GetGroup(procName string, defGroup string) string {
 
 	if ok {
 		return group
-	} else {
-		return defGroup
 	}
+	return defGroup
 }

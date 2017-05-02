@@ -51,7 +51,7 @@ func NewFileLogger(name string, maxSize int64, backups int, locker sync.Locker) 
 
 // return the next log file name
 func (l *FileLogger) nextLogFile() {
-	l.curRotate += 1
+	l.curRotate++
 	if l.curRotate >= l.backups {
 		l.curRotate = 0
 	}
@@ -65,7 +65,7 @@ func (l *FileLogger) updateLatestLog() {
 		l.curRotate = 0
 	} else {
 		//find all the rotate files
-		var latestFile os.FileInfo = nil
+		var latestFile os.FileInfo
 		latestNum := -1
 		for _, fileInfo := range files {
 			if strings.HasPrefix(fileInfo.Name(), l.name+".") {
@@ -98,7 +98,7 @@ func (l *FileLogger) openFile(trunc bool) error {
 	if l.file != nil {
 		l.file.Close()
 	}
-	var err error = nil
+	var err error
 	fileName := l.GetCurrentLogFile()
 	if trunc {
 		l.file, err = os.Create(fileName)
@@ -283,9 +283,8 @@ func (l *FileLogger) Write(p []byte) (int, error) {
 func (l *FileLogger) Close() error {
 	if l.file != nil {
 		return l.file.Close()
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func NewNullLogger() *NullLogger {

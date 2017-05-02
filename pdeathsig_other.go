@@ -3,9 +3,9 @@
 package main
 
 import (
-        "syscall"
+	"syscall"
 )
 
-func set_deathsig( sysProcAttr *syscall.SysProcAttr ) {
-        sysProcAttr.Setpgid = true
+func set_deathsig(sysProcAttr *syscall.SysProcAttr) {
+	sysProcAttr.Setpgid = true
 }

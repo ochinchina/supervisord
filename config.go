@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/go-ini/ini"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/go-ini/ini"
 )
 
 type ConfigEntry struct {
@@ -19,7 +20,6 @@ type ConfigEntry struct {
 	keyValues map[string]string
 	dict      map[string]string
 }
-
 
 func (c *ConfigEntry) IsProgram() bool {
 	return strings.HasPrefix(c.Name, "program:")
@@ -40,9 +40,8 @@ func (c *ConfigEntry) IsGroup() bool {
 func (c *ConfigEntry) GetGroupName() string {
 	if strings.HasPrefix(c.Name, "group:") {
 		return c.Name[len("group:"):]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 // get the programs from the group
@@ -60,16 +59,16 @@ func (c *ConfigEntry) setGroup(group string) {
 
 type ByPriority []*ConfigEntry
 
-func (p ByPriority) Len()int {
-	return len( p )
+func (p ByPriority) Len() int {
+	return len(p)
 }
 
-func (p ByPriority) Swap(i,j int ) {
-	p[i],p[j] = p[j],p[i]
+func (p ByPriority) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
 }
 
-func (p ByPriority) Less(i,j int ) bool {
-	return p[i].GetInt( "priority", 999 ) < p[j].GetInt( "priority", 999 )
+func (p ByPriority) Less(i, j int) bool {
+	return p[i].GetInt("priority", 999) < p[j].GetInt("priority", 999)
 }
 
 type Config struct {
@@ -211,22 +210,22 @@ func (c *Config) GetPrograms() []*ConfigEntry {
 			result = append(result, entry)
 		}
 	}
-	sort.Sort( ByPriority( result ) )
+	sort.Sort(ByPriority(result))
 	return result
 }
 
 func (c *Config) GetProgramNames() []string {
-	entries := make([]*ConfigEntry, 0 )
+	entries := make([]*ConfigEntry, 0)
 	result := make([]string, 0)
 	//sort by the priority
 	for _, entry := range c.entries {
 		if entry.IsProgram() {
-			entries = append( entries, entry )
+			entries = append(entries, entry)
 		}
 	}
-	sort.Sort( ByPriority( entries ) )
+	sort.Sort(ByPriority(entries))
 	for _, entry := range entries {
-		result = append( result, entry.GetProgramName() )
+		result = append(result, entry.GetProgramName())
 	}
 	return result
 }
@@ -258,9 +257,8 @@ func toInt(s string, factor int, defValue int) int {
 	i, err := strconv.Atoi(s)
 	if err == nil {
 		return i * factor
-	} else {
-		return defValue
 	}
+	return defValue
 }
 
 // get the value of the key as int
@@ -269,9 +267,8 @@ func (c *ConfigEntry) GetInt(key string, defValue int) int {
 
 	if ok {
 		return toInt(value, 1, defValue)
-	} else {
-		return defValue
 	}
+	return defValue
 }
 
 // get the value of key as environment setting. An enviroment string example:
@@ -286,13 +283,13 @@ func (c *ConfigEntry) GetEnv(key string) []string {
 		i := 0
 		for {
 			for i = start; i < n && value[i] != '='; {
-				i += 1
+				i++
 			}
 			key := value[start:i]
 			start = i + 1
 			if value[start] == '"' {
 				for i = start + 1; i < n && value[i] != '"'; {
-					i += 1
+					i++
 				}
 				if i < n {
 					env = append(env, fmt.Sprintf("%s=\"%s\"", key, value[start+1:i]))
@@ -304,7 +301,7 @@ func (c *ConfigEntry) GetEnv(key string) []string {
 				}
 			} else {
 				for i = start; i < n && value[i] != ','; {
-					i += 1
+					i++
 				}
 				if i < n {
 					env = append(env, fmt.Sprintf("%s=\"%s\"", key, value[start:i]))
@@ -336,9 +333,8 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 
 	if ok {
 		return s
-	} else {
-		return defValue
 	}
+	return defValue
 }
 
 func (c *ConfigEntry) GetStringArray(key string, sep string) []string {
@@ -346,9 +342,8 @@ func (c *ConfigEntry) GetStringArray(key string, sep string) []string {
 
 	if ok {
 		return strings.Split(s, sep)
-	} else {
-		return make([]string, 0)
 	}
+	return make([]string, 0)
 }
 
 // get the value of key as the bytes setting.
@@ -373,9 +368,8 @@ func (c *ConfigEntry) GetBytes(key string, defValue int) int {
 			}
 		}
 		return toInt(v, 1, defValue)
-	} else {
-		return defValue
 	}
+	return defValue
 }
 
 func (c *ConfigEntry) parse(section *ini.Section) {
@@ -423,7 +417,7 @@ func (c *Config) parseProgram(cfg *ini.File) {
 				originalProcName = section.Key("process_name").Value()
 			}
 
-			for i := 1; i <= numProcs; i += 1 {
+			for i := 1; i <= numProcs; i++ {
 				envs := NewStringExpression("program_name", programName,
 					"process_num", fmt.Sprintf("%d", i),
 					"group_name", c.programGroup.GetGroup(programName, programName),

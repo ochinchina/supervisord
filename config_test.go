@@ -14,9 +14,8 @@ func createTmpFile() (string, error) {
 	if err == nil {
 		f.Close()
 		return f.Name(), err
-	} else {
-		return "", err
 	}
+	return "", err
 }
 
 func saveToTmpFile(b []byte) (string, error) {

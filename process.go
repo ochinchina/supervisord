@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"io"
 	"os"
 	"os/exec"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type ProcessState int
@@ -291,12 +292,12 @@ func (p *Process) run(runCond *sync.Cond) {
 		p.cmd.Args = args
 	}
 	if p.setUser() != nil {
-		log.WithFields( log.Fields{"user":p.config.GetString("user","")}).Error("fail to run as user")
+		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
 		return
 	}
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
-	set_deathsig( p.cmd.SysProcAttr )
+	set_deathsig(p.cmd.SysProcAttr)
 	p.setEnv()
 	p.setLog()
 
@@ -384,20 +385,20 @@ func (p *Process) setLog() {
 }
 
 func (p *Process) setUser() error {
-	userName := p.config.GetString( "user", "" )
-	if len( userName ) == 0 {
+	userName := p.config.GetString("user", "")
+	if len(userName) == 0 {
 		return nil
 	}
-	u, err := user.Lookup( userName )
+	u, err := user.Lookup(userName)
 	if err != nil {
 		return err
 	}
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
-	uid, err := strconv.ParseUint( u.Uid, 10, 32 )
+	uid, err := strconv.ParseUint(u.Uid, 10, 32)
 	if err != nil {
 		return err
 	}
-	gid, err := strconv.ParseUint( u.Gid, 10, 32 )
+	gid, err := strconv.ParseUint(u.Gid, 10, 32)
 	if err != nil {
 		return err
 	}
@@ -440,17 +441,16 @@ func (p *Process) Stop(wait bool) {
 func (p *Process) GetStatus() string {
 	if p.cmd.ProcessState.Exited() {
 		return p.cmd.ProcessState.String()
-	} else {
-		return "running"
 	}
+	return "running"
 }
 
-func (p ProcessSortByPriority)Len()int {
-	return len( p )
+func (p ProcessSortByPriority) Len() int {
+	return len(p)
 }
 
-func (p ProcessSortByPriority)Swap(i, j int) {
-	p[i],p[j] = p[j],p[i]
+func (p ProcessSortByPriority) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
 }
 
 func (p ProcessSortByPriority) Less(i, j int) bool {

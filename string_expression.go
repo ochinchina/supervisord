@@ -51,13 +51,13 @@ func (se *StringExpression) Eval(s string) (string, error) {
 
 		//find variable end indicator
 		for end < n && s[end] != ')' {
-			end += 1
+			end++
 		}
 
 		//find the type of the variable
 		typ := end + 1
 		for typ < n && !((s[typ] >= 'a' && s[typ] <= 'z') || (s[typ] >= 'A' && s[typ] <= 'Z')) {
-			typ += 1
+			typ++
 		}
 
 		//evaluate the variable
