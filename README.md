@@ -26,7 +26,7 @@ After the supervisord binary is generated, create a supervisord configuration fi
 $ cat supervisor.conf
 [program:test]
 command = /your/program args
-$ supervisord supervisor.conf
+$ supervisord -c supervisor.conf
 ```
 
 # features supported
