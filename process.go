@@ -435,6 +435,9 @@ func (p *Process) Stop(wait bool) {
 	if p.cmd != nil && p.cmd.Process != nil {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
 		p.cmd.Process.Signal(toSignal(p.config.GetString("stopsignal", "")))
+		if wait {
+			p.cmd.Process.Wait()
+		}
 	}
 }
 
