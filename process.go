@@ -356,32 +356,31 @@ func (p *Process) setEnv() {
 }
 
 func (p *Process) setLog() {
-	logFile := p.config.GetString("stdout_logfile", "")
-
-	p.cmd.Stdout = NewNullLogger()
-
-	if len(logFile) > 0 {
-		p.stdoutLog = NewFileLogger(logFile,
-			int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
-			p.config.GetInt("stdout_logfile_backups", 10),
-			NewNullLocker())
-
-	} else {
-		p.stdoutLog = NewNullLogger()
-	}
+	p.stdoutLog = p.createLogger( p.config.GetString("stdout_logfile", ""),
+                                int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
+                                p.config.GetInt("stdout_logfile_backups", 10) )
 
 	p.cmd.Stdout = p.stdoutLog
 
-	logFile = p.config.GetString("stderr_logfile", "")
-	if len(logFile) > 0 {
-		p.stderrLog = NewFileLogger(logFile,
-			int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
-			p.config.GetInt("stderr_logfile_backups", 10),
-			NewNullLocker())
-	} else {
-		p.stderrLog = NewNullLogger()
-	}
+    p.stderrLog = p.createLogger( p.config.GetString("stderr_logfile", ""),
+                                int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
+                                p.config.GetInt("stderr_logfile_backups", 10) )
+
 	p.cmd.Stderr = p.stderrLog
+}
+
+func (p *Process) createLogger( logFile string, maxBytes int64, backups int ) Logger {
+    var logger Logger
+    logger = NewNullLogger()
+
+   if logFile == "/dev/stdout" {
+        logger = NewStdoutLogger()
+    } else if logFile == "/dev/stderr" {
+        logger = NewStderrLogger()
+    } else if len(logFile) > 0  {
+        logger = NewFileLogger(logFile, maxBytes, backups, NewNullLocker() )
+    }
+    return logger 
 }
 
 func (p *Process) setUser() error {

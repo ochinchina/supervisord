@@ -324,3 +324,69 @@ func (l *NullLocker) Lock() {
 
 func (l *NullLocker) Unlock() {
 }
+
+type StdoutLogger struct {
+}
+
+func NewStdoutLogger() *StdoutLogger{
+    return &StdoutLogger{}
+}
+
+func (l *StdoutLogger) Write(p []byte) (int, error) {
+    return os.Stdout.Write( p )
+}
+
+func (l *StdoutLogger) Close() error {
+    return nil
+}
+
+func (l *StdoutLogger) ReadLog(offset int64, length int64) (string, error) {
+    return "", NewFault(NO_FILE, "NO_FILE")
+}
+
+func (l *StdoutLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
+    return "", 0, false, NewFault(NO_FILE, "NO_FILE")
+}
+
+func (l *StdoutLogger) ClearCurLogFile() error {
+    return fmt.Errorf("No log")
+}
+
+func (l *StdoutLogger) ClearAllLogFile() error {
+    return NewFault(NO_FILE, "NO_FILE")
+}
+
+
+type StderrLogger struct {
+}
+
+func NewStderrLogger() *StderrLogger {
+    return &StderrLogger{}
+}
+
+func (l *StderrLogger) Write(p []byte) (int, error) {
+    return os.Stderr.Write(p)
+}
+
+func (l *StderrLogger) Close() error {
+    return nil
+}
+
+func (l *StderrLogger) ReadLog(offset int64, length int64) (string, error) {
+    return "", NewFault(NO_FILE, "NO_FILE")
+}
+
+func (l *StderrLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
+    return "", 0, false, NewFault(NO_FILE, "NO_FILE")
+}
+
+func (l *StderrLogger) ClearCurLogFile() error {
+    return fmt.Errorf("No log")
+}
+
+func (l *StderrLogger) ClearAllLogFile() error {
+    return NewFault(NO_FILE, "NO_FILE")
+}
+
+
+
