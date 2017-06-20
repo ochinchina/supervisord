@@ -68,6 +68,7 @@ the following features is supported in the "program:x" section:
 - environment
 - priority
 - user
+- directory
 
 ## group
 the "group" section is supported and you can set "programs" item
