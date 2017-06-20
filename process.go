@@ -174,7 +174,7 @@ func (p *Process) GetExitstatus() int {
 }
 
 func (p *Process) GetPid() int {
-	if p.state == STOPPED {
+	if p.state == STOPPED || p.state == FATAL || p.state == UNKNOWN || p.state == EXITED || p.state == BACKOFF {
 		return 0
 	}
 	return p.cmd.Process.Pid
@@ -296,7 +296,7 @@ func (p *Process) run(runCond *sync.Cond) {
 		return
 	}
 	p.lock.Lock()
-	if p.cmd != nil {
+	if p.cmd != nil && p.cmd.ProcessState != nil {
 		status := p.cmd.ProcessState.Sys().(syscall.WaitStatus)
 		if status.Continued() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start program because it is running")
