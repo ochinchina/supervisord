@@ -115,7 +115,6 @@ func (s *Supervisor) GetSupervisorId() string {
 	}
 }
 
-
 func (s *Supervisor) GetState(r *http.Request, args *struct{}, reply *struct{ StateInfo StateInfo }) error {
 	//statecode     statename
 	//=======================
@@ -324,7 +323,7 @@ func (s *Supervisor) Reload() error {
 	if err == nil {
 		s.setSupervisordInfo()
 		s.startEventListeners()
-		s.startPrograms( prevPrograms )
+		s.startPrograms(prevPrograms)
 		s.startHttpServer()
 		for {
 			time.Sleep(10 * time.Second)
@@ -334,7 +333,7 @@ func (s *Supervisor) Reload() error {
 
 }
 
-func (s *Supervisor) startPrograms( prevPrograms []string ) {
+func (s *Supervisor) startPrograms(prevPrograms []string) {
 
 	programs := s.config.GetProgramNames()
 	for _, entry := range s.config.GetPrograms() {
@@ -350,7 +349,7 @@ func (s *Supervisor) startEventListeners() {
 	eventListeners := s.config.GetEventListeners()
 	for _, entry := range eventListeners {
 		s.procMgr.CreateProcess(s.GetSupervisorId(), entry)
-	}	
+	}
 }
 
 func (s *Supervisor) startHttpServer() {

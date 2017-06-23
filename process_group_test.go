@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-
 func createTestGroup() *ProcessGroup {
 	group := NewProcessGroup()
 

@@ -9,14 +9,14 @@ import (
 )
 
 type ProcessManager struct {
-	procs map[string]*Process
+	procs          map[string]*Process
 	eventListeners map[string]*Process
-	lock  sync.Mutex
+	lock           sync.Mutex
 }
 
 func newProcessManager() *ProcessManager {
-	return &ProcessManager{ procs: make(map[string]*Process),
-		eventListeners: make(map[string]*Process), 
+	return &ProcessManager{procs: make(map[string]*Process),
+		eventListeners: make(map[string]*Process),
 	}
 }
 
@@ -24,15 +24,15 @@ func (pm *ProcessManager) CreateProcess(supervisor_id string, config *ConfigEntr
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	if config.IsProgram() {
-		return pm.createProgram( supervisor_id, config )
+		return pm.createProgram(supervisor_id, config)
 	} else if config.IsEventListener() {
-		return pm.createEventListener( supervisor_id, config );
+		return pm.createEventListener(supervisor_id, config)
 	} else {
 		return nil
 	}
 }
 
-func (pm* ProcessManager) createProgram( supervisor_id string, config *ConfigEntry ) *Process {	 
+func (pm *ProcessManager) createProgram(supervisor_id string, config *ConfigEntry) *Process {
 	procName := config.GetProgramName()
 
 	proc, ok := pm.procs[procName]
@@ -45,7 +45,7 @@ func (pm* ProcessManager) createProgram( supervisor_id string, config *ConfigEnt
 	return proc
 }
 
-func (pm* ProcessManager) createEventListener( supervisor_id string, config *ConfigEntry ) *Process {	 
+func (pm *ProcessManager) createEventListener(supervisor_id string, config *ConfigEntry) *Process {
 	eventListenerName := config.GetEventListenerName()
 
 	evtListener, ok := pm.eventListeners[eventListenerName]

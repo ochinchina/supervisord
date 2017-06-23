@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
-	"os/signal"
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
+	"os"
+	"os/signal"
 	"syscall"
 )
 
@@ -17,14 +17,14 @@ func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
-func initSignals( s* Supervisor) {
+func initSignals(s *Supervisor) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		log.WithFields( log.Fields{"signal": sig}).Info( "receive a signal to stop all process & xit" )
-		s.procMgr.ForEachProcess( func (proc *Process) {
-			proc.Stop( true )
+		log.WithFields(log.Fields{"signal": sig}).Info("receive a signal to stop all process & xit")
+		s.procMgr.ForEachProcess(func(proc *Process) {
+			proc.Stop(true)
 		})
 		os.Exit(-1)
 	}()
@@ -36,7 +36,7 @@ func main() {
 	var parser = flags.NewParser(&options, flags.Default)
 	parser.Parse()
 	s := NewSupervisor(options.Configuration)
-	initSignals( s )
+	initSignals(s)
 	if err := s.Reload(); err != nil {
 		panic(err)
 	}

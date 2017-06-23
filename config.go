@@ -43,7 +43,6 @@ func (c *ConfigEntry) GetEventListenerName() string {
 	return ""
 }
 
-
 func (c *ConfigEntry) IsGroup() bool {
 	return strings.HasPrefix(c.Name, "group:")
 }
@@ -205,43 +204,42 @@ func (c *Config) GetInetHttpServer() (*ConfigEntry, bool) {
 	return entry, ok
 }
 
-func (c *Config) GetEntries( filterFunc func( entry* ConfigEntry ) bool ) []*ConfigEntry {
+func (c *Config) GetEntries(filterFunc func(entry *ConfigEntry) bool) []*ConfigEntry {
 	result := make([]*ConfigEntry, 0)
 	for _, entry := range c.entries {
-		if filterFunc( entry ) {
+		if filterFunc(entry) {
 			result = append(result, entry)
 		}
 	}
 	return result
 }
 func (c *Config) GetGroups() []*ConfigEntry {
-	return c.GetEntries( func( entry* ConfigEntry ) bool {
+	return c.GetEntries(func(entry *ConfigEntry) bool {
 		return entry.IsGroup()
-	} )
+	})
 }
 
 func (c *Config) GetPrograms() []*ConfigEntry {
-	programs := c.GetEntries( func( entry* ConfigEntry ) bool {
-		return entry.IsProgram() 
-	} )
-	
+	programs := c.GetEntries(func(entry *ConfigEntry) bool {
+		return entry.IsProgram()
+	})
+
 	sort.Sort(ByPriority(programs))
 	return programs
 }
 
 func (c *Config) GetEventListeners() []*ConfigEntry {
-	eventListeners := c.GetEntries( func( entry* ConfigEntry ) bool {
-		return entry.IsEventListener() 
-	} )
-	
+	eventListeners := c.GetEntries(func(entry *ConfigEntry) bool {
+		return entry.IsEventListener()
+	})
+
 	return eventListeners
 }
-
 
 func (c *Config) GetProgramNames() []string {
 	result := make([]string, 0)
 	programs := c.GetPrograms()
-	
+
 	sort.Sort(ByPriority(programs))
 	for _, entry := range programs {
 		result = append(result, entry.GetProgramName())
@@ -414,7 +412,7 @@ func (c *Config) parseGroup(cfg *ini.File) {
 	}
 }
 
-func (c *Config) isProgramOrEventListener( section *ini.Section) ( bool, string ) {
+func (c *Config) isProgramOrEventListener(section *ini.Section) (bool, string) {
 	//check if it is a program or event listener section
 	is_program := strings.HasPrefix(section.Name(), "program:")
 	is_event_listener := strings.HasPrefix(section.Name(), "eventlistener:")
@@ -428,9 +426,9 @@ func (c *Config) isProgramOrEventListener( section *ini.Section) ( bool, string 
 }
 func (c *Config) parseProgram(cfg *ini.File) {
 	for _, section := range cfg.Sections() {
-		
-		 program_or_event_listener, prefix := c.isProgramOrEventListener( section )
-		
+
+		program_or_event_listener, prefix := c.isProgramOrEventListener(section)
+
 		//if it is program or event listener
 		if program_or_event_listener {
 			//get the number of processes
