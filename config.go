@@ -32,6 +32,18 @@ func (c *ConfigEntry) GetProgramName() string {
 	return ""
 }
 
+func (c *ConfigEntry) IsEventListener() bool {
+	return strings.HasPrefix(c.Name, "eventlistener:")
+}
+
+func (c *ConfigEntry) GetEventListenerName() string {
+	if strings.HasPrefix(c.Name, "eventlistener:") {
+		return c.Name[len("eventlistener:"):]
+	}
+	return ""
+}
+
+
 func (c *ConfigEntry) IsGroup() bool {
 	return strings.HasPrefix(c.Name, "group:")
 }
@@ -193,38 +205,45 @@ func (c *Config) GetInetHttpServer() (*ConfigEntry, bool) {
 	return entry, ok
 }
 
-func (c *Config) GetGroups() []*ConfigEntry {
-	result := make([]*ConfigEntry, 0)
-	for key, value := range c.entries {
-		if strings.HasPrefix(key, "group:") {
-			result = append(result, value)
-		}
-	}
-	return result
-}
-
-func (c *Config) GetPrograms() []*ConfigEntry {
+func (c *Config) GetEntries( filterFunc func( entry* ConfigEntry ) bool ) []*ConfigEntry {
 	result := make([]*ConfigEntry, 0)
 	for _, entry := range c.entries {
-		if entry.IsProgram() {
+		if filterFunc( entry ) {
 			result = append(result, entry)
 		}
 	}
-	sort.Sort(ByPriority(result))
 	return result
 }
+func (c *Config) GetGroups() []*ConfigEntry {
+	return c.GetEntries( func( entry* ConfigEntry ) bool {
+		return entry.IsGroup()
+	} )
+}
+
+func (c *Config) GetPrograms() []*ConfigEntry {
+	programs := c.GetEntries( func( entry* ConfigEntry ) bool {
+		return entry.IsProgram() 
+	} )
+	
+	sort.Sort(ByPriority(programs))
+	return programs
+}
+
+func (c *Config) GetEventListeners() []*ConfigEntry {
+	eventListeners := c.GetEntries( func( entry* ConfigEntry ) bool {
+		return entry.IsEventListener() 
+	} )
+	
+	return eventListeners
+}
+
 
 func (c *Config) GetProgramNames() []string {
-	entries := make([]*ConfigEntry, 0)
 	result := make([]string, 0)
-	//sort by the priority
-	for _, entry := range c.entries {
-		if entry.IsProgram() {
-			entries = append(entries, entry)
-		}
-	}
-	sort.Sort(ByPriority(entries))
-	for _, entry := range entries {
+	programs := c.GetPrograms()
+	
+	sort.Sort(ByPriority(programs))
+	for _, entry := range programs {
 		result = append(result, entry.GetProgramName())
 	}
 	return result
@@ -395,11 +414,28 @@ func (c *Config) parseGroup(cfg *ini.File) {
 	}
 }
 
+func (c *Config) isProgramOrEventListener( section *ini.Section) ( bool, string ) {
+	//check if it is a program or event listener section
+	is_program := strings.HasPrefix(section.Name(), "program:")
+	is_event_listener := strings.HasPrefix(section.Name(), "eventlistener:")
+	prefix := ""
+	if is_program {
+		prefix = "program:"
+	} else if is_event_listener {
+		prefix = "eventlistener:"
+	}
+	return is_program || is_event_listener, prefix
+}
 func (c *Config) parseProgram(cfg *ini.File) {
 	for _, section := range cfg.Sections() {
-		if strings.HasPrefix(section.Name(), "program:") {
+		
+		 program_or_event_listener, prefix := c.isProgramOrEventListener( section )
+		
+		//if it is program or event listener
+		if program_or_event_listener {
+			//get the number of processes
 			numProcs, err := section.Key("numprocs").Int()
-			programName := section.Name()[len("program:"):]
+			programName := section.Name()[len(prefix):]
 			if err != nil {
 				numProcs = 1
 			}
@@ -438,7 +474,7 @@ func (c *Config) parseProgram(cfg *ini.File) {
 				section.NewKey("process_num", fmt.Sprintf("%d", i))
 				entry := c.createEntry(procName, c.GetConfigFileDir())
 				entry.parse(section)
-				entry.Name = "program:" + procName
+				entry.Name = prefix + procName
 				group := c.programGroup.GetGroup(programName, programName)
 				entry.Group = group
 			}

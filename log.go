@@ -15,6 +15,7 @@ import (
 
 type Logger interface {
 	io.WriteCloser
+	SetPid( pid int )
 	ReadLog(offset int64, length int64) (string, error)
 	ReadTailLog(offset int64, length int64) (string, int64, bool, error)
 	ClearCurLogFile() error
@@ -49,6 +50,9 @@ func NewFileLogger(name string, maxSize int64, backups int, locker sync.Locker) 
 	return logger
 }
 
+func (l *FileLogger)SetPid( pid int ) {
+	//NOTHING TO DO
+}
 // return the next log file name
 func (l *FileLogger) nextLogFile() {
 	l.curRotate++
@@ -291,6 +295,10 @@ func NewNullLogger() *NullLogger {
 	return &NullLogger{}
 }
 
+func (l *NullLogger)SetPid( pid int ) {
+	//NOTHING TO DO
+}
+
 func (l *NullLogger) Write(p []byte) (int, error) {
 	return len(p), nil
 }
@@ -326,6 +334,7 @@ func (l *NullLocker) Unlock() {
 }
 
 type StdoutLogger struct {
+	NullLogger
 }
 
 func NewStdoutLogger() *StdoutLogger{
@@ -336,28 +345,8 @@ func (l *StdoutLogger) Write(p []byte) (int, error) {
     return os.Stdout.Write( p )
 }
 
-func (l *StdoutLogger) Close() error {
-    return nil
-}
-
-func (l *StdoutLogger) ReadLog(offset int64, length int64) (string, error) {
-    return "", NewFault(NO_FILE, "NO_FILE")
-}
-
-func (l *StdoutLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
-    return "", 0, false, NewFault(NO_FILE, "NO_FILE")
-}
-
-func (l *StdoutLogger) ClearCurLogFile() error {
-    return fmt.Errorf("No log")
-}
-
-func (l *StdoutLogger) ClearAllLogFile() error {
-    return NewFault(NO_FILE, "NO_FILE")
-}
-
-
 type StderrLogger struct {
+	NullLogger
 }
 
 func NewStderrLogger() *StderrLogger {
@@ -368,25 +357,55 @@ func (l *StderrLogger) Write(p []byte) (int, error) {
     return os.Stderr.Write(p)
 }
 
-func (l *StderrLogger) Close() error {
-    return nil
+type LogCaptureLogger struct {
+	
+	underlineLogger Logger
+	procCommEventCapWriter io.Writer
+	procCommEventCapture *ProcCommEventCapture
+}
+												 
+func NewLogCaptureLogger( underlineLogger Logger,				 
+				captureMaxBytes int,
+				stdType string,
+				procName string,
+				groupName string) *LogCaptureLogger {
+	r, w := io.Pipe()
+	eventCapture := NewProcCommEventCapture( r, 
+							captureMaxBytes, 
+							stdType, 
+							procName, 
+							groupName )
+	return &LogCaptureLogger{ underlineLogger: underlineLogger,
+			procCommEventCapWriter: w,
+			procCommEventCapture:  eventCapture }
 }
 
-func (l *StderrLogger) ReadLog(offset int64, length int64) (string, error) {
-    return "", NewFault(NO_FILE, "NO_FILE")
+func (l *LogCaptureLogger) SetPid( pid int ) {
+	l.procCommEventCapture.SetPid( pid )
 }
 
-func (l *StderrLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
-    return "", 0, false, NewFault(NO_FILE, "NO_FILE")
+func (l *LogCaptureLogger) Write(p []byte) (int, error) {
+	l.procCommEventCapWriter.Write( p )
+	return l.underlineLogger.Write( p )
 }
 
-func (l *StderrLogger) ClearCurLogFile() error {
-    return fmt.Errorf("No log")
+func (l *LogCaptureLogger) Close() error {
+	return l.underlineLogger.Close()
 }
 
-func (l *StderrLogger) ClearAllLogFile() error {
-    return NewFault(NO_FILE, "NO_FILE")
+func (l *LogCaptureLogger) ReadLog(offset int64, length int64) (string, error) {
+	return l.underlineLogger.ReadLog( offset, length )
 }
 
+func (l *LogCaptureLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
+	return l.underlineLogger.ReadTailLog( offset, length )
+}
 
+func (l *LogCaptureLogger) ClearCurLogFile() error {
+	return l.underlineLogger.ClearCurLogFile()
+}
+
+func (l *LogCaptureLogger) ClearAllLogFile() error {
+	return l.underlineLogger.ClearAllLogFile()
+}
 

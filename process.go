@@ -50,6 +50,7 @@ func (p ProcessState) String() string {
 }
 
 type Process struct {
+	supervisor_id string
 	config    *ConfigEntry
 	cmd       *exec.Cmd
 	startTime time.Time
@@ -67,8 +68,9 @@ type Process struct {
 
 type ProcessSortByPriority []*Process
 
-func NewProcess(config *ConfigEntry) *Process {
-	proc := &Process{config: config,
+func NewProcess(supervisor_id string, config *ConfigEntry) *Process {
+	proc := &Process{supervisor_id: supervisor_id,
+		config: config,
 		cmd:       nil,
 		startTime: time.Unix(0, 0),
 		stopTime:  time.Unix(0, 0),
@@ -137,7 +139,13 @@ func (p *Process) Start(wait bool) {
 }
 
 func (p *Process) GetName() string {
-	return p.config.Name[len("program:"):]
+	if p.config.IsProgram() {
+		return p.config.GetProgramName()
+	} else if p.config.IsEventListener() {
+		return p.config.GetEventListenerName()
+	} else {
+		return ""
+	}
 }
 
 func (p *Process) GetGroup() string {
@@ -312,6 +320,8 @@ func (p *Process) run(runCond *sync.Cond) {
 		p.lock.Unlock()
 		runCond.Signal()
 	} else {
+		p.stdoutLog.SetPid( p.GetPid() )
+		p.stderrLog.SetPid( p.GetPid() )
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("success to start program")
 		startSecs := p.config.GetInt("startsecs", 1)
 		//Set startsec to 0 to indicate that the program needn't stay
@@ -356,17 +366,60 @@ func (p *Process) setEnv() {
 }
 
 func (p *Process) setLog() {
-	p.stdoutLog = p.createLogger( p.config.GetString("stdout_logfile", ""),
-                                int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
-                                p.config.GetInt("stdout_logfile_backups", 10) )
+	if p.config.IsProgram() {
+		p.stdoutLog = p.createLogger( p.config.GetString("stdout_logfile", ""),
+	                                int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
+	                                p.config.GetInt("stdout_logfile_backups", 10) )
+		capture_bytes :=  p.config.GetBytes( "stdout_logfile_maxbytes", 0 )
+		if capture_bytes > 0 && p.config.GetBool( "stdout_events_enabled", false ) {			
+			p.stdoutLog = NewLogCaptureLogger( p.stdoutLog, 
+									capture_bytes,
+									"PROCESS_COMMUNICATION_STDOUT",
+									p.GetName(),
+									p.GetGroup() )
+		}
+	
+		p.cmd.Stdout = p.stdoutLog
+	
+	    p.stderrLog = p.createLogger( p.config.GetString("stderr_logfile", ""),
+	                                int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
+	                                p.config.GetInt("stderr_logfile_backups", 10) )
+	
+		capture_bytes =  p.config.GetBytes( "stderr_logfile_maxbytes", 0 )
+		if capture_bytes > 0 && p.config.GetBool( "stderr_events_enabled", false ) {
+			p.stderrLog = NewLogCaptureLogger( p.stdoutLog, 
+									capture_bytes,
+									"PROCESS_COMMUNICATION_STDERR",
+									p.GetName(),
+									p.GetGroup() )
+		}
+		
+		p.cmd.Stderr = p.stderrLog
+		
+		
+	} else if p.config.IsEventListener() {		
+		events := strings.Split( p.config.GetString("events",""), "," )		
+		for i, event := range events {
+			events[i] = strings.TrimSpace( event ) 
+		}
+		p.registerEventListener( p.config.GetEventListenerName(), events, p.cmd.Stdin, p.cmd.Stdout)
+	}
+}
 
-	p.cmd.Stdout = p.stdoutLog
+func (p *Process) registerEventListener( eventListenerName string, 
+					events []string, 
+					stdin io.Reader,
+					stdout io.Writer ) {	
+	eventListener := NewEventListener( eventListenerName,
+						p.supervisor_id, 
+						stdin, 
+						stdout, 
+						p.config.GetInt( "buffer_size", 100 ) )
+	eventListenerManager.registerEventListener( eventListenerName, events, eventListener )
+}
 
-    p.stderrLog = p.createLogger( p.config.GetString("stderr_logfile", ""),
-                                int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
-                                p.config.GetInt("stderr_logfile_backups", 10) )
-
-	p.cmd.Stderr = p.stderrLog
+func (p *Process) unregisterEventListener( eventListenerName string ) {
+	eventListenerManager.unregisterEventListener( eventListenerName )
 }
 
 func (p *Process) createLogger( logFile string, maxBytes int64, backups int ) Logger {

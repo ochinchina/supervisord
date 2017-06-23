@@ -102,14 +102,19 @@ func (s *Supervisor) GetSupervisorVersion(r *http.Request, args *struct{}, reply
 }
 
 func (s *Supervisor) GetIdentification(r *http.Request, args *struct{}, reply *struct{ Id string }) error {
-	entry, ok := s.config.GetSupervisord()
-	if ok {
-		reply.Id = entry.GetString("identifier", "No-supervisorId-set")
-	} else {
-		reply.Id = "No-supervisorId-set"
-	}
+	reply.Id = s.GetSupervisorId()
 	return nil
 }
+
+func (s *Supervisor) GetSupervisorId() string {
+	entry, ok := s.config.GetSupervisord()
+	if ok {
+		return entry.GetString("identifier", "supervisor")
+	} else {
+		return "supervisor"
+	}
+}
+
 
 func (s *Supervisor) GetState(r *http.Request, args *struct{}, reply *struct{ StateInfo StateInfo }) error {
 	//statecode     statename
@@ -318,15 +323,8 @@ func (s *Supervisor) Reload() error {
 
 	if err == nil {
 		s.setSupervisordInfo()
-
-		programs := s.config.GetProgramNames()
-		for _, entry := range s.config.GetPrograms() {
-			s.procMgr.CreateProcess(entry)
-		}
-		removedPrograms := sub(prevPrograms, programs)
-		for _, p := range removedPrograms {
-			s.procMgr.Remove(p)
-		}
+		s.startEventListeners()
+		s.startPrograms( prevPrograms )
 		s.startHttpServer()
 		for {
 			time.Sleep(10 * time.Second)
@@ -334,6 +332,25 @@ func (s *Supervisor) Reload() error {
 	}
 	return err
 
+}
+
+func (s *Supervisor) startPrograms( prevPrograms []string ) {
+
+	programs := s.config.GetProgramNames()
+	for _, entry := range s.config.GetPrograms() {
+		s.procMgr.CreateProcess(s.GetSupervisorId(), entry)
+	}
+	removedPrograms := sub(prevPrograms, programs)
+	for _, p := range removedPrograms {
+		s.procMgr.Remove(p)
+	}
+}
+
+func (s *Supervisor) startEventListeners() {
+	eventListeners := s.config.GetEventListeners()
+	for _, entry := range eventListeners {
+		s.procMgr.CreateProcess(s.GetSupervisorId(), entry)
+	}	
 }
 
 func (s *Supervisor) startHttpServer() {
