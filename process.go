@@ -307,6 +307,7 @@ func (p *Process) run(runCond *sync.Cond) {
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	set_deathsig(p.cmd.SysProcAttr)
 	p.setEnv()
+	p.setDir()
 	p.setLog()
 
 	p.stdin, _ = p.cmd.StdinPipe()
@@ -366,6 +367,14 @@ func (p *Process) setEnv() {
 		p.cmd.Env = append(os.Environ(), env...)
 	} else {
 		p.cmd.Env = os.Environ()
+	}
+}
+
+func (p *Process) setDir() {
+	dir := p.config.GetString("directory", "")
+	if dir != "" {
+		p.cmd.Dir = dir
+		fmt.Printf("Directory has been set to: %s\n", dir)
 	}
 }
 
