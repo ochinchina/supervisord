@@ -70,8 +70,17 @@ the following features is supported in the "program:x" section:
 - user
 - directory
 
-## group
+## Group
 the "group" section is supported and you can set "programs" item
+
+## Events
+
+the supervisor 3.x defined events are supported partially. Now it supports following events:
+
+- all process state related events
+- process communication event
+- remote communication event
+- tick related events
 
 # The MIT License (MIT)
 
