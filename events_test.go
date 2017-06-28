@@ -123,5 +123,84 @@ func TestProcCommEventCapture(t *testing.T) {
 	r2.Close()
 	r1.Close()
 	w1.Close()
+}
 
+func TestProcessStartingEvent(t *testing.T) {
+	event := createPorcessStartingEvent("proc-1", "group-1", "STOPPED", 0)
+	if event.GetType() != "PROCESS_STATE_STARTING" {
+		t.Error("Fail to creating the process starting event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:STOPPED tries:0" {
+		t.Error("Fail to encode the process starting event")
+	}
+}
+
+func TestProcessRunningEvent(t *testing.T) {
+	event := createPorcessRunningEvent("proc-1", "group-1", "STARTING", 2766)
+	if event.GetType() != "PROCESS_STATE_RUNNING" {
+		t.Error("Fail to creating the process running event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:STARTING pid:2766" {
+		t.Error("Fail to encode the process running event")
+	}
+}
+
+func TestProcessBackoffEvent(t *testing.T) {
+	event := createPorcessBackoffEvent("proc-1", "group-1", "STARTING", 1)
+	if event.GetType() != "PROCESS_STATE_BACKOFF" {
+		t.Error("Fail to creating the process backoff event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:STARTING tries:1" {
+		t.Error("Fail to encode the process backoff event")
+	}
+}
+
+func TestProcessStoppingEvent(t *testing.T) {
+	event := createPorcessStoppingEvent("proc-1", "group-1", "STARTING", 2766)
+	if event.GetType() != "PROCESS_STATE_STOPPING" {
+		t.Error("Fail to creating the process stopping event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:STARTING pid:2766" {
+		t.Error("Fail to encode the process stopping event")
+	}
+}
+
+func TestProcessExitedEvent(t *testing.T) {
+	event := createPorcessExitedEvent("proc-1", "group-1", "RUNNING", 1, 2766)
+	if event.GetType() != "PROCESS_STATE_EXITED" {
+		t.Error("Fail to creating the process exited event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:RUNNING expected:1 pid:2766" {
+		t.Error("Fail to encode the process exited event")
+	}
+}
+
+func TestProcessStoppedEvent(t *testing.T) {
+	event := createPorcessStoppedEvent("proc-1", "group-1", "STOPPING", 2766)
+	if event.GetType() != "PROCESS_STATE_STOPPED" {
+		t.Error("Fail to creating the process stopped event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:STOPPING pid:2766" {
+		t.Error("Fail to encode the process stopped event")
+	}
+}
+
+func TestProcessFatalEvent(t *testing.T) {
+	event := createPorcessFatalEvent("proc-1", "group-1", "BACKOFF")
+	if event.GetType() != "PROCESS_STATE_FATAL" {
+		t.Error("Fail to creating the process fatal event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:BACKOFF" {
+		t.Error("Fail to encode the process fatal event")
+	}
+}
+
+func TestProcessUnknownEvent(t *testing.T) {
+	event := createPorcessUnknownEvent("proc-1", "group-1", "BACKOFF")
+	if event.GetType() != "PROCESS_STATE_UNKNOWN" {
+		t.Error("Fail to creating the process unknown event")
+	}
+	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:BACKOFF" {
+		t.Error("Fail to encode the process unknown event")
+	}
 }

@@ -227,11 +227,11 @@ func (el *EventListener) encodeEvent(event Event) []byte {
 }
 
 var eventTypeDerives = map[string][]string{
-	"PROCESS_STATOCESS_STATE_STARTING": []string{"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_STARTING":           []string{"EVENT", "PROCESS_STATE"},
 	"PROCESS_STATE_RUNNING":            []string{"EVENT", "PROCESS_STATE"},
 	"PROCESS_STATE_BACKOFF":            []string{"EVENT", "PROCESS_STATE"},
 	"PROCESS_STATE_STOPPING":           []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_EXIT":               []string{"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_EXITED":             []string{"EVENT", "PROCESS_STATE"},
 	"PROCESS_STATE_STOPPED":            []string{"EVENT", "PROCESS_STATE"},
 	"PROCESS_STATE_FATAL":              []string{"EVENT", "PROCESS_STATE"},
 	"PROCESS_STATE_UNKNOWN":            []string{"EVENT", "PROCESS_STATE"},
@@ -498,4 +498,149 @@ func (pec *ProcCommEventCapture) findEndStr() int {
 		}
 	}
 	return end_pos
+}
+
+type ProcessStateEvent struct {
+	BaseEvent
+	process_name string
+	group_name   string
+	from_state   string
+	tries        int
+	expected     int
+	pid          int
+}
+
+func createPorcessStartingEvent(process string,
+	group string,
+	from_state string,
+	tries int) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      tries,
+		expected:   -1,
+		pid:        0}
+	r.eventType = "PROCESS_STATE_STARTING"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createPorcessRunningEvent(process string,
+	group string,
+	from_state string,
+	pid int) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      -1,
+		expected:   -1,
+		pid:        pid}
+	r.eventType = "PROCESS_STATE_RUNNING"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createPorcessBackoffEvent(process string,
+	group string,
+	from_state string,
+	tries int) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      tries,
+		expected:   -1,
+		pid:        0}
+	r.eventType = "PROCESS_STATE_BACKOFF"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createPorcessStoppingEvent(process string,
+	group string,
+	from_state string,
+	pid int) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      -1,
+		expected:   -1,
+		pid:        pid}
+	r.eventType = "PROCESS_STATE_STOPPING"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createPorcessExitedEvent(process string,
+	group string,
+	from_state string,
+	expected int,
+	pid int) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      -1,
+		expected:   expected,
+		pid:        pid}
+	r.eventType = "PROCESS_STATE_EXITED"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createPorcessStoppedEvent(process string,
+	group string,
+	from_state string,
+	pid int) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      -1,
+		expected:   -1,
+		pid:        pid}
+	r.eventType = "PROCESS_STATE_STOPPED"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createPorcessFatalEvent(process string,
+	group string,
+	from_state string) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      -1,
+		expected:   -1,
+		pid:        0}
+	r.eventType = "PROCESS_STATE_FATAL"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createPorcessUnknownEvent(process string,
+	group string,
+	from_state string) *ProcessStateEvent {
+	r := &ProcessStateEvent{process_name: process,
+		group_name: group,
+		from_state: from_state,
+		tries:      -1,
+		expected:   -1,
+		pid:        0}
+	r.eventType = "PROCESS_STATE_UNKNOWN"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func (pse *ProcessStateEvent) GetBody() string {
+	body := fmt.Sprintf("processname:%s groupname:%s from_state:%s", pse.process_name, pse.group_name, pse.from_state)
+	if pse.tries >= 0 {
+		body = fmt.Sprintf("%s tries:%d", body, pse.tries)
+	}
+
+	if pse.expected != -1 {
+		body = fmt.Sprintf("%s expected:%d", body, pse.expected)
+	}
+
+	if pse.pid != 0 {
+		body = fmt.Sprintf("%s pid:%d", body, pse.pid)
+	}
+	return body
 }

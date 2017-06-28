@@ -311,7 +311,9 @@ func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply
 }
 
 func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent, reply *struct{ Success bool }) error {
-	return fmt.Errorf("Not implemented")
+	emitEvent(NewRemoteCommunicationEvent(args.Type, args.Data))
+	reply.Success = true
+	return nil
 }
 
 func (s *Supervisor) Reload() error {
@@ -349,6 +351,10 @@ func (s *Supervisor) startEventListeners() {
 	eventListeners := s.config.GetEventListeners()
 	for _, entry := range eventListeners {
 		s.procMgr.CreateProcess(s.GetSupervisorId(), entry)
+	}
+
+	if len(eventListeners) > 0 {
+		time.Sleep(1 * time.Second)
 	}
 }
 

@@ -60,6 +60,7 @@ type Process struct {
 	inStart bool
 	//true if the process is stopped by user
 	stopByUser bool
+	retryTimes int
 	lock       sync.RWMutex
 	stdin      io.WriteCloser
 	stdoutLog  Logger
@@ -70,16 +71,16 @@ type ProcessSortByPriority []*Process
 
 func NewProcess(supervisor_id string, config *ConfigEntry) *Process {
 	proc := &Process{supervisor_id: supervisor_id,
-		config:    config,
-		cmd:       nil,
-		startTime: time.Unix(0, 0),
-		stopTime:  time.Unix(0, 0),
-		state:     STOPPED}
+		config:     config,
+		cmd:        nil,
+		startTime:  time.Unix(0, 0),
+		stopTime:   time.Unix(0, 0),
+		state:      STOPPED,
+		inStart:    false,
+		stopByUser: false,
+		retryTimes: 0}
 	proc.config = config
 	proc.cmd = nil
-	proc.state = STOPPED
-	proc.inStart = false
-	proc.stopByUser = false
 
 	//start the process if autostart is set to true
 	if proc.isAutoStart() {
@@ -107,14 +108,14 @@ func (p *Process) Start(wait bool) {
 	m.Lock()
 
 	go func() {
-		retryTimes := 0
+		p.retryTimes = 0
 
 		for {
 			p.run(runCond)
 			if (p.stopTime.Unix() - p.startTime.Unix()) < int64(p.getStartSeconds()) {
-				retryTimes++
+				p.retryTimes++
 			} else {
-				retryTimes = 0
+				p.retryTimes = 0
 			}
 			if p.stopByUser {
 				log.WithFields(log.Fields{"program": p.GetName()}).Info("Stopped by user, don't start it again")
@@ -124,8 +125,8 @@ func (p *Process) Start(wait bool) {
 				log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start the stopped program because its autorestart flag is false")
 				break
 			}
-			if retryTimes >= p.getStartRetries() {
-				log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start the stopped program because its retry times ", retryTimes, " is greater than start retries ", p.getStartRetries())
+			if p.retryTimes >= p.getStartRetries() {
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start the stopped program because its retry times ", p.retryTimes, " is greater than start retries ", p.getStartRetries())
 				break
 			}
 		}
@@ -249,9 +250,8 @@ func (p *Process) isAutoRestart() bool {
 		p.lock.Lock()
 		defer p.lock.Unlock()
 		if p.cmd != nil && p.cmd.ProcessState != nil {
-			if status, ok := p.cmd.ProcessState.Sys().(syscall.WaitStatus); ok && !p.inExitCodes(status.ExitStatus()) {
-				return true
-			}
+			exitCode, err := p.getExitCode()
+			return err == nil && p.inExitCodes(exitCode)
 		}
 	}
 	return false
@@ -265,6 +265,15 @@ func (p *Process) inExitCodes(exitCode int) bool {
 		}
 	}
 	return false
+}
+
+func (p *Process) getExitCode() (int, error) {
+	if status, ok := p.cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
+		return status.ExitStatus(), nil
+	}
+
+	return -1, fmt.Errorf("no exit code")
+
 }
 
 func (p *Process) getExitCodes() []int {
@@ -312,11 +321,11 @@ func (p *Process) run(runCond *sync.Cond) {
 
 	p.stdin, _ = p.cmd.StdinPipe()
 	p.startTime = time.Now()
-	p.state = STARTING
+	p.changeStateTo(STARTING)
 	err = p.cmd.Start()
 	if err != nil {
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Error("fail to start program")
-		p.state = FATAL
+		p.changeStateTo(FATAL)
 		p.stopTime = time.Now()
 		p.lock.Unlock()
 		runCond.Signal()
@@ -332,7 +341,7 @@ func (p *Process) run(runCond *sync.Cond) {
 		//Set startsec to 0 to indicate that the program needn't stay
 		//running for any particular amount of time.
 		if startSecs > 0 {
-			p.state = RUNNING
+			p.changeStateTo(RUNNING)
 		}
 		p.lock.Unlock()
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Debug("wait program exit")
@@ -341,13 +350,43 @@ func (p *Process) run(runCond *sync.Cond) {
 		p.lock.Lock()
 		p.stopTime = time.Now()
 		if p.stopTime.Unix()-p.startTime.Unix() < int64(startSecs) {
-			p.state = BACKOFF
+			p.changeStateTo(BACKOFF)
 		} else {
-			p.state = EXITED
+			p.changeStateTo(EXITED)
 		}
 		p.lock.Unlock()
 	}
 
+}
+
+func (p *Process) changeStateTo(procState ProcessState) {
+	if p.config.IsProgram() {
+		progName := p.config.GetProgramName()
+		groupName := p.config.GetGroupName()
+		if procState == STARTING {
+			emitEvent(createPorcessStartingEvent(progName, groupName, p.state.String(), p.retryTimes))
+		} else if procState == RUNNING {
+			emitEvent(createPorcessRunningEvent(progName, groupName, p.state.String(), p.GetPid()))
+		} else if procState == BACKOFF {
+			emitEvent(createPorcessBackoffEvent(progName, groupName, p.state.String(), p.retryTimes))
+		} else if procState == STOPPING {
+			emitEvent(createPorcessStoppingEvent(progName, groupName, p.state.String(), p.GetPid()))
+		} else if procState == EXITED {
+			exitCode, err := p.getExitCode()
+			expected := 0
+			if err == nil && p.inExitCodes(exitCode) {
+				expected = 1
+			}
+			emitEvent(createPorcessExitedEvent(progName, groupName, p.state.String(), expected, p.GetPid()))
+		} else if procState == FATAL {
+			emitEvent(createPorcessFatalEvent(progName, groupName, p.state.String()))
+		} else if procState == STOPPED {
+			emitEvent(createPorcessStoppedEvent(progName, groupName, p.state.String(), p.GetPid()))
+		} else if procState == UNKNOWN {
+			emitEvent(createPorcessUnknownEvent(progName, groupName, p.state.String()))
+		}
+	}
+	p.state = procState
 }
 
 func (p *Process) Signal(sig os.Signal) error {
