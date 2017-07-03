@@ -441,7 +441,8 @@ func (p *Process) setLog() {
 			p.createStderrLogEventEmitter())
 
 		capture_bytes = p.config.GetBytes("stderr_capture_maxbytes", 0)
-		if capture_bytes > 0 && p.config.GetBool("stderr_events_enabled", false) {
+
+		if capture_bytes > 0 {
 			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("capture stderr process communication")
 			p.stderrLog = NewLogCaptureLogger(p.stdoutLog,
 				capture_bytes,
@@ -476,7 +477,7 @@ func (p *Process) setLog() {
 }
 
 func (p *Process) createStdoutLogEventEmitter() LogEventEmitter {
-	if p.config.GetBool("stdout_events_enabled", false) {
+	if p.config.GetBytes("stdout_capture_maxbytes", 0) <= 0 && p.config.GetBool("stdout_events_enabled", false) {
 		return NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), p)
 	} else {
 		return NewNullLogEventEmitter()
@@ -484,7 +485,7 @@ func (p *Process) createStdoutLogEventEmitter() LogEventEmitter {
 }
 
 func (p *Process) createStderrLogEventEmitter() LogEventEmitter {
-	if p.config.GetBool("stderr_events_enabled", false) {
+	if p.config.GetBytes("stderr_capture_maxbytes", 0) <= 0 && p.config.GetBool("stderr_events_enabled", false) {
 		return NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), p)
 	} else {
 		return NewNullLogEventEmitter()
