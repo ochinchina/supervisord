@@ -644,3 +644,92 @@ func (pse *ProcessStateEvent) GetBody() string {
 	}
 	return body
 }
+
+type SupervisorStateChangeEvent struct {
+	BaseEvent
+}
+
+func (s *SupervisorStateChangeEvent) GetBody() string {
+	return ""
+}
+
+func createSupervisorStateChangeRunning() *SupervisorStateChangeEvent {
+	r := &SupervisorStateChangeEvent{}
+	r.eventType = "SUPERVISOR_STATE_CHANGE_RUNNING"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createSupervisorStateChangeStopping() *SupervisorStateChangeEvent {
+	r := &SupervisorStateChangeEvent{}
+	r.eventType = "SUPERVISOR_STATE_CHANGE_STOPPING"
+	r.serial = nextEventSerial()
+	return r
+}
+
+type ProcessLogEvent struct {
+	BaseEvent
+	process_name string
+	group_name   string
+	pid          int
+	data         string
+}
+
+func (pe *ProcessLogEvent) GetBody() string {
+	return fmt.Sprintf("processname:%s groupname:%s pid:%d\n%s",
+		pe.process_name,
+		pe.group_name,
+		pe.pid,
+		pe.data)
+}
+
+func createProcessLogStdoutEvent(process_name string,
+	group_name string,
+	pid int,
+	data string) *ProcessLogEvent {
+	r := &ProcessLogEvent{process_name: process_name,
+		group_name: group_name,
+		pid:        pid,
+		data:       data}
+	r.eventType = "PROCESS_LOG_STDOUT"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createProcessLogStderrEvent(process_name string,
+	group_name string,
+	pid int,
+	data string) *ProcessLogEvent {
+	r := &ProcessLogEvent{process_name: process_name,
+		group_name: group_name,
+		pid:        pid,
+		data:       data}
+	r.eventType = "PROCESS_LOG_STDERR"
+	r.serial = nextEventSerial()
+	return r
+}
+
+type ProcessGroupEvent struct {
+	BaseEvent
+	group_name string
+}
+
+func (pe *ProcessGroupEvent) GetBody() string {
+	return fmt.Sprintf("groupname:%s", pe.group_name)
+}
+
+func createProcessGroupAddedEvent(group_name string) *ProcessGroupEvent {
+	r := &ProcessGroupEvent{group_name: group_name}
+
+	r.eventType = "PROCESS_GROUP_ADDED"
+	r.serial = nextEventSerial()
+	return r
+}
+
+func createProcessGroupRemovedEvent(group_name string) *ProcessGroupEvent {
+	r := &ProcessGroupEvent{group_name: group_name}
+
+	r.eventType = "PROCESS_GROUP_REMOVED"
+	r.serial = nextEventSerial()
+	return r
+}

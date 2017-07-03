@@ -22,14 +22,19 @@ type Logger interface {
 	ClearAllLogFile() error
 }
 
+type LogEventEmitter interface {
+	emitLogEvent(data string)
+}
+
 type FileLogger struct {
-	name      string
-	maxSize   int64
-	backups   int
-	curRotate int
-	fileSize  int64
-	file      *os.File
-	locker    sync.Locker
+	name            string
+	maxSize         int64
+	backups         int
+	curRotate       int
+	fileSize        int64
+	file            *os.File
+	logEventEmitter LogEventEmitter
+	locker          sync.Locker
 }
 
 type NullLogger struct {
@@ -38,14 +43,15 @@ type NullLogger struct {
 type NullLocker struct {
 }
 
-func NewFileLogger(name string, maxSize int64, backups int, locker sync.Locker) *FileLogger {
+func NewFileLogger(name string, maxSize int64, backups int, logEventEmitter LogEventEmitter, locker sync.Locker) *FileLogger {
 	logger := &FileLogger{name: name,
-		maxSize:   maxSize,
-		backups:   backups,
-		curRotate: -1,
-		fileSize:  0,
-		file:      nil,
-		locker:    locker}
+		maxSize:         maxSize,
+		backups:         backups,
+		curRotate:       -1,
+		fileSize:        0,
+		file:            nil,
+		logEventEmitter: logEventEmitter,
+		locker:          locker}
 	logger.updateLatestLog()
 	return logger
 }
@@ -269,6 +275,7 @@ func (l *FileLogger) Write(p []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
+	l.logEventEmitter.emitLogEvent(string(p))
 	l.fileSize += int64(n)
 	if l.fileSize >= l.maxSize {
 		fileInfo, err := os.Stat(fmt.Sprintf("%s.%d", l.name, l.curRotate))
@@ -334,28 +341,28 @@ func (l *NullLocker) Lock() {
 func (l *NullLocker) Unlock() {
 }
 
-type StdoutLogger struct {
+type StdLogger struct {
 	NullLogger
+	logEventEmitter LogEventEmitter
+	writer          io.Writer
 }
 
-func NewStdoutLogger() *StdoutLogger {
-	return &StdoutLogger{}
+func NewStdoutLogger(logEventEmitter LogEventEmitter) *StdLogger {
+	return &StdLogger{logEventEmitter: logEventEmitter,
+		writer: os.Stdout}
 }
 
-func (l *StdoutLogger) Write(p []byte) (int, error) {
-	return os.Stdout.Write(p)
+func (l *StdLogger) Write(p []byte) (int, error) {
+	n, err := l.writer.Write(p)
+	if err != nil {
+		l.logEventEmitter.emitLogEvent(string(p))
+	}
+	return n, err
 }
 
-type StderrLogger struct {
-	NullLogger
-}
-
-func NewStderrLogger() *StderrLogger {
-	return &StderrLogger{}
-}
-
-func (l *StderrLogger) Write(p []byte) (int, error) {
-	return os.Stderr.Write(p)
+func NewStderrLogger(logEventEmitter LogEventEmitter) *StdLogger {
+	return &StdLogger{logEventEmitter: logEventEmitter,
+		writer: os.Stdout}
 }
 
 type LogCaptureLogger struct {
@@ -407,4 +414,43 @@ func (l *LogCaptureLogger) ClearCurLogFile() error {
 
 func (l *LogCaptureLogger) ClearAllLogFile() error {
 	return l.underlineLogger.ClearAllLogFile()
+}
+
+type NullLogEventEmitter struct {
+}
+
+func NewNullLogEventEmitter() *NullLogEventEmitter {
+	return &NullLogEventEmitter{}
+}
+
+func (ne *NullLogEventEmitter) emitLogEvent(data string) {
+}
+
+type StdLogEventEmitter struct {
+	Type         string
+	process_name string
+	group_name   string
+	process      *Process
+}
+
+func NewStdoutLogEventEmitter(process_name string, group_name string, process *Process) *StdLogEventEmitter {
+	return &StdLogEventEmitter{Type: "stdout",
+		process_name: process_name,
+		group_name:   group_name,
+		process:      process}
+}
+
+func NewStderrLogEventEmitter(process_name string, group_name string, process *Process) *StdLogEventEmitter {
+	return &StdLogEventEmitter{Type: "stderr",
+		process_name: process_name,
+		group_name:   group_name,
+		process:      process}
+}
+
+func (se *StdLogEventEmitter) emitLogEvent(data string) {
+	if se.Type == "stdout" {
+		emitEvent(createProcessLogStdoutEvent(se.process_name, se.group_name, se.process.GetPid(), data))
+	} else {
+		emitEvent(createProcessLogStderrEvent(se.process_name, se.group_name, se.process.GetPid(), data))
+	}
 }

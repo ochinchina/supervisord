@@ -390,7 +390,7 @@ func (s *Supervisor) setSupervisordInfo() {
 			logfile_maxbytes := int64(supervisordConf.GetBytes("logfile_maxbytes", 50*1024*1024))
 			logfile_backups := supervisordConf.GetInt("logfile_backups", 10)
 			loglevel := supervisordConf.GetString("loglevel", "info")
-			s.logger = NewFileLogger(logFile, logfile_maxbytes, logfile_backups, &sync.Mutex{})
+			s.logger = NewFileLogger(logFile, logfile_maxbytes, logfile_backups, NewNullLogEventEmitter(), &sync.Mutex{})
 			log.SetOutput(s.logger)
 			log.SetLevel(toLogLevel(loglevel))
 			log.SetFormatter(&log.TextFormatter{DisableColors: true})

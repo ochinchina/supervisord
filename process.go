@@ -421,9 +421,10 @@ func (p *Process) setLog() {
 	if p.config.IsProgram() {
 		p.stdoutLog = p.createLogger(p.config.GetString("stdout_logfile", ""),
 			int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
-			p.config.GetInt("stdout_logfile_backups", 10))
+			p.config.GetInt("stdout_logfile_backups", 10),
+			p.createStdoutLogEventEmitter())
 		capture_bytes := p.config.GetBytes("stdout_capture_maxbytes", 0)
-		if capture_bytes > 0 && p.config.GetBool("stdout_events_enabled", false) {
+		if capture_bytes > 0 {
 			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("capture stdout process communication")
 			p.stdoutLog = NewLogCaptureLogger(p.stdoutLog,
 				capture_bytes,
@@ -436,7 +437,8 @@ func (p *Process) setLog() {
 
 		p.stderrLog = p.createLogger(p.config.GetString("stderr_logfile", ""),
 			int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
-			p.config.GetInt("stderr_logfile_backups", 10))
+			p.config.GetInt("stderr_logfile_backups", 10),
+			p.createStderrLogEventEmitter())
 
 		capture_bytes = p.config.GetBytes("stderr_capture_maxbytes", 0)
 		if capture_bytes > 0 && p.config.GetBool("stderr_events_enabled", false) {
@@ -473,6 +475,22 @@ func (p *Process) setLog() {
 	}
 }
 
+func (p *Process) createStdoutLogEventEmitter() LogEventEmitter {
+	if p.config.GetBool("stdout_events_enabled", false) {
+		return NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), p)
+	} else {
+		return NewNullLogEventEmitter()
+	}
+}
+
+func (p *Process) createStderrLogEventEmitter() LogEventEmitter {
+	if p.config.GetBool("stderr_events_enabled", false) {
+		return NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), p)
+	} else {
+		return NewNullLogEventEmitter()
+	}
+}
+
 func (p *Process) registerEventListener(eventListenerName string,
 	events []string,
 	stdin io.Reader,
@@ -489,16 +507,16 @@ func (p *Process) unregisterEventListener(eventListenerName string) {
 	eventListenerManager.unregisterEventListener(eventListenerName)
 }
 
-func (p *Process) createLogger(logFile string, maxBytes int64, backups int) Logger {
+func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
 	var logger Logger
 	logger = NewNullLogger()
 
 	if logFile == "/dev/stdout" {
-		logger = NewStdoutLogger()
+		logger = NewStdoutLogger(logEventEmitter)
 	} else if logFile == "/dev/stderr" {
-		logger = NewStderrLogger()
+		logger = NewStderrLogger(logEventEmitter)
 	} else if len(logFile) > 0 {
-		logger = NewFileLogger(logFile, maxBytes, backups, NewNullLocker())
+		logger = NewFileLogger(logFile, maxBytes, backups, logEventEmitter, NewNullLocker())
 	}
 	return logger
 }
