@@ -81,6 +81,7 @@ the supervisor 3.x defined events are supported partially. Now it supports follo
 - process communication event
 - remote communication event
 - tick related events
+- process log related events
 
 # The MIT License (MIT)
 
