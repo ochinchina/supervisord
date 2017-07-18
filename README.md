@@ -62,6 +62,7 @@ the following features is supported in the "program:x" section:
 - stdout_logfile
 - stdout_logfile_maxbytes
 - stdout_logfile_backups
+- redirect_stderr
 - stderr_logfile
 - stderr_logfile_maxbytes
 - stderr_logfile_backups
