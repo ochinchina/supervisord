@@ -441,10 +441,14 @@ func (p *Process) setLog() {
 
 		p.cmd.Stdout = p.stdoutLog
 
-		p.stderrLog = p.createLogger(p.config.GetString("stderr_logfile", ""),
-			int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
-			p.config.GetInt("stderr_logfile_backups", 10),
-			p.createStderrLogEventEmitter())
+		if p.config.GetBool("redirect_stderr", false) {
+			p.stderrLog = p.stdoutLog
+		} else {
+			p.stderrLog = p.createLogger(p.config.GetString("stderr_logfile", ""),
+				int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
+				p.config.GetInt("stderr_logfile_backups", 10),
+				p.createStderrLogEventEmitter())
+		}
 
 		capture_bytes = p.config.GetBytes("stderr_capture_maxbytes", 0)
 
