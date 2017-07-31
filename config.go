@@ -349,7 +349,11 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 	s, ok := c.keyValues[key]
 
 	if ok {
-		return s
+		env := NewStringExpression("here", c.ConfigDir)
+		rep_s, err := env.Eval(s)
+		if err == nil {
+			return rep_s
+		}
 	}
 	return defValue
 }
