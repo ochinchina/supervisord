@@ -22,7 +22,7 @@ func initSignals(s *Supervisor) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		log.WithFields(log.Fields{"signal": sig}).Info("receive a signal to stop all process & xit")
+		log.WithFields(log.Fields{"signal": sig}).Info("receive a signal to stop all process & exit")
 		s.procMgr.ForEachProcess(func(proc *Process) {
 			proc.Stop(true)
 		})
