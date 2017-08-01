@@ -297,7 +297,7 @@ func (c *ConfigEntry) GetEnv(key string) []string {
 	if ok {
 		start := 0
 		n := len(value)
-		i := 0
+		var i int
 		for {
 			for i = start; i < n && value[i] != '='; {
 				i++
