@@ -33,9 +33,10 @@ func initSignals(s *Supervisor) {
 
 }
 
+var options Options
+var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
+
 func main() {
-	var options Options
-	var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 	if _, err := parser.Parse(); err != nil {
 		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
 			os.Exit(0)
