@@ -133,9 +133,9 @@ func (c *Config) getIncludeFiles(cfg *ini.File) []string {
 		if err == nil && key != nil {
 			env := NewStringExpression("here", c.GetConfigFileDir())
 			files := strings.Fields(key.Value())
-			for _, f := range files {
+			for _, f_raw := range files {
 				dir := c.GetConfigFileDir()
-				f, err := env.Eval(f)
+				f, err := env.Eval(f_raw)
 				if err != nil {
 					continue
 				}
