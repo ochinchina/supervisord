@@ -1,11 +1,13 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
-	"github.com/jessevdk/go-flags"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/jessevdk/go-flags"
 )
 
 type Options struct {
