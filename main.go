@@ -38,13 +38,21 @@ var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 
 func main() {
 	if _, err := parser.Parse(); err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			os.Exit(0)
+		flagsErr, ok := err.(*flags.Error)
+		if ok {
+			switch flagsErr.Type {
+			case flags.ErrHelp:
+				fmt.Fprintln(os.Stdout, err)
+				os.Exit(0)
+			case flags.ErrCommandRequired:
+				s := NewSupervisor(options.Configuration)
+				initSignals(s)
+				if sErr := s.Reload(); sErr != nil {
+					panic(sErr)
+				}
+			default:
+				panic(err)
+			}
 		}
-	}
-	s := NewSupervisor(options.Configuration)
-	initSignals(s)
-	if err := s.Reload(); err != nil {
-		panic(err)
 	}
 }
