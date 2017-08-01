@@ -1,2 +1,3 @@
 .idea
 supervisord
+test.log*
