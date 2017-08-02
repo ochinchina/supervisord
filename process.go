@@ -295,7 +295,7 @@ func (p *Process) getExitCodes() []int {
 }
 
 func (p *Process) run(runCond *sync.Cond) {
-	args, err := parseCommand(p.config.GetString("command", ""))
+	args, err := parseCommand(p.config.GetStringExpression("command", ""))
 
 	if err != nil {
 		log.Error("the command is empty string")
@@ -416,7 +416,7 @@ func (p *Process) setEnv() {
 }
 
 func (p *Process) setDir() {
-	dir := p.config.GetString("directory", "")
+	dir := p.config.GetStringExpression("directory", "")
 	if dir != "" {
 		p.cmd.Dir = dir
 		fmt.Printf("Directory has been set to: %s\n", dir)
@@ -425,7 +425,7 @@ func (p *Process) setDir() {
 
 func (p *Process) setLog() {
 	if p.config.IsProgram() {
-		p.stdoutLog = p.createLogger(p.config.GetString("stdout_logfile", ""),
+		p.stdoutLog = p.createLogger(p.config.GetStringExpression("stdout_logfile", ""),
 			int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
 			p.config.GetInt("stdout_logfile_backups", 10),
 			p.createStdoutLogEventEmitter())
@@ -444,7 +444,7 @@ func (p *Process) setLog() {
 		if p.config.GetBool("redirect_stderr", false) {
 			p.stderrLog = p.stdoutLog
 		} else {
-			p.stderrLog = p.createLogger(p.config.GetString("stderr_logfile", ""),
+			p.stderrLog = p.createLogger(p.config.GetStringExpression("stderr_logfile", ""),
 				int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
 				p.config.GetInt("stderr_logfile_backups", 10),
 				p.createStderrLogEventEmitter())

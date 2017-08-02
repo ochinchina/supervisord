@@ -354,6 +354,30 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 	return defValue
 }
 
+//get the value of key as string and attempt to parse it with StringExpression
+func (c *ConfigEntry) GetStringExpression(key string, defValue string) string {
+	s := c.GetString(key, defValue)
+	if s == "" {
+		return s
+	}
+
+	result, err := NewStringExpression("program_name", c.GetProgramName(),
+		"process_num", c.GetString("process_num", "0"),
+		"group_name", c.GetGroupName(),
+		"here", c.ConfigDir).Eval(s)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"program":    c.GetProgramName(),
+			"key":        key,
+		}).Warn("unable to parse expression")
+		return s
+	}
+
+	return result
+}
+
 func (c *ConfigEntry) GetStringArray(key string, sep string) []string {
 	s, ok := c.keyValues[key]
 
