@@ -1,3 +1,6 @@
 .idea
 supervisord
 test.log*
+.tags*
+debug
+go-debug.json
