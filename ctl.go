@@ -5,6 +5,8 @@ import (
 )
 
 type CtlCommand struct {
+	Host string `short:"h" long:"host" description:"host on which supervisord server is running." default:"localhost"`
+	Port int    `short:"p" long:"port" description:"port which supervisord server is listening." default:"9001"`
 }
 
 var ctlCommand CtlCommand
