@@ -8,10 +8,12 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
+	"github.com/sevlyar/go-daemon"
 )
 
 type Options struct {
 	Configuration string `short:"c" long:"configuration" description:"the configuration file" default:"supervisord.conf"`
+	Daemon        bool   `short:"d" long:"daemon" description:"run as daemon"`
 }
 
 func init() {
@@ -34,6 +36,31 @@ func initSignals(s *Supervisor) {
 var options Options
 var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 
+func RunServer() {
+	s := NewSupervisor(options.Configuration)
+	initSignals(s)
+	if sErr := s.Reload(); sErr != nil {
+		panic(sErr)
+	}
+}
+
+func Deamonize() {
+	context := new(daemon.Context)
+
+	child, err := context.Reborn()
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Unable to run")
+	}
+	if child != nil {
+		return
+	}
+	defer context.Release()
+
+	log.Info("daemon started")
+
+	RunServer()
+}
+
 func main() {
 	if _, err := parser.Parse(); err != nil {
 		flagsErr, ok := err.(*flags.Error)
@@ -43,10 +70,10 @@ func main() {
 				fmt.Fprintln(os.Stdout, err)
 				os.Exit(0)
 			case flags.ErrCommandRequired:
-				s := NewSupervisor(options.Configuration)
-				initSignals(s)
-				if sErr := s.Reload(); sErr != nil {
-					panic(sErr)
+				if options.Daemon {
+					Deamonize()
+				} else {
+					RunServer()
 				}
 			default:
 				panic(err)
