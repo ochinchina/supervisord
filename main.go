@@ -25,9 +25,7 @@ func initSignals(s *Supervisor) {
 	go func() {
 		sig := <-sigs
 		log.WithFields(log.Fields{"signal": sig}).Info("receive a signal to stop all process & exit")
-		s.procMgr.ForEachProcess(func(proc *Process) {
-			proc.Stop(true)
-		})
+		s.procMgr.StopAllProcesses()
 		os.Exit(-1)
 	}()
 

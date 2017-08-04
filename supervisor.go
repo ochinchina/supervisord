@@ -147,6 +147,12 @@ func (s *Supervisor) ClearLog(r *http.Request, args *struct{}, reply *struct{ Re
 
 func (s *Supervisor) Shutdown(r *http.Request, args *struct{}, reply *struct{ Ret bool }) error {
 	reply.Ret = true
+	log.Info("received rpc request to stop all process & exit")
+	s.procMgr.StopAllProcesses()
+	go func() {
+		time.Sleep(1 * time.Second)
+		os.Exit(0)
+	}()
 	return nil
 }
 

@@ -118,3 +118,9 @@ func (pm *ProcessManager) getAllProcess() []*Process {
 	sort.Sort(ProcessSortByPriority(tmpProcs))
 	return tmpProcs
 }
+
+func (pm *ProcessManager) StopAllProcesses() {
+	pm.ForEachProcess(func(proc *Process) {
+		proc.Stop(true)
+	})
+}

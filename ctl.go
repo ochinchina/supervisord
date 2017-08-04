@@ -64,6 +64,18 @@ func (x *CtlCommand) Execute(args []string) error {
 			}
 		}
 
+	////////////////////////////////////////////////////////////////////////////////
+	// SHUTDOWN
+	////////////////////////////////////////////////////////////////////////////////
+	case "shutdown":
+		if reply, err := rpcc.Shutdown(); err == nil {
+			if reply.Value {
+				fmt.Printf("Shut Down\n")
+			} else {
+				fmt.Printf("Hmmm! Something gone wrong?!\n")
+			}
+		}
+
 	default:
 		fmt.Println("unknown command")
 	}
