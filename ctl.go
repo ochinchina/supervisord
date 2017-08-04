@@ -6,8 +6,7 @@ import (
 )
 
 type CtlCommand struct {
-	Host string `short:"h" long:"host" description:"host on which supervisord server is running." default:"localhost"`
-	Port int    `short:"p" long:"port" description:"port which supervisord server is listening." default:"9001"`
+	ServerUrl string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening" default:"http://localhost:9001"`
 }
 
 var ctlCommand CtlCommand
@@ -17,7 +16,7 @@ func (x *CtlCommand) Execute(args []string) error {
 		return nil
 	}
 
-	rpcc := NewXmlRPCClient(x.Host, x.Port)
+	rpcc := NewXmlRPCClient(x.ServerUrl)
 
 	verb, processes := args[0], args[1:]
 	hasProcesses := len(processes) > 0

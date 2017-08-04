@@ -9,8 +9,7 @@ import (
 )
 
 type XmlRPCClient struct {
-	host string
-	port int
+	serverurl string
 }
 
 type VersionReply struct {
@@ -25,12 +24,12 @@ type AllProcessInfoReply struct {
 	Value []ProcessInfo
 }
 
-func NewXmlRPCClient(host string, port int) *XmlRPCClient {
-	return &XmlRPCClient{host: host, port: port}
+func NewXmlRPCClient(serverurl string) *XmlRPCClient {
+	return &XmlRPCClient{serverurl: serverurl}
 }
 
 func (r *XmlRPCClient) Url() string {
-	return fmt.Sprintf("http://%s:%d/RPC2", r.host, r.port)
+	return fmt.Sprintf("%s/RPC2", r.serverurl)
 }
 
 func (r *XmlRPCClient) GetVersion() (reply VersionReply, err error) {
