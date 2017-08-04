@@ -20,10 +20,10 @@ func (x *CtlCommand) Execute(args []string) error {
 	rpcc := NewXmlRPCClient(x.Host, x.Port)
 
 	verb, processes := args[0], args[1:]
-	has_processes := len(processes) > 0
-	processes_map := make(map[string]bool)
+	hasProcesses := len(processes) > 0
+	processesMap := make(map[string]bool)
 	for _, process := range processes {
-		processes_map[strings.ToLower(process)] = true
+		processesMap[strings.ToLower(process)] = true
 	}
 
 	switch verb {
@@ -39,7 +39,7 @@ func (x *CtlCommand) Execute(args []string) error {
 				if strings.ToLower(description) == "<string></string>" {
 					description = ""
 				}
-				if !has_processes || processes_map[name] {
+				if !hasProcesses || processesMap[name] {
 					fmt.Printf("%-33s%-10s%s\n", name, pinfo.Statename, description)
 				}
 			}
