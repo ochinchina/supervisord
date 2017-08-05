@@ -64,6 +64,13 @@ type StateInfo struct {
 	Statename string `xml:"statename"`
 }
 
+type RpcTaskResult struct {
+	Name        string `xml:"name"`
+	Group       string `xml:"group"`
+	Status      int    `xml:"status"`
+	Description string `xml:"description"`
+}
+
 type LogReadInfo struct {
 	Offset int
 	Length int
@@ -207,9 +214,16 @@ func (s *Supervisor) StartProcess(r *http.Request, args *StartProcessArgs, reply
 
 func (s *Supervisor) StartAllProcesses(r *http.Request, args *struct {
 	Wait bool `default:"true"`
-}, reply *struct{ AllProcessInfo []ProcessInfo }) error {
+}, reply *struct{ RpcTaskResults []RpcTaskResult }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		proc.Start(args.Wait)
+		processInfo := *getProcessInfo(proc)
+		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
+			Name:        processInfo.Name,
+			Group:       processInfo.Group,
+			Status:      SUCCESS,
+			Description: "OK",
+		})
 	})
 	return nil
 }
@@ -249,10 +263,16 @@ func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, r
 
 func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 	Wait bool `default:"true"`
-}, reply *struct{ AllProcessInfo []ProcessInfo }) error {
+}, reply *struct{ RpcTaskResults []RpcTaskResult }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		proc.Stop(args.Wait)
-		reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
+		processInfo := *getProcessInfo(proc)
+		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
+			Name:        processInfo.Name,
+			Group:       processInfo.Group,
+			Status:      SUCCESS,
+			Description: "OK",
+		})
 	})
 	return nil
 }
@@ -502,13 +522,18 @@ func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string
 	return err2
 }
 
-func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply *struct{ AllProcessInfo []ProcessInfo }) error {
+func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply *struct{ RpcTaskResults []RpcTaskResult }) error {
 
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		proc.stdoutLog.ClearAllLogFile()
 		proc.stderrLog.ClearAllLogFile()
 		procInfo := getProcessInfo(proc)
-		reply.AllProcessInfo = append(reply.AllProcessInfo, *procInfo)
+		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
+			Name:        procInfo.Name,
+			Group:       procInfo.Group,
+			Status:      SUCCESS,
+			Description: "OK",
+		})
 	})
 
 	return nil
