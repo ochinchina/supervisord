@@ -20,7 +20,6 @@ type Supervisor struct {
 	procMgr    *ProcessManager
 	xmlRPC     *XmlRPC
 	logger     Logger
-	exiting    bool
 	restarting bool
 }
 
@@ -155,8 +154,6 @@ func (s *Supervisor) ClearLog(r *http.Request, args *struct{}, reply *struct{ Re
 }
 
 func (s *Supervisor) Shutdown(r *http.Request, args *struct{}, reply *struct{ Ret bool }) error {
-	log.Debug("Receive instruction to shutdown")
-	s.exiting = true
 	reply.Ret = true
 	log.Info("received rpc request to stop all processes & exit")
 	s.procMgr.StopAllProcesses()
@@ -168,7 +165,7 @@ func (s *Supervisor) Shutdown(r *http.Request, args *struct{}, reply *struct{ Re
 }
 
 func (s *Supervisor) Restart(r *http.Request, args *struct{}, reply *struct{ Ret bool }) error {
-	log.Debug("Receive instruction to restart")
+	log.Info("Receive instruction to restart")
 	s.restarting = true
 	reply.Ret = true
 	return nil
@@ -365,8 +362,8 @@ func (s *Supervisor) Reload() error {
 		s.startPrograms(prevPrograms)
 		s.startHttpServer()
 		for {
-			if s.exiting || s.restarting {
-				s.stopPrograms()
+			if s.IsRestarting() {
+				s.procMgr.StopAllProcesses()
 				break
 			}
 			time.Sleep(10 * time.Second)
@@ -386,14 +383,6 @@ func (s *Supervisor) startPrograms(prevPrograms []string) {
 	for _, p := range removedPrograms {
 		s.procMgr.Remove(p)
 	}
-}
-
-func (s *Supervisor) stopPrograms() {
-	log.Debug("Stopping all programs")
-	s.procMgr.ForEachProcess(func(proc *Process) {
-		log.WithFields(log.Fields{"program": proc.GetName()}).Debug("Stopping program")
-		proc.Stop(true)
-	})
 }
 
 func (s *Supervisor) startEventListeners() {
