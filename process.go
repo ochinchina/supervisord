@@ -156,7 +156,7 @@ func (p *Process) GetGroup() string {
 func (p *Process) GetDescription() string {
 	if p.state == RUNNING {
 		d := time.Now().Sub(p.startTime)
-		return fmt.Sprintf("pid %d, uptime %02d:%02d:%02d", p.cmd.Process.Pid, int(d.Hours()), int(d.Minutes()), int(d.Seconds()))
+		return fmt.Sprintf("pid %d, uptime %s", p.cmd.Process.Pid, d.String())
 	} else if p.state != STOPPED {
 		return p.stopTime.String()
 	}

@@ -133,9 +133,9 @@ func (c *Config) getIncludeFiles(cfg *ini.File) []string {
 		if err == nil && key != nil {
 			env := NewStringExpression("here", c.GetConfigFileDir())
 			files := strings.Fields(key.Value())
-			for _, f := range files {
+			for _, f_raw := range files {
 				dir := c.GetConfigFileDir()
-				f, err := env.Eval(f)
+				f, err := env.Eval(f_raw)
 				if err != nil {
 					continue
 				}
@@ -297,7 +297,7 @@ func (c *ConfigEntry) GetEnv(key string) []string {
 	if ok {
 		start := 0
 		n := len(value)
-		i := 0
+		var i int
 		for {
 			for i = start; i < n && value[i] != '='; {
 				i++
@@ -349,7 +349,11 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 	s, ok := c.keyValues[key]
 
 	if ok {
-		return s
+		env := NewStringExpression("here", c.ConfigDir)
+		rep_s, err := env.Eval(s)
+		if err == nil {
+			return rep_s
+		}
 	}
 	return defValue
 }

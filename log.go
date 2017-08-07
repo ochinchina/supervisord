@@ -278,11 +278,11 @@ func (l *FileLogger) Write(p []byte) (int, error) {
 	l.logEventEmitter.emitLogEvent(string(p))
 	l.fileSize += int64(n)
 	if l.fileSize >= l.maxSize {
-		fileInfo, err := os.Stat(fmt.Sprintf("%s.%d", l.name, l.curRotate))
-		if err == nil {
+		fileInfo, errStat := os.Stat(fmt.Sprintf("%s.%d", l.name, l.curRotate))
+		if errStat == nil {
 			l.fileSize = fileInfo.Size()
 		} else {
-			return n, err
+			return n, errStat
 		}
 	}
 	if l.fileSize >= l.maxSize {
