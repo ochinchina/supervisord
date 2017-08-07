@@ -147,17 +147,17 @@ func (l *FileLogger) ClearAllLogFile() error {
 	l.locker.Lock()
 	defer l.locker.Unlock()
 
-	for i := 0; i < l.backups; i++ {
+	for i := 0; i < l.backups && i <= l.curRotate; i++ {
 		logFile := l.getLogFileName(i)
 		err := os.Remove(logFile)
 		if err != nil {
-			return NewFault(FAILED, "FAILED")
+			return NewFault(FAILED, err.Error())
 		}
 	}
 	l.curRotate = 0
 	err := l.openFile(true)
 	if err != nil {
-		return NewFault(FAILED, "FAILED")
+		return NewFault(FAILED, err.Error())
 	}
 	return nil
 }
