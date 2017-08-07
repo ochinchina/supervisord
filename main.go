@@ -37,10 +37,15 @@ var options Options
 var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 
 func RunServer() {
-	s := NewSupervisor(options.Configuration)
-	initSignals(s)
-	if sErr := s.Reload(); sErr != nil {
-		panic(sErr)
+	for true {
+		s := NewSupervisor(options.Configuration)
+		initSignals(s)
+		if sErr := s.Reload(); sErr != nil {
+			panic(sErr)
+		}
+		if !s.IsRestarting() {
+			break
+		}
 	}
 }
 
