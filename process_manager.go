@@ -1,7 +1,6 @@
 package main
 
 import (
-	"sort"
 	"strings"
 	"sync"
 
@@ -115,8 +114,7 @@ func (pm *ProcessManager) getAllProcess() []*Process {
 	for _, proc := range pm.procs {
 		tmpProcs = append(tmpProcs, proc)
 	}
-	sort.Sort(ProcessSortByPriority(tmpProcs))
-	return tmpProcs
+	return sortProcess(tmpProcs)
 }
 
 func (pm *ProcessManager) StopAllProcesses() {

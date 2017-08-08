@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 	"io"
 	"os"
 	"os/exec"
@@ -11,8 +12,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 type ProcessState int
@@ -66,8 +65,6 @@ type Process struct {
 	stdoutLog  Logger
 	stderrLog  Logger
 }
-
-type ProcessSortByPriority []*Process
 
 func NewProcess(supervisor_id string, config *ConfigEntry) *Process {
 	proc := &Process{supervisor_id: supervisor_id,
@@ -594,16 +591,4 @@ func (p *Process) GetStatus() string {
 		return p.cmd.ProcessState.String()
 	}
 	return "running"
-}
-
-func (p ProcessSortByPriority) Len() int {
-	return len(p)
-}
-
-func (p ProcessSortByPriority) Swap(i, j int) {
-	p[i], p[j] = p[j], p[i]
-}
-
-func (p ProcessSortByPriority) Less(i, j int) bool {
-	return p[i].GetPriority() < p[j].GetPriority()
 }

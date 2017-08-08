@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -18,7 +17,6 @@ type ConfigEntry struct {
 	Group     string
 	Name      string
 	keyValues map[string]string
-	dict      map[string]string
 }
 
 func (c *ConfigEntry) IsProgram() bool {
@@ -65,21 +63,6 @@ func (c *ConfigEntry) GetPrograms() []string {
 
 func (c *ConfigEntry) setGroup(group string) {
 	c.Group = group
-	c.dict["group_name"] = group
-}
-
-type ByPriority []*ConfigEntry
-
-func (p ByPriority) Len() int {
-	return len(p)
-}
-
-func (p ByPriority) Swap(i, j int) {
-	p[i], p[j] = p[j], p[i]
-}
-
-func (p ByPriority) Less(i, j int) bool {
-	return p[i].GetInt("priority", 999) < p[j].GetInt("priority", 999)
 }
 
 type Config struct {
@@ -91,7 +74,7 @@ type Config struct {
 }
 
 func NewConfigEntry(configDir string) *ConfigEntry {
-	return &ConfigEntry{configDir, "", "", make(map[string]string), make(map[string]string)}
+	return &ConfigEntry{configDir, "", "", make(map[string]string)}
 }
 
 func NewConfig(configFile string) *Config {
@@ -224,8 +207,7 @@ func (c *Config) GetPrograms() []*ConfigEntry {
 		return entry.IsProgram()
 	})
 
-	sort.Sort(ByPriority(programs))
-	return programs
+	return sortProgram(programs)
 }
 
 func (c *Config) GetEventListeners() []*ConfigEntry {
@@ -240,7 +222,7 @@ func (c *Config) GetProgramNames() []string {
 	result := make([]string, 0)
 	programs := c.GetPrograms()
 
-	sort.Sort(ByPriority(programs))
+	programs = sortProgram(programs)
 	for _, entry := range programs {
 		result = append(result, entry.GetProgramName())
 	}
@@ -268,6 +250,12 @@ func (c *ConfigEntry) GetBool(key string, defValue bool) bool {
 		}
 	}
 	return defValue
+}
+
+// check if has parameter
+func (c *ConfigEntry) HasParameter(key string) bool {
+	_, ok := c.keyValues[key]
+	return ok
 }
 
 func toInt(s string, factor int, defValue int) int {
