@@ -1,4 +1,4 @@
-# why this project? 
+# Why this project? 
 
 The python script supervisord is a powerful tool used by a lot of guys to manage the processes. I like the tool supervisord also.
 
@@ -15,7 +15,7 @@ To compile the go-lang version supervisord, run following commands:
 ```shell
 $ mkdir ~/go-supervisor
 $ export GOPATH=~/go-supervisor
-$ go get github.com/ochinchina/supervisord
+$ go get -u github.com/ochinchina/supervisord
 ```
 
 # Run the supervisord
@@ -28,8 +28,26 @@ $ cat supervisor.conf
 command = /your/program args
 $ supervisord -c supervisor.conf
 ```
+# Run as daemon
+Add the inet interface in your configuration:
+```
+[inet_http_server]
+port=127.0.0.1:9001
+```
+then run
+```
+$ supervisord -c supervisor.conf -d
+```
+In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`. 
+    
+```
+$ supervisorctl ctl status
+$ supervisorctl ctl stop <worker_name>
+$ supervisorctl ctl start <worker_name>
+$ supervisorctl ctl shutdown
+```
 
-# features supported
+# Supported features
 
 ## http server
 
