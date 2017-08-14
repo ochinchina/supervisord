@@ -41,10 +41,10 @@ $ supervisord -c supervisor.conf -d
 In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`. 
     
 ```
-$ supervisorctl ctl status
-$ supervisorctl ctl stop <worker_name>
-$ supervisorctl ctl start <worker_name>
-$ supervisorctl ctl shutdown
+$ supervisord ctl status
+$ supervisord ctl stop <worker_name>
+$ supervisord ctl start <worker_name>
+$ supervisord ctl shutdown
 ```
 
 # Supported features
