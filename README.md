@@ -89,6 +89,22 @@ the following features is supported in the "program:x" section:
 - user
 - directory
 
+### program extends
+
+Following new keys are supported by the [program:xxx] section:
+
+- depends_on: define program depends information. If program A depends on program B, C, the program B, C will be started before program A. Example:
+
+```ini
+[program:A]
+depends_on = B, C
+
+[program:B]
+...
+[program:C]
+...
+```
+
 ## Group
 the "group" section is supported and you can set "programs" item
 
