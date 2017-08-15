@@ -4,3 +4,4 @@ test.log*
 .tags*
 debug
 go-debug.json
+vendor
