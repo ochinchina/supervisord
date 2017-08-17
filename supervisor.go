@@ -359,8 +359,9 @@ func (s *Supervisor) Reload() error {
 		s.setSupervisordInfo()
 		s.startEventListeners()
 		s.restarting = false
-		s.startPrograms(prevPrograms)
+		s.createPrograms(prevPrograms)
 		s.startHttpServer()
+        s.startAutoStartPrograms()
 		for {
 			if s.IsRestarting() {
 				s.procMgr.StopAllProcesses()
@@ -373,7 +374,7 @@ func (s *Supervisor) Reload() error {
 
 }
 
-func (s *Supervisor) startPrograms(prevPrograms []string) {
+func (s *Supervisor) createPrograms(prevPrograms []string) {
 
 	programs := s.config.GetProgramNames()
 	for _, entry := range s.config.GetPrograms() {
@@ -383,6 +384,10 @@ func (s *Supervisor) startPrograms(prevPrograms []string) {
 	for _, p := range removedPrograms {
 		s.procMgr.Remove(p)
 	}
+}
+
+func (s *Supervisor) startAutoStartPrograms() {
+    s.procMgr.StartAutoStartPrograms()
 }
 
 func (s *Supervisor) startEventListeners() {

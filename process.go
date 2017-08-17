@@ -80,9 +80,9 @@ func NewProcess(supervisor_id string, config *ConfigEntry) *Process {
 	proc.cmd = nil
 
 	//start the process if autostart is set to true
-	if proc.isAutoStart() {
-		proc.Start(false)
-	}
+	//if proc.isAutoStart() {
+	//	proc.Start(false)
+	//}
 
 	return proc
 }
@@ -100,15 +100,28 @@ func (p *Process) Start(wait bool) {
 	p.stopByUser = false
 	p.lock.Unlock()
 
-	var m sync.Mutex
-	runCond := sync.NewCond(&m)
-	m.Lock()
+    
+	var runCond *sync.Cond = nil
+    finished := false
+    if wait {
+        runCond = sync.NewCond(&sync.Mutex{})
+        runCond.L.Lock()
+    }
 
 	go func() {
 		p.retryTimes = 0
 
 		for {
-			p.run(runCond)
+            if wait {
+                runCond.L.Lock()
+            }
+			p.run( func() {
+                finished = true
+                if wait {
+                    runCond.L.Unlock()
+                    runCond.Signal()
+                }
+            })
 			if (p.stopTime.Unix() - p.startTime.Unix()) < int64(p.getStartSeconds()) {
 				p.retryTimes++
 			} else {
@@ -131,8 +144,9 @@ func (p *Process) Start(wait bool) {
 		p.inStart = false
 		p.lock.Unlock()
 	}()
-	if wait {
+	if wait && !finished {
 		runCond.Wait()
+        runCond.L.Unlock()
 	}
 }
 
@@ -151,6 +165,8 @@ func (p *Process) GetGroup() string {
 }
 
 func (p *Process) GetDescription() string {
+    p.lock.Lock()
+    defer p.lock.Unlock()
 	if p.state == RUNNING {
 		d := time.Now().Sub(p.startTime)
 		return fmt.Sprintf("pid %d, uptime %s", p.cmd.Process.Pid, d.String())
@@ -161,6 +177,9 @@ func (p *Process) GetDescription() string {
 }
 
 func (p *Process) GetExitstatus() int {
+    p.lock.Lock()
+    defer p.lock.Unlock()
+
 	if p.state == EXITED || p.state == BACKOFF {
 		if p.cmd.ProcessState == nil {
 			return 0
@@ -174,6 +193,9 @@ func (p *Process) GetExitstatus() int {
 }
 
 func (p *Process) GetPid() int {
+    p.lock.Lock()
+    defer p.lock.Unlock()
+
 	if p.state == STOPPED || p.state == FATAL || p.state == UNKNOWN || p.state == EXITED || p.state == BACKOFF {
 		return 0
 	}
@@ -203,11 +225,11 @@ func (p *Process) GetStopTime() time.Time {
 }
 
 func (p *Process) GetStdoutLogfile() string {
-	return p.config.GetString("stdout_logfile", "/dev/null")
+	return p.config.GetStringExpression("stdout_logfile", "/dev/null")
 }
 
 func (p *Process) GetStderrLogfile() string {
-	return p.config.GetString("stderr_logfile", "/dev/null")
+	return p.config.GetStringExpression("stderr_logfile", "/dev/null")
 }
 
 func (p *Process) getStartSeconds() int {
@@ -291,11 +313,12 @@ func (p *Process) getExitCodes() []int {
 	return result
 }
 
-func (p *Process) run(runCond *sync.Cond) {
+func (p *Process) run( finishCb func() ) {
 	args, err := parseCommand(p.config.GetStringExpression("command", ""))
 
 	if err != nil {
 		log.Error("the command is empty string")
+        finishCb()
 		return
 	}
 	p.lock.Lock()
@@ -304,6 +327,7 @@ func (p *Process) run(runCond *sync.Cond) {
 		if status.Continued() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start program because it is running")
 			p.lock.Unlock()
+            finishCb()
 			return
 		}
 	}
@@ -314,6 +338,7 @@ func (p *Process) run(runCond *sync.Cond) {
 	if p.setUser() != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
+        finishCb()
 		return
 	}
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
@@ -331,24 +356,30 @@ func (p *Process) run(runCond *sync.Cond) {
 		p.changeStateTo(FATAL)
 		p.stopTime = time.Now()
 		p.lock.Unlock()
-		runCond.Signal()
+		finishCb()
 	} else {
 		if p.stdoutLog != nil {
-			p.stdoutLog.SetPid(p.GetPid())
+			p.stdoutLog.SetPid(p.cmd.Process.Pid)
 		}
 		if p.stderrLog != nil {
-			p.stderrLog.SetPid(p.GetPid())
+			p.stderrLog.SetPid(p.cmd.Process.Pid)
 		}
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("success to start program")
 		startSecs := p.config.GetInt("startsecs", 1)
 		//Set startsec to 0 to indicate that the program needn't stay
 		//running for any particular amount of time.
-		if startSecs > 0 {
+		if startSecs <= 0 {
 			p.changeStateTo(RUNNING)
-		}
+
+		} else {
+            time.Sleep( time.Duration(startSecs) * time.Second )
+            if tmpProc, err := os.FindProcess( p.cmd.Process.Pid ); err == nil && tmpProc != nil {
+                p.changeStateTo(RUNNING)
+            }
+        }
 		p.lock.Unlock()
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Debug("wait program exit")
-		runCond.Signal()
+		finishCb()
 		p.cmd.Wait()
 		p.lock.Lock()
 		p.stopTime = time.Now()
@@ -369,22 +400,22 @@ func (p *Process) changeStateTo(procState ProcessState) {
 		if procState == STARTING {
 			emitEvent(createPorcessStartingEvent(progName, groupName, p.state.String(), p.retryTimes))
 		} else if procState == RUNNING {
-			emitEvent(createPorcessRunningEvent(progName, groupName, p.state.String(), p.GetPid()))
+			emitEvent(createPorcessRunningEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid ))
 		} else if procState == BACKOFF {
 			emitEvent(createPorcessBackoffEvent(progName, groupName, p.state.String(), p.retryTimes))
 		} else if procState == STOPPING {
-			emitEvent(createPorcessStoppingEvent(progName, groupName, p.state.String(), p.GetPid()))
+			emitEvent(createPorcessStoppingEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid ))
 		} else if procState == EXITED {
 			exitCode, err := p.getExitCode()
 			expected := 0
 			if err == nil && p.inExitCodes(exitCode) {
 				expected = 1
 			}
-			emitEvent(createPorcessExitedEvent(progName, groupName, p.state.String(), expected, p.GetPid()))
+			emitEvent(createPorcessExitedEvent(progName, groupName, p.state.String(), expected, p.cmd.Process.Pid ))
 		} else if procState == FATAL {
 			emitEvent(createPorcessFatalEvent(progName, groupName, p.state.String()))
 		} else if procState == STOPPED {
-			emitEvent(createPorcessStoppedEvent(progName, groupName, p.state.String(), p.GetPid()))
+			emitEvent(createPorcessStoppedEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid ))
 		} else if procState == UNKNOWN {
 			emitEvent(createPorcessUnknownEvent(progName, groupName, p.state.String()))
 		}
@@ -416,7 +447,6 @@ func (p *Process) setDir() {
 	dir := p.config.GetStringExpression("directory", "")
 	if dir != "" {
 		p.cmd.Dir = dir
-		fmt.Printf("Directory has been set to: %s\n", dir)
 	}
 }
 
