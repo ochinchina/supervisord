@@ -361,7 +361,7 @@ func (s *Supervisor) Reload() error {
 		s.restarting = false
 		s.createPrograms(prevPrograms)
 		s.startHttpServer()
-        s.startAutoStartPrograms()
+		s.startAutoStartPrograms()
 		for {
 			if s.IsRestarting() {
 				s.procMgr.StopAllProcesses()
@@ -387,7 +387,7 @@ func (s *Supervisor) createPrograms(prevPrograms []string) {
 }
 
 func (s *Supervisor) startAutoStartPrograms() {
-    s.procMgr.StartAutoStartPrograms()
+	s.procMgr.StartAutoStartPrograms()
 }
 
 func (s *Supervisor) startEventListeners() {

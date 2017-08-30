@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-    "os"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -354,15 +354,15 @@ func (c *ConfigEntry) GetStringExpression(key string, defValue string) string {
 		return s
 	}
 
-    host_name, err := os.Hostname()
-    if err != nil {
-        host_name = "Unknown"
-    }
+	host_name, err := os.Hostname()
+	if err != nil {
+		host_name = "Unknown"
+	}
 	result, err := NewStringExpression("program_name", c.GetProgramName(),
 		"process_num", c.GetString("process_num", "0"),
 		"group_name", c.GetGroupName(),
 		"here", c.ConfigDir,
-        "host_node_name", host_name ).Eval(s)
+		"host_node_name", host_name).Eval(s)
 
 	if err != nil {
 		log.WithFields(log.Fields{

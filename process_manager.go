@@ -32,11 +32,11 @@ func (pm *ProcessManager) CreateProcess(supervisor_id string, config *ConfigEntr
 }
 
 func (pm *ProcessManager) StartAutoStartPrograms() {
-    pm.ForEachProcess( func( proc *Process) {
-        if proc.isAutoStart() {
-            proc.Start( false )
-        }
-    })
+	pm.ForEachProcess(func(proc *Process) {
+		if proc.isAutoStart() {
+			proc.Start(false)
+		}
+	})
 }
 
 func (pm *ProcessManager) createProgram(supervisor_id string, config *ConfigEntry) *Process {
