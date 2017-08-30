@@ -510,7 +510,7 @@ type ProcessStateEvent struct {
 	pid          int
 }
 
-func createPorcessStartingEvent(process string,
+func createProcessStartingEvent(process string,
 	group string,
 	from_state string,
 	tries int) *ProcessStateEvent {
@@ -525,7 +525,7 @@ func createPorcessStartingEvent(process string,
 	return r
 }
 
-func createPorcessRunningEvent(process string,
+func createProcessRunningEvent(process string,
 	group string,
 	from_state string,
 	pid int) *ProcessStateEvent {
@@ -540,7 +540,7 @@ func createPorcessRunningEvent(process string,
 	return r
 }
 
-func createPorcessBackoffEvent(process string,
+func createProcessBackoffEvent(process string,
 	group string,
 	from_state string,
 	tries int) *ProcessStateEvent {
@@ -555,7 +555,7 @@ func createPorcessBackoffEvent(process string,
 	return r
 }
 
-func createPorcessStoppingEvent(process string,
+func createProcessStoppingEvent(process string,
 	group string,
 	from_state string,
 	pid int) *ProcessStateEvent {
@@ -570,7 +570,7 @@ func createPorcessStoppingEvent(process string,
 	return r
 }
 
-func createPorcessExitedEvent(process string,
+func createProcessExitedEvent(process string,
 	group string,
 	from_state string,
 	expected int,
@@ -586,7 +586,7 @@ func createPorcessExitedEvent(process string,
 	return r
 }
 
-func createPorcessStoppedEvent(process string,
+func createProcessStoppedEvent(process string,
 	group string,
 	from_state string,
 	pid int) *ProcessStateEvent {
@@ -601,7 +601,7 @@ func createPorcessStoppedEvent(process string,
 	return r
 }
 
-func createPorcessFatalEvent(process string,
+func createProcessFatalEvent(process string,
 	group string,
 	from_state string) *ProcessStateEvent {
 	r := &ProcessStateEvent{process_name: process,
@@ -615,7 +615,7 @@ func createPorcessFatalEvent(process string,
 	return r
 }
 
-func createPorcessUnknownEvent(process string,
+func createProcessUnknownEvent(process string,
 	group string,
 	from_state string) *ProcessStateEvent {
 	r := &ProcessStateEvent{process_name: process,

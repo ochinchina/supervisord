@@ -126,7 +126,7 @@ func TestProcCommEventCapture(t *testing.T) {
 }
 
 func TestProcessStartingEvent(t *testing.T) {
-	event := createPorcessStartingEvent("proc-1", "group-1", "STOPPED", 0)
+	event := createProcessStartingEvent("proc-1", "group-1", "STOPPED", 0)
 	if event.GetType() != "PROCESS_STATE_STARTING" {
 		t.Error("Fail to creating the process starting event")
 	}
@@ -136,7 +136,7 @@ func TestProcessStartingEvent(t *testing.T) {
 }
 
 func TestProcessRunningEvent(t *testing.T) {
-	event := createPorcessRunningEvent("proc-1", "group-1", "STARTING", 2766)
+	event := createProcessRunningEvent("proc-1", "group-1", "STARTING", 2766)
 	if event.GetType() != "PROCESS_STATE_RUNNING" {
 		t.Error("Fail to creating the process running event")
 	}
@@ -146,7 +146,7 @@ func TestProcessRunningEvent(t *testing.T) {
 }
 
 func TestProcessBackoffEvent(t *testing.T) {
-	event := createPorcessBackoffEvent("proc-1", "group-1", "STARTING", 1)
+	event := createProcessBackoffEvent("proc-1", "group-1", "STARTING", 1)
 	if event.GetType() != "PROCESS_STATE_BACKOFF" {
 		t.Error("Fail to creating the process backoff event")
 	}
@@ -156,7 +156,7 @@ func TestProcessBackoffEvent(t *testing.T) {
 }
 
 func TestProcessStoppingEvent(t *testing.T) {
-	event := createPorcessStoppingEvent("proc-1", "group-1", "STARTING", 2766)
+	event := createProcessStoppingEvent("proc-1", "group-1", "STARTING", 2766)
 	if event.GetType() != "PROCESS_STATE_STOPPING" {
 		t.Error("Fail to creating the process stopping event")
 	}
@@ -166,7 +166,7 @@ func TestProcessStoppingEvent(t *testing.T) {
 }
 
 func TestProcessExitedEvent(t *testing.T) {
-	event := createPorcessExitedEvent("proc-1", "group-1", "RUNNING", 1, 2766)
+	event := createProcessExitedEvent("proc-1", "group-1", "RUNNING", 1, 2766)
 	if event.GetType() != "PROCESS_STATE_EXITED" {
 		t.Error("Fail to creating the process exited event")
 	}
@@ -176,7 +176,7 @@ func TestProcessExitedEvent(t *testing.T) {
 }
 
 func TestProcessStoppedEvent(t *testing.T) {
-	event := createPorcessStoppedEvent("proc-1", "group-1", "STOPPING", 2766)
+	event := createProcessStoppedEvent("proc-1", "group-1", "STOPPING", 2766)
 	if event.GetType() != "PROCESS_STATE_STOPPED" {
 		t.Error("Fail to creating the process stopped event")
 	}
@@ -186,7 +186,7 @@ func TestProcessStoppedEvent(t *testing.T) {
 }
 
 func TestProcessFatalEvent(t *testing.T) {
-	event := createPorcessFatalEvent("proc-1", "group-1", "BACKOFF")
+	event := createProcessFatalEvent("proc-1", "group-1", "BACKOFF")
 	if event.GetType() != "PROCESS_STATE_FATAL" {
 		t.Error("Fail to creating the process fatal event")
 	}
@@ -196,7 +196,7 @@ func TestProcessFatalEvent(t *testing.T) {
 }
 
 func TestProcessUnknownEvent(t *testing.T) {
-	event := createPorcessUnknownEvent("proc-1", "group-1", "BACKOFF")
+	event := createProcessUnknownEvent("proc-1", "group-1", "BACKOFF")
 	if event.GetType() != "PROCESS_STATE_UNKNOWN" {
 		t.Error("Fail to creating the process unknown event")
 	}
