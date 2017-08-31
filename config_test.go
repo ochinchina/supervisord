@@ -87,14 +87,14 @@ func TestGetEnvValueFromConfig(t *testing.T) {
 	config, _ := parse([]byte("[program:test]\na=A=\"env1\",B=env2"))
 	entry := config.GetProgram("test")
 	envs := entry.GetEnv("a")
-	if len(envs) != 2 || envs[0] != "A=\"env1\"" || envs[1] != "B=\"env2\"" {
+	if len(envs) != 2 || envs[0] != "A=env1" || envs[1] != "B=env2" {
 		t.Error("Fail to get env value")
 	}
 
 	config, _ = parse([]byte("[program:test]\na=A=env1,B=\"env2\""))
 	entry = config.GetProgram("test")
 	envs = entry.GetEnv("a")
-	if len(envs) != 2 || envs[0] != "A=\"env1\"" || envs[1] != "B=\"env2\"" {
+	if len(envs) != 2 || envs[0] != "A=env1" || envs[1] != "B=env2" {
 		t.Error("Fail to get env value")
 	}
 
