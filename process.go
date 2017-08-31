@@ -404,26 +404,26 @@ func (p *Process) changeStateTo(procState ProcessState) {
 		progName := p.config.GetProgramName()
 		groupName := p.config.GetGroupName()
 		if procState == STARTING {
-			emitEvent(createPorcessStartingEvent(progName, groupName, p.state.String(), p.retryTimes))
+			emitEvent(createProcessStartingEvent(progName, groupName, p.state.String(), p.retryTimes))
 		} else if procState == RUNNING {
-			emitEvent(createPorcessRunningEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
+			emitEvent(createProcessRunningEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
 		} else if procState == BACKOFF {
-			emitEvent(createPorcessBackoffEvent(progName, groupName, p.state.String(), p.retryTimes))
+			emitEvent(createProcessBackoffEvent(progName, groupName, p.state.String(), p.retryTimes))
 		} else if procState == STOPPING {
-			emitEvent(createPorcessStoppingEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
+			emitEvent(createProcessStoppingEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
 		} else if procState == EXITED {
 			exitCode, err := p.getExitCode()
 			expected := 0
 			if err == nil && p.inExitCodes(exitCode) {
 				expected = 1
 			}
-			emitEvent(createPorcessExitedEvent(progName, groupName, p.state.String(), expected, p.cmd.Process.Pid))
+			emitEvent(createProcessExitedEvent(progName, groupName, p.state.String(), expected, p.cmd.Process.Pid))
 		} else if procState == FATAL {
-			emitEvent(createPorcessFatalEvent(progName, groupName, p.state.String()))
+			emitEvent(createProcessFatalEvent(progName, groupName, p.state.String()))
 		} else if procState == STOPPED {
-			emitEvent(createPorcessStoppedEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
+			emitEvent(createProcessStoppedEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
 		} else if procState == UNKNOWN {
-			emitEvent(createPorcessUnknownEvent(progName, groupName, p.state.String()))
+			emitEvent(createProcessUnknownEvent(progName, groupName, p.state.String()))
 		}
 	}
 	p.state = procState
