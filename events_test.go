@@ -11,13 +11,9 @@ import (
 )
 
 func TestEventSerial(t *testing.T) {
-	val := nextEventSerial()
-	if val != 1 {
-		t.Error("Fail to get next serial")
-	}
-
-	val = nextEventSerial()
-	if val != 2 {
+	v1 := nextEventSerial()
+	v2 := nextEventSerial()
+	if v2 < v1 {
 		t.Error("Fail to get next serial")
 	}
 }
