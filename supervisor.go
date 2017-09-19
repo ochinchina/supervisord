@@ -295,14 +295,20 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *ProcessSignal, reply *
 	if proc == nil {
 		return fmt.Errorf("No process named %s", args.Name)
 	}
-	proc.Signal(toSignal(args.Signal))
+	sig, err := toSignal(args.Signal)
+	if err == nil {
+		proc.Signal(sig)
+	}
 	return nil
 }
 
 func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		if proc.GetGroup() == args.Name {
-			proc.Signal(toSignal(args.Signal))
+			sig, err := toSignal(args.Signal)
+			if err == nil {
+				proc.Signal(sig)
+			}
 		}
 	})
 
@@ -316,7 +322,10 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, re
 
 func (s *Supervisor) SignalAllProcesses(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
-		proc.Signal(toSignal(args.Signal))
+		sig, err := toSignal(args.Signal)
+		if err == nil {
+			proc.Signal(sig)
+		}
 	})
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))

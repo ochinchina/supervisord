@@ -583,29 +583,8 @@ func (p *Process) setUser() error {
 	if err != nil {
 		return err
 	}
-	p.cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}
+	set_user_id(p.cmd.SysProcAttr, uint32(uid), uint32(gid))
 	return nil
-}
-
-//convert a signal name to signal
-func toSignal(signalName string) os.Signal {
-	if signalName == "HUP" {
-		return syscall.SIGHUP
-	} else if signalName == "INT" {
-		return syscall.SIGINT
-	} else if signalName == "QUIT" {
-		return syscall.SIGQUIT
-	} else if signalName == "KILL" {
-		return syscall.SIGKILL
-	} else if signalName == "USR1" {
-		return syscall.SIGUSR1
-	} else if signalName == "USR2" {
-		return syscall.SIGUSR2
-	} else {
-		return syscall.SIGTERM
-
-	}
-
 }
 
 //send signal to process to stop it
@@ -615,7 +594,10 @@ func (p *Process) Stop(wait bool) {
 	p.stopByUser = true
 	if p.cmd != nil && p.cmd.Process != nil {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
-		p.cmd.Process.Signal(toSignal(p.config.GetString("stopsignal", "")))
+		sig, err := toSignal(p.config.GetString("stopsignal", ""))
+		if err == nil {
+			p.cmd.Process.Signal(sig)
+		}
 		if wait {
 			p.cmd.Process.Wait()
 		}

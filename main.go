@@ -8,7 +8,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/jessevdk/go-flags"
-	"github.com/sevlyar/go-daemon"
 )
 
 type Options struct {
@@ -47,23 +46,6 @@ func RunServer() {
 	}
 }
 
-func Deamonize() {
-	context := new(daemon.Context)
-
-	child, err := context.Reborn()
-	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Unable to run")
-	}
-	if child != nil {
-		return
-	}
-	defer context.Release()
-
-	log.Info("daemon started")
-
-	RunServer()
-}
-
 func main() {
 	if _, err := parser.Parse(); err != nil {
 		flagsErr, ok := err.(*flags.Error)
@@ -74,7 +56,7 @@ func main() {
 				os.Exit(0)
 			case flags.ErrCommandRequired:
 				if options.Daemon {
-					Deamonize()
+					Deamonize(RunServer)
 				} else {
 					RunServer()
 				}
