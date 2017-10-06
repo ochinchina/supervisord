@@ -553,12 +553,14 @@ func (p *Process) unregisterEventListener(eventListenerName string) {
 
 func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
 	var logger Logger
-	logger = NewNullLogger()
+	logger = NewNullLogger(logEventEmitter)
 
 	if logFile == "/dev/stdout" {
 		logger = NewStdoutLogger(logEventEmitter)
 	} else if logFile == "/dev/stderr" {
 		logger = NewStderrLogger(logEventEmitter)
+	} else if logFile == "syslog" {
+		logger = NewSysLogger(logEventEmitter)
 	} else if len(logFile) > 0 {
 		logger = NewFileLogger(logFile, maxBytes, backups, logEventEmitter, NewNullLocker())
 	}
