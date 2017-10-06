@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -64,6 +65,18 @@ func (c *ConfigEntry) GetPrograms() []string {
 
 func (c *ConfigEntry) setGroup(group string) {
 	c.Group = group
+}
+
+// dump the configuration as string
+func (c *ConfigEntry) String() string {
+	buf := bytes.NewBuffer(make([]byte, 0))
+	fmt.Fprintf(buf, "configDir=%s\n", c.ConfigDir)
+	fmt.Fprintf(buf, "group=%s\n", c.Group)
+	for k, v := range c.keyValues {
+		fmt.Fprintf(buf, "%s=%s\n", k, v)
+	}
+	return buf.String()
+
 }
 
 type Config struct {
@@ -342,6 +355,12 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 		rep_s, err := env.Eval(s)
 		if err == nil {
 			return rep_s
+		} else {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"program":    c.GetProgramName(),
+				"key":        key,
+			}).Warn("Unable to parse expression")
 		}
 	}
 	return defValue
@@ -349,9 +368,9 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 
 //get the value of key as string and attempt to parse it with StringExpression
 func (c *ConfigEntry) GetStringExpression(key string, defValue string) string {
-	s := c.GetString(key, defValue)
-	if s == "" {
-		return s
+	s, ok := c.keyValues[key]
+	if !ok || s == "" {
+		return ""
 	}
 
 	host_name, err := os.Hostname()
@@ -501,4 +520,14 @@ func (c *Config) parseProgram(cfg *ini.File) {
 		}
 	}
 
+}
+
+func (c *Config) String() string {
+	buf := bytes.NewBuffer(make([]byte, 0))
+	fmt.Fprintf(buf, "configFile:%s\n", c.configFile)
+	for k, v := range c.entries {
+		fmt.Fprintf(buf, "[program:%s]\n", k)
+		fmt.Fprintf(buf, "%s\n", v.String())
+	}
+	return buf.String()
 }
