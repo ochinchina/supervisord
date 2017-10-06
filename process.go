@@ -570,6 +570,14 @@ func (p *Process) setUser() error {
 	if len(userName) == 0 {
 		return nil
 	}
+
+	//check if group is provided
+	pos := strings.Index(userName, ":")
+	groupName := ""
+	if pos != -1 {
+		groupName = userName[pos+1:]
+		userName = userName[0:pos]
+	}
 	u, err := user.Lookup(userName)
 	if err != nil {
 		return err
@@ -580,8 +588,18 @@ func (p *Process) setUser() error {
 		return err
 	}
 	gid, err := strconv.ParseUint(u.Gid, 10, 32)
-	if err != nil {
+	if err != nil && groupName == "" {
 		return err
+	}
+	if groupName != "" {
+		g, err := user.LookupGroup(groupName)
+		if err != nil {
+			return err
+		}
+		gid, err = strconv.ParseUint(g.Gid, 10, 32)
+		if err != nil {
+			return err
+		}
 	}
 	set_user_id(p.cmd.SysProcAttr, uint32(uid), uint32(gid))
 	return nil
