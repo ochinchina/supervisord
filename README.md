@@ -105,6 +105,19 @@ depends_on = B, C
 ...
 ```
 
+- user: user in the section "program:xxx" now is extended to support group with format "user[:group]". So "user" can be configured as:
+
+```ini
+[program:xxx]
+user = user_name
+...
+```
+or 
+```ini
+[program:xxx]
+user = user_name:group_name
+...
+```
 ## Group
 the "group" section is supported and you can set "programs" item
 
