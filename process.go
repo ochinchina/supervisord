@@ -321,6 +321,9 @@ func (p *Process) getExitCodes() []int {
 
 func (p *Process) run(finishCb func()) {
 	args, err := parseCommand(p.config.GetStringExpression("command", ""))
+	for _, arg := range args {
+		fmt.Printf("%s\n", arg)
+	}
 
 	if err != nil {
 		log.Error("the command is empty string")

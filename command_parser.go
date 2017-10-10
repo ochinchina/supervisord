@@ -5,6 +5,10 @@ import (
 	"unicode"
 )
 
+// find the position of byte ch in the string s start from offset
+//
+// return: -1 if byte ch is not found, >= offset if the ch is found
+// in the string s from offset
 func findChar(s string, offset int, ch byte) int {
 	for i := offset; i < len(s); i++ {
 		if s[i] == '\\' {
@@ -16,6 +20,10 @@ func findChar(s string, offset int, ch byte) int {
 	return -1
 }
 
+// skip all the white space and return the first position of non-space char
+//
+// return: the first position of non-space char or -1 if all the char
+// from offset are space
 func skipSpace(s string, offset int) int {
 	for i := offset; i < len(s); i++ {
 		if !unicode.IsSpace(rune(s[i])) {
@@ -36,10 +44,12 @@ func parseCommand(command string) ([]string, error) {
 	args := make([]string, 0)
 	cmdLen := len(command)
 	for i := 0; i < cmdLen; {
+		//find the first non-space char
 		j := skipSpace(command, i)
 		if j == -1 {
 			break
 		}
+		i = j
 		for ; j < cmdLen; j++ {
 			if unicode.IsSpace(rune(command[j])) {
 				args = appendArgument(command[i:j], args)
@@ -54,7 +64,7 @@ func parseCommand(command string) ([]string, error) {
 					i = cmdLen
 				} else {
 					args = appendArgument(command[i:k+1], args)
-					i = k + 2
+					i = k + 1
 				}
 				break
 			}
