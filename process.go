@@ -563,7 +563,7 @@ func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logE
 	} else if logFile == "/dev/stderr" {
 		logger = NewStderrLogger(logEventEmitter)
 	} else if logFile == "syslog" {
-		logger = NewSysLogger(logEventEmitter)
+		logger = NewSysLogger(p.GetName(), logEventEmitter)
 	} else if len(logFile) > 0 {
 		logger = NewFileLogger(logFile, maxBytes, backups, logEventEmitter, NewNullLocker())
 	}

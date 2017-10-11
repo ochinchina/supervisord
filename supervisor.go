@@ -447,7 +447,7 @@ func (s *Supervisor) setSupervisordInfo() {
 			case "/dev/null":
 				s.logger = NewNullLogger(logEventEmitter)
 			case "syslog":
-				s.logger = NewSysLogger(logEventEmitter)
+				s.logger = NewSysLogger("supervisord", logEventEmitter)
 			case "/dev/stdout":
 				s.logger = NewStdoutLogger(logEventEmitter)
 			case "/dev/stderr":

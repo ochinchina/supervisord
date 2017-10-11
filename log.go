@@ -308,8 +308,8 @@ func (l *FileLogger) Close() error {
 	return nil
 }
 
-func NewSysLogger(logEventEmitter LogEventEmitter) *SysLogger {
-	writer, err := syslog.New(syslog.LOG_DEBUG, "supervisord")
+func NewSysLogger(name string, logEventEmitter LogEventEmitter) *SysLogger {
+	writer, err := syslog.New(syslog.LOG_DEBUG, name )
 	logger := &SysLogger{logEventEmitter: logEventEmitter}
 	if err == nil {
 		logger.logWriter = writer
