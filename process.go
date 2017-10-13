@@ -344,13 +344,13 @@ func (p *Process) run(finishCb func()) {
 	if len(args) > 1 {
 		p.cmd.Args = args
 	}
+    p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
 		finishCb()
 		return
 	}
-	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	set_deathsig(p.cmd.SysProcAttr)
 	p.setEnv()
 	p.setDir()
@@ -587,7 +587,6 @@ func (p *Process) setUser() error {
 	if err != nil {
 		return err
 	}
-	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	uid, err := strconv.ParseUint(u.Uid, 10, 32)
 	if err != nil {
 		return err
