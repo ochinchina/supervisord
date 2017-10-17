@@ -321,9 +321,6 @@ func (p *Process) getExitCodes() []int {
 
 func (p *Process) run(finishCb func()) {
 	args, err := parseCommand(p.config.GetStringExpression("command", ""))
-	for _, arg := range args {
-		fmt.Printf("%s\n", arg)
-	}
 
 	if err != nil {
 		log.Error("the command is empty string")
@@ -344,7 +341,7 @@ func (p *Process) run(finishCb func()) {
 	if len(args) > 1 {
 		p.cmd.Args = args
 	}
-	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
+	p.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if p.setUser() != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
@@ -390,6 +387,7 @@ func (p *Process) run(finishCb func()) {
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Debug("wait program exit")
 		finishCb()
 		p.cmd.Wait()
+		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("program stopped")
 		p.lock.Lock()
 		p.stopTime = time.Now()
 		if p.stopTime.Unix()-p.startTime.Unix() < int64(startSecs) {
@@ -436,10 +434,15 @@ func (p *Process) Signal(sig os.Signal) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	if p.cmd != nil && p.cmd.Process != nil {
-		return p.cmd.Process.Signal(sig)
-	}
+	return p.sendSignal(sig)
+}
 
+func (p *Process) sendSignal(sig os.Signal) error {
+	if p.cmd != nil && p.cmd.Process != nil {
+		localSig := sig.(syscall.Signal)
+		err := syscall.Kill(-p.cmd.Process.Pid, localSig)
+		return err
+	}
 	return fmt.Errorf("process is not started")
 }
 
@@ -611,41 +614,40 @@ func (p *Process) setUser() error {
 
 //send signal to process to stop it
 func (p *Process) Stop(wait bool) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.lock.RLock()
 	p.stopByUser = true
-	if p.cmd != nil && p.cmd.Process != nil {
-		log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
-		sig, err := toSignal(p.config.GetString("stopsignal", ""))
-		if err == nil {
-			p.cmd.Process.Signal(sig)
-		}
-		go func() {
-			//wait at most "stopwaitsecs" seconds
-			waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
-			endTime := time.Now().Add(waitsecs)
-			for {
-				//if it already exits
-				if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
-					break
-				}
-				//if endTime reaches, raise signal syscall.SIGKILL
-				if endTime.Before(time.Now()) {
-					p.cmd.Process.Signal(syscall.SIGKILL)
-					break
-				} else {
-					time.Sleep(1 * time.Second)
-				}
+	p.lock.RUnlock()
+	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
+	sig, err := toSignal(p.config.GetString("stopsignal", ""))
+	if err == nil {
+		p.Signal(sig)
+	}
+	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
+	endTime := time.Now().Add(waitsecs)
+	go func() {
+		//wait at most "stopwaitsecs" seconds
+		for {
+			//if it already exits
+			if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
+				break
 			}
-		}()
-		if wait {
-			for {
-				// if the program exits
-				if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
-					break
-				}
+			//if endTime reaches, raise signal syscall.SIGKILL
+			if endTime.Before(time.Now()) {
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
+				p.Signal(syscall.SIGKILL)
+				break
+			} else {
 				time.Sleep(1 * time.Second)
 			}
+		}
+	}()
+	if wait {
+		for {
+			// if the program exits
+			if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
+				break
+			}
+			time.Sleep(1 * time.Second)
 		}
 	}
 }
