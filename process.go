@@ -344,7 +344,7 @@ func (p *Process) run(finishCb func()) {
 	if len(args) > 1 {
 		p.cmd.Args = args
 	}
-    p.cmd.SysProcAttr = &syscall.SysProcAttr{}
+	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
@@ -620,8 +620,32 @@ func (p *Process) Stop(wait bool) {
 		if err == nil {
 			p.cmd.Process.Signal(sig)
 		}
+		go func() {
+			//wait at most "stopwaitsecs" seconds
+			waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
+			endTime := time.Now().Add(waitsecs)
+			for {
+				//if it already exits
+				if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
+					break
+				}
+				//if endTime reaches, raise signal syscall.SIGKILL
+				if endTime.Before(time.Now()) {
+					p.cmd.Process.Signal(syscall.SIGKILL)
+					break
+				} else {
+					time.Sleep(1 * time.Second)
+				}
+			}
+		}()
 		if wait {
-			p.cmd.Process.Wait()
+			for {
+				// if the program exits
+				if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
+					break
+				}
+				time.Sleep(1 * time.Second)
+			}
 		}
 	}
 }
