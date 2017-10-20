@@ -80,6 +80,7 @@ func (l *FileLogger) nextLogFile() {
 func (l *FileLogger) updateLatestLog() {
 	dir := path.Dir(l.name)
 	files, err := ioutil.ReadDir(dir)
+	baseName := path.Base(l.name)
 
 	if err != nil {
 		l.curRotate = 0
@@ -88,8 +89,8 @@ func (l *FileLogger) updateLatestLog() {
 		var latestFile os.FileInfo
 		latestNum := -1
 		for _, fileInfo := range files {
-			if strings.HasPrefix(fileInfo.Name(), l.name+".") {
-				n, err := strconv.Atoi(fileInfo.Name()[len(l.name)+1:])
+			if !fileInfo.IsDir() && strings.HasPrefix(fileInfo.Name(), baseName+".") {
+				n, err := strconv.Atoi(fileInfo.Name()[len(baseName)+1:])
 				if err == nil && n >= 0 && n < l.backups {
 					if latestFile == nil || latestFile.ModTime().Before(fileInfo.ModTime()) {
 						latestFile = fileInfo
