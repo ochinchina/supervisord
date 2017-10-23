@@ -231,11 +231,23 @@ func (p *Process) GetStopTime() time.Time {
 }
 
 func (p *Process) GetStdoutLogfile() string {
-	return p.config.GetStringExpression("stdout_logfile", "/dev/null")
+	file_name := p.config.GetStringExpression("stdout_logfile", "/dev/null")
+	expand_file, err := path_expand(file_name)
+	if err == nil {
+		return expand_file
+	} else {
+		return file_name
+	}
 }
 
 func (p *Process) GetStderrLogfile() string {
-	return p.config.GetStringExpression("stderr_logfile", "/dev/null")
+	file_name := p.config.GetStringExpression("stderr_logfile", "/dev/null")
+	expand_file, err := path_expand(file_name)
+	if err == nil {
+		return expand_file
+	} else {
+		return file_name
+	}
 }
 
 func (p *Process) getStartSeconds() int {
@@ -473,7 +485,7 @@ func (p *Process) setDir() {
 
 func (p *Process) setLog() {
 	if p.config.IsProgram() {
-		p.stdoutLog = p.createLogger(p.config.GetStringExpression("stdout_logfile", ""),
+		p.stdoutLog = p.createLogger(p.GetStdoutLogfile(),
 			int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
 			p.config.GetInt("stdout_logfile_backups", 10),
 			p.createStdoutLogEventEmitter())
@@ -492,7 +504,7 @@ func (p *Process) setLog() {
 		if p.config.GetBool("redirect_stderr", false) {
 			p.stderrLog = p.stdoutLog
 		} else {
-			p.stderrLog = p.createLogger(p.config.GetStringExpression("stderr_logfile", ""),
+			p.stderrLog = p.createLogger(p.GetStderrLogfile(),
 				int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
 				p.config.GetInt("stderr_logfile_backups", 10),
 				p.createStderrLogEventEmitter())
