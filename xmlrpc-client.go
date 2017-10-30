@@ -43,6 +43,12 @@ func (r *XmlRPCClient) GetVersion() (reply VersionReply, err error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode/100 != 2 {
+		fmt.Println("Bad Response:", resp.Status)
+		err = fmt.Errorf("Response code is NOT 2xx")
+		return
+	}
+
 	err = xml.DecodeClientResponse(resp.Body, &reply)
 
 	return
@@ -57,6 +63,12 @@ func (r *XmlRPCClient) GetAllProcessInfo() (reply AllProcessInfoReply, err error
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode/100 != 2 {
+		fmt.Println("Bad Response:", resp.Status)
+		err = fmt.Errorf("Response code is NOT 2xx")
+		return
+	}
 
 	err = xml.DecodeClientResponse(resp.Body, &reply)
 
@@ -78,6 +90,12 @@ func (r *XmlRPCClient) ChangeProcessState(change string, processName string) (re
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode/100 != 2 {
+		fmt.Println("Bad Response:", resp.Status)
+		err = fmt.Errorf("Response code is NOT 2xx")
+		return
+	}
+
 	err = xml.DecodeClientResponse(resp.Body, &reply)
 
 	return
@@ -92,6 +110,12 @@ func (r *XmlRPCClient) Shutdown() (reply ShutdownReply, err error) {
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode/100 != 2 {
+		fmt.Println("Bad Response:", resp.Status)
+		err = fmt.Errorf("Response code is NOT 2xx")
+		return
+	}
 
 	err = xml.DecodeClientResponse(resp.Body, &reply)
 
