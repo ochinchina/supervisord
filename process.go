@@ -1,5 +1,3 @@
-// +build !windows
-
 package main
 
 import (
@@ -355,7 +353,7 @@ func (p *Process) run(finishCb func()) {
 	if len(args) > 1 {
 		p.cmd.Args = args
 	}
-	p.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	p.cmd.SysProcAttr = getSysProcAttr()
 	if p.setUser() != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
@@ -462,9 +460,7 @@ func (p *Process) Signal(sig os.Signal) error {
 
 func (p *Process) sendSignal(sig os.Signal) error {
 	if p.cmd != nil && p.cmd.Process != nil {
-		localSig := sig.(syscall.Signal)
-		err := syscall.Kill(-p.cmd.Process.Pid, localSig)
-		return err
+		return kill(p, sig)
 	}
 	return fmt.Errorf("process is not started")
 }
