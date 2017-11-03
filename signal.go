@@ -27,3 +27,7 @@ func toSignal(signalName string) (os.Signal, error) {
 	}
 
 }
+
+func kill(pid int, sig os.Signal) error {
+	return syscall.Kill(-pid, sig)
+}

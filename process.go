@@ -461,7 +461,7 @@ func (p *Process) Signal(sig os.Signal) error {
 func (p *Process) sendSignal(sig os.Signal) error {
 	if p.cmd != nil && p.cmd.Process != nil {
 		localSig := sig.(syscall.Signal)
-		err := syscall.Kill(-p.cmd.Process.Pid, localSig)
+		err := kill(-p.cmd.Process.Pid, localSig)
 		return err
 	}
 	return fmt.Errorf("process is not started")
