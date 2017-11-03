@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log/syslog"
 	"os"
 	"path"
 	"strconv"
@@ -41,7 +40,7 @@ type FileLogger struct {
 
 type SysLogger struct {
 	NullLogger
-	logWriter       *syslog.Writer
+	logWriter       io.WriteCloser
 	logEventEmitter LogEventEmitter
 }
 
@@ -307,15 +306,6 @@ func (l *FileLogger) Close() error {
 		return l.file.Close()
 	}
 	return nil
-}
-
-func NewSysLogger(name string, logEventEmitter LogEventEmitter) *SysLogger {
-	writer, err := syslog.New(syslog.LOG_DEBUG, name)
-	logger := &SysLogger{logEventEmitter: logEventEmitter}
-	if err == nil {
-		logger.logWriter = writer
-	}
-	return logger
 }
 
 func (sl *SysLogger) Write(b []byte) (int, error) {

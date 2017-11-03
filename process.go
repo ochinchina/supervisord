@@ -353,7 +353,7 @@ func (p *Process) run(finishCb func()) {
 	if len(args) > 1 {
 		p.cmd.Args = args
 	}
-	p.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
