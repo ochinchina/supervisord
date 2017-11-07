@@ -52,6 +52,9 @@ func (x *CtlCommand) Execute(args []string) error {
 			"start": "started",
 			"stop":  "stopped",
 		}
+		if len( processes) <= 0 {
+			fmt.Printf( "Please specify process for %s\n", verb )
+		}
 		for _, pname := range processes {
 			if reply, err := rpcc.ChangeProcessState(verb, pname); err == nil {
 				fmt.Printf("%s: ", pname)

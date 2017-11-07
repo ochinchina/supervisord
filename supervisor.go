@@ -254,6 +254,7 @@ func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, 
 }
 
 func (s *Supervisor) StopProcess(r *http.Request, args *StartProcessArgs, reply *struct{ Success bool }) error {
+	log.WithFields(log.Fields{"program": args.Name}).Info("stop process")
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
 		return fmt.Errorf("fail to find process %s", args.Name)

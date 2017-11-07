@@ -32,6 +32,6 @@ func toSignal(signalName string) (os.Signal, error) {
 
 }
 
-func kill(pid int, sig os.Signal) error {
-	return errors.New("no Kill in windows")
+func kill(process *os.Process, sig os.Signal) error {
+	return process.Signal( sig )
 }
