@@ -27,9 +27,9 @@ type ProcessInfo struct {
 	Name           string `xml:"name"`
 	Group          string `xml:"group"`
 	Description    string `xml:"description"`
-	Start          int64  `xml:"start"`
-	Stop           int64  `xml:"stop"`
-	Now            int64  `xml:"now"`
+	Start          int    `xml:"start"`
+	Stop           int    `xml:"stop"`
+	Now            int    `xml:"now"`
 	State          int    `xml:"state"`
 	Statename      string `xml:"statename"`
 	Spawnerr       string `xml:"spawnerr"`
@@ -179,9 +179,9 @@ func getProcessInfo(proc *Process) *ProcessInfo {
 	return &ProcessInfo{Name: proc.GetName(),
 		Group:          proc.GetGroup(),
 		Description:    proc.GetDescription(),
-		Start:          proc.GetStartTime().Unix(),
-		Stop:           proc.GetStopTime().Unix(),
-		Now:            time.Now().Unix(),
+		Start:          int(proc.GetStartTime().Unix()),
+		Stop:           int(proc.GetStopTime().Unix()),
+		Now:            int(time.Now().Unix()),
 		State:          int(proc.GetState()),
 		Statename:      proc.GetState().String(),
 		Spawnerr:       "",
