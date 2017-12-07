@@ -16,6 +16,8 @@ import (
 
 type XmlRPC struct {
 	listeners map[string]net.Listener
+	// true if RPC is started
+	started bool
 }
 
 type httpBasicAuth struct {
@@ -58,7 +60,7 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewXmlRPC() *XmlRPC {
-	return &XmlRPC{listeners: make(map[string]net.Listener)}
+	return &XmlRPC{listeners: make(map[string]net.Listener), started: false}
 }
 
 func (p *XmlRPC) Stop() {
@@ -77,6 +79,10 @@ func (p *XmlRPC) StartInetHttpServer(user string, password string, listenAddr st
 }
 
 func (p *XmlRPC) startHttpServer(user string, password string, protocol string, listenAddr string, s *Supervisor) {
+	if p.started {
+		return
+	}
+	p.started = true
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", NewHttpBasicAuth(user, password, p.createRPCServer(s)))
 	listener, err := net.Listen(protocol, listenAddr)

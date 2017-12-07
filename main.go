@@ -19,9 +19,9 @@ type Options struct {
 func init() {
 	log.SetOutput(os.Stdout)
 	if runtime.GOOS == "windows" {
-		log.SetFormatter( &log.TextFormatter{DisableColors:true, FullTimestamp: true})
+		log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
 	} else {
-		log.SetFormatter( &log.TextFormatter{DisableColors:false, FullTimestamp: true})
+		log.SetFormatter(&log.TextFormatter{DisableColors: false, FullTimestamp: true})
 	}
 	log.SetLevel(log.DebugLevel)
 }
@@ -46,9 +46,10 @@ func RunServer() {
 	for true {
 		s := NewSupervisor(options.Configuration)
 		initSignals(s)
-		if sErr := s.Reload(); sErr != nil {
+		if sErr, _, _, _ := s.Reload(); sErr != nil {
 			panic(sErr)
 		}
+		s.WaitForExit()
 	}
 }
 

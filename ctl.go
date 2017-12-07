@@ -52,8 +52,8 @@ func (x *CtlCommand) Execute(args []string) error {
 			"start": "started",
 			"stop":  "stopped",
 		}
-		if len( processes) <= 0 {
-			fmt.Printf( "Please specify process for %s\n", verb )
+		if len(processes) <= 0 {
+			fmt.Printf("Please specify process for %s\n", verb)
 		}
 		for _, pname := range processes {
 			if reply, err := rpcc.ChangeProcessState(verb, pname); err == nil {
@@ -78,7 +78,19 @@ func (x *CtlCommand) Execute(args []string) error {
 				fmt.Printf("Hmmm! Something gone wrong?!\n")
 			}
 		}
+	case "reload":
+		if reply, err := rpcc.ReloadConfig(); err == nil {
 
+			if len(reply.AddedGroup) > 0 {
+				fmt.Printf("Added Groups: %s\n", strings.Join(reply.AddedGroup, ","))
+			}
+			if len(reply.ChangedGroup) > 0 {
+				fmt.Printf("Changed Groups: %s\n", strings.Join(reply.ChangedGroup, ","))
+			}
+			if len(reply.RemovedGroup) > 0 {
+				fmt.Printf("Removed Groups: %s\n", strings.Join(reply.RemovedGroup, ","))
+			}
+		}
 	default:
 		fmt.Println("unknown command")
 	}

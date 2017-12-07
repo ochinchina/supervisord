@@ -89,10 +89,17 @@ type ProcessTailLog struct {
 	Overflow bool
 }
 
+type ReloadConfigResult struct {
+	AddedGroup   []string
+	ChangedGroup []string
+	RemovedGroup []string
+}
+
 func NewSupervisor(configFile string) *Supervisor {
 	return &Supervisor{config: NewConfig(configFile),
-		procMgr: newProcessManager(),
-		xmlRPC:  NewXmlRPC()}
+		procMgr:    newProcessManager(),
+		xmlRPC:     NewXmlRPC(),
+		restarting: false}
 }
 
 func (s *Supervisor) GetConfig() *Config {
@@ -359,29 +366,38 @@ func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent,
 	return nil
 }
 
-func (s *Supervisor) Reload() error {
+func (s *Supervisor) Reload() (error, []string, []string, []string) {
 	//get the previous loaded programs
 	prevPrograms := s.config.GetProgramNames()
+	prevProgGroup := s.config.programGroup.Clone()
 
 	err := s.config.Load()
 
 	if err == nil {
 		s.setSupervisordInfo()
 		s.startEventListeners()
-		s.restarting = false
 		s.createPrograms(prevPrograms)
 		s.startHttpServer()
 		s.startAutoStartPrograms()
-		for {
-			if s.IsRestarting() {
-				s.procMgr.StopAllProcesses()
-				break
-			}
-			time.Sleep(10 * time.Second)
-		}
 	}
-	return err
+	removedPrograms := sub(prevPrograms, s.config.GetProgramNames())
+	for _, removedProg := range removedPrograms {
+		log.WithFields(log.Fields{"program": removedProg}).Info("the program is removed")
+		s.config.RemoveProgram(removedProg)
+	}
+	addedGroup, changedGroup, removedGroup := s.config.programGroup.Sub(prevProgGroup)
+	return err, addedGroup, changedGroup, removedGroup
 
+}
+
+func (s *Supervisor) WaitForExit() {
+	for {
+		if s.IsRestarting() {
+			s.procMgr.StopAllProcesses()
+			break
+		}
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func (s *Supervisor) createPrograms(prevPrograms []string) {
@@ -490,29 +506,23 @@ func toLogLevel(level string) log.Level {
 	}
 }
 
-func sub(arr_1 []string, arr_2 []string) []string {
-	result := make([]string, 0)
-	for _, s := range arr_1 {
-		exist := false
-		for _, s2 := range arr_2 {
-			if s == s2 {
-				exist = true
-			}
-		}
-		if !exist {
-			result = append(result, s)
-		}
+func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *ReloadConfigResult) error {
+	log.Info("start to reload config")
+	err, addedGroup, changedGroup, removedGroup := s.Reload()
+	if len(addedGroup) > 0 {
+		log.WithFields(log.Fields{"groups": strings.Join(addedGroup, ",")}).Info("added groups")
 	}
-	return result
-}
 
-func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *struct{ Success bool }) error {
-	err := s.Reload()
-	if err == nil {
-		reply.Success = true
-	} else {
-		reply.Success = false
+	if len(changedGroup) > 0 {
+		log.WithFields(log.Fields{"groups": strings.Join(changedGroup, ",")}).Info("changed groups")
 	}
+
+	if len(removedGroup) > 0 {
+		log.WithFields(log.Fields{"groups": strings.Join(removedGroup, ",")}).Info("removed groups")
+	}
+	reply.AddedGroup = addedGroup
+	reply.ChangedGroup = changedGroup
+	reply.RemovedGroup = removedGroup
 	return err
 }
 

@@ -58,7 +58,11 @@ func (c *ConfigEntry) GetGroupName() string {
 // get the programs from the group
 func (c *ConfigEntry) GetPrograms() []string {
 	if c.IsGroup() {
-		return c.GetStringArray("programs", ",")
+		r := c.GetStringArray("programs", ",")
+		for i, p := range r {
+			r[i] = strings.TrimSpace(p)
+		}
+		return r
 	}
 	return make([]string, 0)
 }
@@ -108,6 +112,7 @@ func (c *Config) createEntry(name string, configDir string) *ConfigEntry {
 
 func (c *Config) Load() error {
 	ini := ini.NewIni()
+	c.programGroup = NewProcessGroup()
 	ini.LoadFile(c.configFile)
 
 	includeFiles := c.getIncludeFiles(ini)
@@ -525,4 +530,9 @@ func (c *Config) String() string {
 		fmt.Fprintf(buf, "%s\n", v.String())
 	}
 	return buf.String()
+}
+
+func (c *Config) RemoveProgram(programName string) {
+	delete(c.entries, fmt.Sprintf("program:%s", programName))
+	c.programGroup.Remove(programName)
 }

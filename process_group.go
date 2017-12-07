@@ -1,12 +1,43 @@
 package main
 
+import (
+	"bytes"
+	"strings"
+)
+
 type ProcessGroup struct {
 	//mapping between the program and its group
 	processGroup map[string]string
 }
 
 func NewProcessGroup() *ProcessGroup {
-	return &ProcessGroup{make(map[string]string)}
+	return &ProcessGroup{processGroup: make(map[string]string)}
+}
+
+// clone the process group
+func (pg *ProcessGroup) Clone() *ProcessGroup {
+	new_pg := NewProcessGroup()
+	for k, v := range pg.processGroup {
+		new_pg.processGroup[k] = v
+	}
+	return new_pg
+}
+
+func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []string, removed []string) {
+	thisGroup := pg.GetAllGroup()
+	otherGroup := other.GetAllGroup()
+	added = sub(thisGroup, otherGroup)
+	changed = make([]string, 0)
+	removed = sub(otherGroup, thisGroup)
+
+	for _, group := range thisGroup {
+		proc_1 := pg.GetAllProcess(group)
+		proc_2 := other.GetAllProcess(group)
+		if len(proc_2) > 0 && !isSameStringArray(proc_1, proc_2) {
+			changed = append(changed, group)
+		}
+	}
+	return
 }
 
 //add a process to a group
@@ -65,5 +96,17 @@ func (pg *ProcessGroup) GetGroup(procName string, defGroup string) string {
 	if ok {
 		return group
 	}
+	pg.processGroup[procName] = defGroup
 	return defGroup
+}
+
+func (pg *ProcessGroup) String() string {
+	buf := bytes.NewBuffer(make([]byte, 0))
+	for _, group := range pg.GetAllGroup() {
+		buf.WriteString(group)
+		buf.WriteString(":")
+		buf.WriteString(strings.Join(pg.GetAllProcess(group), ","))
+		buf.WriteString(";")
+	}
+	return buf.String()
 }
