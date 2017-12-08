@@ -38,13 +38,14 @@ then run
 ```
 $ supervisord -c supervisor.conf -d
 ```
-In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`. 
+In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`, `reload`. 
     
 ```
 $ supervisord ctl status
 $ supervisord ctl stop <worker_name>
 $ supervisord ctl start <worker_name>
 $ supervisord ctl shutdown
+$ supervisord ctl reload
 ```
 
 # Supported features
