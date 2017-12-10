@@ -2,22 +2,24 @@ package main
 
 import (
 	"fmt"
+	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/types"
+	"github.com/ochinchina/supervisord/util"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
-    "github.com/ochinchina/supervisord/types"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 const (
-	VERSION = "3.0"
+	SUPERVISOR_VERSION = "3.0"
 )
 
 type Supervisor struct {
-	config     *Config
+	config     *config.Config
 	procMgr    *ProcessManager
 	xmlRPC     *XmlRPC
 	logger     Logger
@@ -74,23 +76,23 @@ type ProcessTailLog struct {
 }
 
 func NewSupervisor(configFile string) *Supervisor {
-	return &Supervisor{config: NewConfig(configFile),
+	return &Supervisor{config: config.NewConfig(configFile),
 		procMgr:    newProcessManager(),
 		xmlRPC:     NewXmlRPC(),
 		restarting: false}
 }
 
-func (s *Supervisor) GetConfig() *Config {
+func (s *Supervisor) GetConfig() *config.Config {
 	return s.config
 }
 
 func (s *Supervisor) GetVersion(r *http.Request, args *struct{}, reply *struct{ Version string }) error {
-	reply.Version = VERSION
+	reply.Version = SUPERVISOR_VERSION
 	return nil
 }
 
 func (s *Supervisor) GetSupervisorVersion(r *http.Request, args *struct{}, reply *struct{ Version string }) error {
-	reply.Version = VERSION
+	reply.Version = SUPERVISOR_VERSION
 	return nil
 }
 
@@ -347,7 +349,7 @@ func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent,
 func (s *Supervisor) Reload() (error, []string, []string, []string) {
 	//get the previous loaded programs
 	prevPrograms := s.config.GetProgramNames()
-	prevProgGroup := s.config.programGroup.Clone()
+	prevProgGroup := s.config.ProgramGroup.Clone()
 
 	err := s.config.Load()
 
@@ -358,12 +360,12 @@ func (s *Supervisor) Reload() (error, []string, []string, []string) {
 		s.startHttpServer()
 		s.startAutoStartPrograms()
 	}
-	removedPrograms := sub(prevPrograms, s.config.GetProgramNames())
+	removedPrograms := util.Sub(prevPrograms, s.config.GetProgramNames())
 	for _, removedProg := range removedPrograms {
 		log.WithFields(log.Fields{"program": removedProg}).Info("the program is removed")
 		s.config.RemoveProgram(removedProg)
 	}
-	addedGroup, changedGroup, removedGroup := s.config.programGroup.Sub(prevProgGroup)
+	addedGroup, changedGroup, removedGroup := s.config.ProgramGroup.Sub(prevProgGroup)
 	return err, addedGroup, changedGroup, removedGroup
 
 }
@@ -384,7 +386,7 @@ func (s *Supervisor) createPrograms(prevPrograms []string) {
 	for _, entry := range s.config.GetPrograms() {
 		s.procMgr.CreateProcess(s.GetSupervisorId(), entry)
 	}
-	removedPrograms := sub(prevPrograms, programs)
+	removedPrograms := util.Sub(prevPrograms, programs)
 	for _, p := range removedPrograms {
 		s.procMgr.Remove(p)
 	}
@@ -416,7 +418,7 @@ func (s *Supervisor) startHttpServer() {
 
 	httpServerConfig, ok = s.config.GetUnixHttpServer()
 	if ok {
-		env := NewStringExpression("here", s.config.GetConfigFileDir())
+		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
 		sockFile, err := env.Eval(httpServerConfig.GetString("file", "/tmp/supervisord.sock"))
 		if err == nil {
 			go s.xmlRPC.StartUnixHttpServer(httpServerConfig.GetString("username", ""), httpServerConfig.GetString("password", ""), sockFile, s)
@@ -430,7 +432,7 @@ func (s *Supervisor) setSupervisordInfo() {
 	if ok {
 		//set supervisord log
 
-		env := NewStringExpression("here", s.config.GetConfigFileDir())
+		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
 		logFile, err := env.Eval(supervisordConf.GetString("logfile", "supervisord.log"))
 		logFile, err = path_expand(logFile)
 		logEventEmitter := NewNullLogEventEmitter()

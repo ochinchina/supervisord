@@ -1,7 +1,7 @@
-package main
+package util
 
 // return true if the elem is in the array arr
-func inArray(elem interface{}, arr []interface{}) bool {
+func InArray(elem interface{}, arr []interface{}) bool {
 	for _, e := range arr {
 		if e == elem {
 			return true
@@ -11,16 +11,16 @@ func inArray(elem interface{}, arr []interface{}) bool {
 }
 
 //return true if the array arr1 contains all elements of array arr2
-func hasAllElements(arr1 []interface{}, arr2 []interface{}) bool {
+func HasAllElements(arr1 []interface{}, arr2 []interface{}) bool {
 	for _, e2 := range arr2 {
-		if !inArray(e2, arr1) {
+		if !InArray(e2, arr1) {
 			return false
 		}
 	}
 	return true
 }
 
-func stringArrayToInterfacArray(arr []string) []interface{} {
+func StringArrayToInterfacArray(arr []string) []interface{} {
 	result := make([]interface{}, 0)
 	for _, s := range arr {
 		result = append(result, s)
@@ -28,7 +28,7 @@ func stringArrayToInterfacArray(arr []string) []interface{} {
 	return result
 }
 
-func sub(arr_1 []string, arr_2 []string) []string {
+func Sub(arr_1 []string, arr_2 []string) []string {
 	result := make([]string, 0)
 	for _, s := range arr_1 {
 		exist := false
@@ -44,7 +44,7 @@ func sub(arr_1 []string, arr_2 []string) []string {
 	return result
 }
 
-func isSameStringArray(arr_1 []string, arr_2 []string) bool {
+func IsSameStringArray(arr_1 []string, arr_2 []string) bool {
 	if len(arr_1) != len(arr_2) {
 		return false
 	}

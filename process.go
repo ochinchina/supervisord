@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/ochinchina/supervisord/config"
 	"io"
 	"os"
 	"os/exec"
@@ -50,7 +51,7 @@ func (p ProcessState) String() string {
 
 type Process struct {
 	supervisor_id string
-	config        *ConfigEntry
+	config        *config.ConfigEntry
 	cmd           *exec.Cmd
 	startTime     time.Time
 	stopTime      time.Time
@@ -66,7 +67,7 @@ type Process struct {
 	stderrLog  Logger
 }
 
-func NewProcess(supervisor_id string, config *ConfigEntry) *Process {
+func NewProcess(supervisor_id string, config *config.ConfigEntry) *Process {
 	proc := &Process{supervisor_id: supervisor_id,
 		config:     config,
 		cmd:        nil,

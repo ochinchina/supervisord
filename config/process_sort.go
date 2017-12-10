@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"sort"
@@ -110,7 +110,7 @@ func (p *ProcessSorter) inFinishedPrograms(program_name string, finished_program
 	return true
 }
 
-func (p *ProcessSorter) SortProcess(procs []*Process) []*Process {
+/*func (p *ProcessSorter) SortProcess(procs []*Process) []*Process {
 	prog_configs := make([]*ConfigEntry, 0)
 	for _, proc := range procs {
 		if proc.config.IsProgram() {
@@ -128,7 +128,7 @@ func (p *ProcessSorter) SortProcess(procs []*Process) []*Process {
 	}
 
 	return result
-}
+}*/
 
 func (p *ProcessSorter) SortProgram(program_configs []*ConfigEntry) []*ConfigEntry {
 	p.initDepends(program_configs)
@@ -150,9 +150,9 @@ func (p *ProcessSorter) SortProgram(program_configs []*ConfigEntry) []*ConfigEnt
 	return result
 }
 
-func sortProcess(procs []*Process) []*Process {
+/*func sortProcess(procs []*Process) []*Process {
 	return NewProcessSorter().SortProcess(procs)
-}
+}*/
 
 func sortProgram(configs []*ConfigEntry) []*ConfigEntry {
 	return NewProcessSorter().SortProgram(configs)

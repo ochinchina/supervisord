@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/ochinchina/supervisord/xmlrpcclient"
 	"strings"
-    "github.com/ochinchina/supervisord/xmlrpcclient"
 )
 
 type CtlCommand struct {

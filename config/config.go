@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"bytes"
@@ -88,7 +88,7 @@ type Config struct {
 	//mapping between the section name and the configure
 	entries map[string]*ConfigEntry
 
-	programGroup *ProcessGroup
+	ProgramGroup *ProcessGroup
 }
 
 func NewConfigEntry(configDir string) *ConfigEntry {
@@ -112,7 +112,7 @@ func (c *Config) createEntry(name string, configDir string) *ConfigEntry {
 
 func (c *Config) Load() error {
 	ini := ini.NewIni()
-	c.programGroup = NewProcessGroup()
+	c.ProgramGroup = NewProcessGroup()
 	ini.LoadFile(c.configFile)
 
 	includeFiles := c.getIncludeFiles(ini)
@@ -447,7 +447,7 @@ func (c *Config) parseGroup(cfg *ini.Ini) {
 			groupName := entry.GetGroupName()
 			programs := entry.GetPrograms()
 			for _, program := range programs {
-				c.programGroup.Add(groupName, program)
+				c.ProgramGroup.Add(groupName, program)
 			}
 		}
 	}
@@ -495,7 +495,7 @@ func (c *Config) parseProgram(cfg *ini.Ini) {
 			for i := 1; i <= numProcs; i++ {
 				envs := NewStringExpression("program_name", programName,
 					"process_num", fmt.Sprintf("%d", i),
-					"group_name", c.programGroup.GetGroup(programName, programName),
+					"group_name", c.ProgramGroup.GetGroup(programName, programName),
 					"here", c.GetConfigFileDir())
 				cmd, err := envs.Eval(section.GetValueWithDefault("command", ""))
 				if err != nil {
@@ -514,7 +514,7 @@ func (c *Config) parseProgram(cfg *ini.Ini) {
 				entry := c.createEntry(procName, c.GetConfigFileDir())
 				entry.parse(section)
 				entry.Name = prefix + procName
-				group := c.programGroup.GetGroup(programName, programName)
+				group := c.ProgramGroup.GetGroup(programName, programName)
 				entry.Group = group
 			}
 		}
@@ -534,5 +534,5 @@ func (c *Config) String() string {
 
 func (c *Config) RemoveProgram(programName string) {
 	delete(c.entries, fmt.Sprintf("program:%s", programName))
-	c.programGroup.Remove(programName)
+	c.ProgramGroup.Remove(programName)
 }

@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/ochinchina/supervisord/config"
 )
 
 type ProcessManager struct {
@@ -19,7 +20,7 @@ func newProcessManager() *ProcessManager {
 	}
 }
 
-func (pm *ProcessManager) CreateProcess(supervisor_id string, config *ConfigEntry) *Process {
+func (pm *ProcessManager) CreateProcess(supervisor_id string, config *config.ConfigEntry) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	if config.IsProgram() {
@@ -39,7 +40,7 @@ func (pm *ProcessManager) StartAutoStartPrograms() {
 	})
 }
 
-func (pm *ProcessManager) createProgram(supervisor_id string, config *ConfigEntry) *Process {
+func (pm *ProcessManager) createProgram(supervisor_id string, config *config.ConfigEntry) *Process {
 	procName := config.GetProgramName()
 
 	proc, ok := pm.procs[procName]
@@ -52,7 +53,7 @@ func (pm *ProcessManager) createProgram(supervisor_id string, config *ConfigEntr
 	return proc
 }
 
-func (pm *ProcessManager) createEventListener(supervisor_id string, config *ConfigEntry) *Process {
+func (pm *ProcessManager) createEventListener(supervisor_id string, config *config.ConfigEntry) *Process {
 	eventListenerName := config.GetEventListenerName()
 
 	evtListener, ok := pm.eventListeners[eventListenerName]
@@ -129,4 +130,25 @@ func (pm *ProcessManager) StopAllProcesses() {
 	pm.ForEachProcess(func(proc *Process) {
 		proc.Stop(true)
 	})
+}
+
+func sortProcess(procs []*Process) []*Process {
+	prog_configs := make([]*config.ConfigEntry, 0)
+	for _, proc := range procs {
+		if proc.config.IsProgram() {
+			prog_configs = append(prog_configs, proc.config)
+		}
+	}
+
+	result := make([]*Process, 0)
+    p := config.NewProcessSorter()
+	for _, config := range p.SortProgram(prog_configs) {
+		for _, proc := range procs {
+			if proc.config == config {
+				result = append(result, proc)
+			}
+		}
+	}
+
+	return result
 }

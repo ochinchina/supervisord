@@ -1,8 +1,9 @@
-package main
+package config
 
 import (
 	"bytes"
 	"strings"
+    "github.com/ochinchina/supervisord/util"
 )
 
 type ProcessGroup struct {
@@ -26,14 +27,14 @@ func (pg *ProcessGroup) Clone() *ProcessGroup {
 func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []string, removed []string) {
 	thisGroup := pg.GetAllGroup()
 	otherGroup := other.GetAllGroup()
-	added = sub(thisGroup, otherGroup)
+	added = util.Sub(thisGroup, otherGroup)
 	changed = make([]string, 0)
-	removed = sub(otherGroup, thisGroup)
+	removed = util.Sub(otherGroup, thisGroup)
 
 	for _, group := range thisGroup {
 		proc_1 := pg.GetAllProcess(group)
 		proc_2 := other.GetAllProcess(group)
-		if len(proc_2) > 0 && !isSameStringArray(proc_1, proc_2) {
+		if len(proc_2) > 0 && !util.IsSameStringArray(proc_1, proc_2) {
 			changed = append(changed, group)
 		}
 	}
