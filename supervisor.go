@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/events"
+	"github.com/ochinchina/supervisord/faults"
+	"github.com/ochinchina/supervisord/logger"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/util"
 	"net/http"
@@ -22,7 +25,7 @@ type Supervisor struct {
 	config     *config.Config
 	procMgr    *ProcessManager
 	xmlRPC     *XmlRPC
-	logger     Logger
+	logger     logger.Logger
 	restarting bool
 }
 
@@ -221,7 +224,7 @@ func (s *Supervisor) StartAllProcesses(r *http.Request, args *struct {
 		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
 			Name:        processInfo.Name,
 			Group:       processInfo.Group,
-			Status:      SUCCESS,
+			Status:      faults.SUCCESS,
 			Description: "OK",
 		})
 	})
@@ -271,7 +274,7 @@ func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
 			Name:        processInfo.Name,
 			Group:       processInfo.Group,
-			Status:      SUCCESS,
+			Status:      faults.SUCCESS,
 			Description: "OK",
 		})
 	})
@@ -341,7 +344,7 @@ func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply
 }
 
 func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent, reply *struct{ Success bool }) error {
-	emitEvent(NewRemoteCommunicationEvent(args.Type, args.Data))
+	events.EmitEvent(events.NewRemoteCommunicationEvent(args.Type, args.Data))
 	reply.Success = true
 	return nil
 }
@@ -435,25 +438,25 @@ func (s *Supervisor) setSupervisordInfo() {
 		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
 		logFile, err := env.Eval(supervisordConf.GetString("logfile", "supervisord.log"))
 		logFile, err = path_expand(logFile)
-		logEventEmitter := NewNullLogEventEmitter()
-		s.logger = NewNullLogger(logEventEmitter)
+		logEventEmitter := logger.NewNullLogEventEmitter()
+		s.logger = logger.NewNullLogger(logEventEmitter)
 		if err == nil {
 			logfile_maxbytes := int64(supervisordConf.GetBytes("logfile_maxbytes", 50*1024*1024))
 			logfile_backups := supervisordConf.GetInt("logfile_backups", 10)
 			loglevel := supervisordConf.GetString("loglevel", "info")
 			switch logFile {
 			case "/dev/null":
-				s.logger = NewNullLogger(logEventEmitter)
+				s.logger = logger.NewNullLogger(logEventEmitter)
 			case "syslog":
-				s.logger = NewSysLogger("supervisord", logEventEmitter)
+				s.logger = logger.NewSysLogger("supervisord", logEventEmitter)
 			case "/dev/stdout":
-				s.logger = NewStdoutLogger(logEventEmitter)
+				s.logger = logger.NewStdoutLogger(logEventEmitter)
 			case "/dev/stderr":
-				s.logger = NewStderrLogger(logEventEmitter)
+				s.logger = logger.NewStderrLogger(logEventEmitter)
 			case "":
-				s.logger = NewNullLogger(logEventEmitter)
+				s.logger = logger.NewNullLogger(logEventEmitter)
 			default:
-				s.logger = NewFileLogger(logFile, logfile_maxbytes, logfile_backups, logEventEmitter, &sync.Mutex{})
+				s.logger = logger.NewFileLogger(logFile, logfile_maxbytes, logfile_backups, logEventEmitter, &sync.Mutex{})
 			}
 			log.SetOutput(s.logger)
 			log.SetLevel(toLogLevel(loglevel))
@@ -569,7 +572,7 @@ func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply 
 		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
 			Name:        procInfo.Name,
 			Group:       procInfo.Group,
-			Status:      SUCCESS,
+			Status:      faults.SUCCESS,
 			Description: "OK",
 		})
 	})

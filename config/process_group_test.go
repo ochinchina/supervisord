@@ -1,6 +1,7 @@
-package main
+package config
 
 import (
+    "github.com/ochinchina/supervisord/util"
 	"testing"
 )
 
@@ -20,7 +21,7 @@ func TestGetAllGroup(t *testing.T) {
 	group := createTestGroup()
 
 	groups := group.GetAllGroup()
-	if len(groups) != 2 || !hasAllElements(stringArrayToInterfacArray(groups), []interface{}{"group1", "group2"}) {
+	if len(groups) != 2 || ! util.HasAllElements( util.StringArrayToInterfacArray(groups), []interface{}{"group1", "group2"}) {
 		t.Fail()
 	}
 
@@ -31,7 +32,7 @@ func TestGetAllProcessInGroup(t *testing.T) {
 
 	procs := group.GetAllProcess("group1")
 
-	if len(procs) != 2 || !hasAllElements(stringArrayToInterfacArray(procs), []interface{}{"proc1_1", "proc1_2"}) {
+	if len(procs) != 2 || !util.HasAllElements( util.StringArrayToInterfacArray(procs), []interface{}{"proc1_1", "proc1_2"}) {
 		t.Fail()
 	}
 
@@ -56,7 +57,7 @@ func TestRemoveFromGroup(t *testing.T) {
 
 	procs := group.GetAllProcess("group2")
 
-	if len(procs) != 2 || !hasAllElements(stringArrayToInterfacArray(procs), []interface{}{"proc2_2", "proc2_3"}) {
+	if len(procs) != 2 || ! util.HasAllElements( util.StringArrayToInterfacArray(procs), []interface{}{"proc2_2", "proc2_3"}) {
 		t.Fail()
 	}
 

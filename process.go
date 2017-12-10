@@ -4,6 +4,8 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/events"
+	"github.com/ochinchina/supervisord/logger"
 	"io"
 	"os"
 	"os/exec"
@@ -63,8 +65,8 @@ type Process struct {
 	retryTimes int
 	lock       sync.RWMutex
 	stdin      io.WriteCloser
-	stdoutLog  Logger
-	stderrLog  Logger
+	stdoutLog  logger.Logger
+	stderrLog  logger.Logger
 }
 
 func NewProcess(supervisor_id string, config *config.ConfigEntry) *Process {
@@ -427,26 +429,26 @@ func (p *Process) changeStateTo(procState ProcessState) {
 		progName := p.config.GetProgramName()
 		groupName := p.config.GetGroupName()
 		if procState == STARTING {
-			emitEvent(createProcessStartingEvent(progName, groupName, p.state.String(), p.retryTimes))
+			events.EmitEvent(events.CreateProcessStartingEvent(progName, groupName, p.state.String(), p.retryTimes))
 		} else if procState == RUNNING {
-			emitEvent(createProcessRunningEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
+			events.EmitEvent(events.CreateProcessRunningEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
 		} else if procState == BACKOFF {
-			emitEvent(createProcessBackoffEvent(progName, groupName, p.state.String(), p.retryTimes))
+			events.EmitEvent(events.CreateProcessBackoffEvent(progName, groupName, p.state.String(), p.retryTimes))
 		} else if procState == STOPPING {
-			emitEvent(createProcessStoppingEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
+			events.EmitEvent(events.CreateProcessStoppingEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
 		} else if procState == EXITED {
 			exitCode, err := p.getExitCode()
 			expected := 0
 			if err == nil && p.inExitCodes(exitCode) {
 				expected = 1
 			}
-			emitEvent(createProcessExitedEvent(progName, groupName, p.state.String(), expected, p.cmd.Process.Pid))
+			events.EmitEvent(events.CreateProcessExitedEvent(progName, groupName, p.state.String(), expected, p.cmd.Process.Pid))
 		} else if procState == FATAL {
-			emitEvent(createProcessFatalEvent(progName, groupName, p.state.String()))
+			events.EmitEvent(events.CreateProcessFatalEvent(progName, groupName, p.state.String()))
 		} else if procState == STOPPED {
-			emitEvent(createProcessStoppedEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
+			events.EmitEvent(events.CreateProcessStoppedEvent(progName, groupName, p.state.String(), p.cmd.Process.Pid))
 		} else if procState == UNKNOWN {
-			emitEvent(createProcessUnknownEvent(progName, groupName, p.state.String()))
+			events.EmitEvent(events.CreateProcessUnknownEvent(progName, groupName, p.state.String()))
 		}
 	}
 	p.state = procState
@@ -492,7 +494,7 @@ func (p *Process) setLog() {
 		capture_bytes := p.config.GetBytes("stdout_capture_maxbytes", 0)
 		if capture_bytes > 0 {
 			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("capture stdout process communication")
-			p.stdoutLog = NewLogCaptureLogger(p.stdoutLog,
+			p.stdoutLog = logger.NewLogCaptureLogger(p.stdoutLog,
 				capture_bytes,
 				"PROCESS_COMMUNICATION_STDOUT",
 				p.GetName(),
@@ -514,7 +516,7 @@ func (p *Process) setLog() {
 
 		if capture_bytes > 0 {
 			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("capture stderr process communication")
-			p.stderrLog = NewLogCaptureLogger(p.stdoutLog,
+			p.stderrLog = logger.NewLogCaptureLogger(p.stdoutLog,
 				capture_bytes,
 				"PROCESS_COMMUNICATION_STDERR",
 				p.GetName(),
@@ -546,52 +548,56 @@ func (p *Process) setLog() {
 	}
 }
 
-func (p *Process) createStdoutLogEventEmitter() LogEventEmitter {
+func (p *Process) createStdoutLogEventEmitter() logger.LogEventEmitter {
 	if p.config.GetBytes("stdout_capture_maxbytes", 0) <= 0 && p.config.GetBool("stdout_events_enabled", false) {
-		return NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), p)
+		return logger.NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), func() int {
+			return p.GetPid()
+		})
 	} else {
-		return NewNullLogEventEmitter()
+		return logger.NewNullLogEventEmitter()
 	}
 }
 
-func (p *Process) createStderrLogEventEmitter() LogEventEmitter {
+func (p *Process) createStderrLogEventEmitter() logger.LogEventEmitter {
 	if p.config.GetBytes("stderr_capture_maxbytes", 0) <= 0 && p.config.GetBool("stderr_events_enabled", false) {
-		return NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), p)
+		return logger.NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), func() int {
+			return p.GetPid()
+		})
 	} else {
-		return NewNullLogEventEmitter()
+		return logger.NewNullLogEventEmitter()
 	}
 }
 
 func (p *Process) registerEventListener(eventListenerName string,
-	events []string,
+	_events []string,
 	stdin io.Reader,
 	stdout io.Writer) {
-	eventListener := NewEventListener(eventListenerName,
+	eventListener := events.NewEventListener(eventListenerName,
 		p.supervisor_id,
 		stdin,
 		stdout,
 		p.config.GetInt("buffer_size", 100))
-	eventListenerManager.registerEventListener(eventListenerName, events, eventListener)
+	events.RegisterEventListener(eventListenerName, _events, eventListener)
 }
 
 func (p *Process) unregisterEventListener(eventListenerName string) {
-	eventListenerManager.unregisterEventListener(eventListenerName)
+	events.UnregisterEventListener(eventListenerName)
 }
 
-func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
-	var logger Logger
-	logger = NewNullLogger(logEventEmitter)
+func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logEventEmitter logger.LogEventEmitter) logger.Logger {
+	var mylogger logger.Logger
+	mylogger = logger.NewNullLogger(logEventEmitter)
 
 	if logFile == "/dev/stdout" {
-		logger = NewStdoutLogger(logEventEmitter)
+		mylogger = logger.NewStdoutLogger(logEventEmitter)
 	} else if logFile == "/dev/stderr" {
-		logger = NewStderrLogger(logEventEmitter)
+		mylogger = logger.NewStderrLogger(logEventEmitter)
 	} else if logFile == "syslog" {
-		logger = NewSysLogger(p.GetName(), logEventEmitter)
+		mylogger = logger.NewSysLogger(p.GetName(), logEventEmitter)
 	} else if len(logFile) > 0 {
-		logger = NewFileLogger(logFile, maxBytes, backups, logEventEmitter, NewNullLocker())
+		mylogger = logger.NewFileLogger(logFile, maxBytes, backups, logEventEmitter, logger.NewNullLocker())
 	}
-	return logger
+	return mylogger
 }
 
 func (p *Process) setUser() error {

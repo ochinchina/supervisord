@@ -1,4 +1,4 @@
-package main
+package events
 
 import (
 	"bufio"
@@ -273,7 +273,7 @@ func startTickTimer() {
 					lastTickSlice[tickType] = time_slice
 				} else if last_time_slice != time_slice {
 					lastTickSlice[tickType] = time_slice
-					emitEvent(NewTickEvent(tickType, now.Unix()))
+					EmitEvent(NewTickEvent(tickType, now.Unix()))
 				}
 			}
 		}
@@ -317,6 +317,12 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 	}
 }
 
+func RegisterEventListener(eventListenerName string,
+    events []string,
+        listener *EventListener) {
+    eventListenerManager.registerEventListener( eventListenerName, events, listener )
+}
+
 func (em *EventListenerManager) unregisterEventListener(eventListenerName string) *EventListener {
 	listener, ok := em.namedListeners[eventListenerName]
 	if ok {
@@ -331,6 +337,10 @@ func (em *EventListenerManager) unregisterEventListener(eventListenerName string
 		return listener
 	}
 	return nil
+}
+
+func UnregisterEventListener(eventListenerName string) *EventListener {
+    return eventListenerManager.unregisterEventListener( eventListenerName )
 }
 
 func (em *EventListenerManager) EmitEvent(event Event) {
@@ -385,7 +395,7 @@ func (p *ProcCommEvent) GetBody() string {
 	return fmt.Sprintf("processname:%s groupname:%s pid:%d\n%s", p.processName, p.groupName, p.pid, p.data)
 }
 
-func emitEvent(event Event) {
+func EmitEvent(event Event) {
 	eventListenerManager.EmitEvent(event)
 }
 
@@ -450,7 +460,7 @@ func (pec *ProcCommEventCapture) startCapture() {
 				if event == nil {
 					break
 				}
-				emitEvent(event)
+				EmitEvent(event)
 			}
 		}
 	}()
@@ -510,7 +520,7 @@ type ProcessStateEvent struct {
 	pid          int
 }
 
-func createProcessStartingEvent(process string,
+func CreateProcessStartingEvent(process string,
 	group string,
 	from_state string,
 	tries int) *ProcessStateEvent {
@@ -525,7 +535,7 @@ func createProcessStartingEvent(process string,
 	return r
 }
 
-func createProcessRunningEvent(process string,
+func CreateProcessRunningEvent(process string,
 	group string,
 	from_state string,
 	pid int) *ProcessStateEvent {
@@ -540,7 +550,7 @@ func createProcessRunningEvent(process string,
 	return r
 }
 
-func createProcessBackoffEvent(process string,
+func CreateProcessBackoffEvent(process string,
 	group string,
 	from_state string,
 	tries int) *ProcessStateEvent {
@@ -555,7 +565,7 @@ func createProcessBackoffEvent(process string,
 	return r
 }
 
-func createProcessStoppingEvent(process string,
+func CreateProcessStoppingEvent(process string,
 	group string,
 	from_state string,
 	pid int) *ProcessStateEvent {
@@ -570,7 +580,7 @@ func createProcessStoppingEvent(process string,
 	return r
 }
 
-func createProcessExitedEvent(process string,
+func CreateProcessExitedEvent(process string,
 	group string,
 	from_state string,
 	expected int,
@@ -586,7 +596,7 @@ func createProcessExitedEvent(process string,
 	return r
 }
 
-func createProcessStoppedEvent(process string,
+func CreateProcessStoppedEvent(process string,
 	group string,
 	from_state string,
 	pid int) *ProcessStateEvent {
@@ -601,7 +611,7 @@ func createProcessStoppedEvent(process string,
 	return r
 }
 
-func createProcessFatalEvent(process string,
+func CreateProcessFatalEvent(process string,
 	group string,
 	from_state string) *ProcessStateEvent {
 	r := &ProcessStateEvent{process_name: process,
@@ -615,7 +625,7 @@ func createProcessFatalEvent(process string,
 	return r
 }
 
-func createProcessUnknownEvent(process string,
+func CreateProcessUnknownEvent(process string,
 	group string,
 	from_state string) *ProcessStateEvent {
 	r := &ProcessStateEvent{process_name: process,
@@ -653,7 +663,7 @@ func (s *SupervisorStateChangeEvent) GetBody() string {
 	return ""
 }
 
-func createSupervisorStateChangeRunning() *SupervisorStateChangeEvent {
+func CreateSupervisorStateChangeRunning() *SupervisorStateChangeEvent {
 	r := &SupervisorStateChangeEvent{}
 	r.eventType = "SUPERVISOR_STATE_CHANGE_RUNNING"
 	r.serial = nextEventSerial()
@@ -683,7 +693,7 @@ func (pe *ProcessLogEvent) GetBody() string {
 		pe.data)
 }
 
-func createProcessLogStdoutEvent(process_name string,
+func CreateProcessLogStdoutEvent(process_name string,
 	group_name string,
 	pid int,
 	data string) *ProcessLogEvent {
@@ -696,7 +706,7 @@ func createProcessLogStdoutEvent(process_name string,
 	return r
 }
 
-func createProcessLogStderrEvent(process_name string,
+func CreateProcessLogStderrEvent(process_name string,
 	group_name string,
 	pid int,
 	data string) *ProcessLogEvent {
@@ -718,7 +728,7 @@ func (pe *ProcessGroupEvent) GetBody() string {
 	return fmt.Sprintf("groupname:%s", pe.group_name)
 }
 
-func createProcessGroupAddedEvent(group_name string) *ProcessGroupEvent {
+func CreateProcessGroupAddedEvent(group_name string) *ProcessGroupEvent {
 	r := &ProcessGroupEvent{group_name: group_name}
 
 	r.eventType = "PROCESS_GROUP_ADDED"
@@ -726,7 +736,7 @@ func createProcessGroupAddedEvent(group_name string) *ProcessGroupEvent {
 	return r
 }
 
-func createProcessGroupRemovedEvent(group_name string) *ProcessGroupEvent {
+func CreateProcessGroupRemovedEvent(group_name string) *ProcessGroupEvent {
 	r := &ProcessGroupEvent{group_name: group_name}
 
 	r.eventType = "PROCESS_GROUP_REMOVED"

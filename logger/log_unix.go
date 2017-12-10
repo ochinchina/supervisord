@@ -1,6 +1,6 @@
 // +build !windows,!nacl,!plan9
 
-package main
+package logger
 
 import (
 	"log/syslog"

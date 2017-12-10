@@ -1,4 +1,4 @@
-package main
+package faults
 
 import (
 	xmlrpc "github.com/ochinchina/gorilla-xmlrpc/xml"

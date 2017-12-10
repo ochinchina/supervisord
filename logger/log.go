@@ -1,4 +1,4 @@
-package main
+package logger
 
 import (
 	"errors"
@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+    "github.com/ochinchina/supervisord/events"
+    "github.com/ochinchina/supervisord/faults"
 )
 
 //implements io.Writer interface
@@ -160,23 +162,23 @@ func (l *FileLogger) ClearAllLogFile() error {
 		logFile := l.getLogFileName(i)
 		err := os.Remove(logFile)
 		if err != nil {
-			return NewFault(FAILED, err.Error())
+			return faults.NewFault(faults.FAILED, err.Error())
 		}
 	}
 	l.curRotate = 0
 	err := l.openFile(true)
 	if err != nil {
-		return NewFault(FAILED, err.Error())
+		return faults.NewFault(faults.FAILED, err.Error())
 	}
 	return nil
 }
 
 func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	if offset < 0 && length != 0 {
-		return "", NewFault(BAD_ARGUMENTS, "BAD_ARGUMENTS")
+		return "", faults.NewFault( faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
 	}
 	if offset >= 0 && length < 0 {
-		return "", NewFault(BAD_ARGUMENTS, "BAD_ARGUMENTS")
+		return "", faults.NewFault( faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
 	}
 
 	l.locker.Lock()
@@ -184,14 +186,14 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	f, err := os.Open(l.GetCurrentLogFile())
 
 	if err != nil {
-		return "", NewFault(FAILED, "FAILED")
+		return "", faults.NewFault(faults.FAILED, "FAILED")
 	}
 	defer f.Close()
 
 	//check the length of file
 	statInfo, err := f.Stat()
 	if err != nil {
-		return "", NewFault(FAILED, "FAILED")
+		return "", faults.NewFault(faults.FAILED, "FAILED")
 	}
 
 	fileLen := statInfo.Size()
@@ -224,7 +226,7 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	b := make([]byte, length)
 	n, err := f.ReadAt(b, offset)
 	if err != nil {
-		return "", NewFault(FAILED, "FAILED")
+		return "", faults.NewFault( faults.FAILED, "FAILED")
 	}
 	return string(b[:n]), nil
 }
@@ -342,11 +344,11 @@ func (l *NullLogger) Close() error {
 }
 
 func (l *NullLogger) ReadLog(offset int64, length int64) (string, error) {
-	return "", NewFault(NO_FILE, "NO_FILE")
+	return "", faults.NewFault(faults.NO_FILE, "NO_FILE")
 }
 
 func (l *NullLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
-	return "", 0, false, NewFault(NO_FILE, "NO_FILE")
+	return "", 0, false, faults.NewFault(faults.NO_FILE, "NO_FILE")
 }
 
 func (l *NullLogger) ClearCurLogFile() error {
@@ -354,7 +356,7 @@ func (l *NullLogger) ClearCurLogFile() error {
 }
 
 func (l *NullLogger) ClearAllLogFile() error {
-	return NewFault(NO_FILE, "NO_FILE")
+	return faults.NewFault(faults.NO_FILE, "NO_FILE")
 }
 
 func NewNullLocker() *NullLocker {
@@ -394,7 +396,7 @@ func NewStderrLogger(logEventEmitter LogEventEmitter) *StdLogger {
 type LogCaptureLogger struct {
 	underlineLogger        Logger
 	procCommEventCapWriter io.Writer
-	procCommEventCapture   *ProcCommEventCapture
+	procCommEventCapture   *events.ProcCommEventCapture
 }
 
 func NewLogCaptureLogger(underlineLogger Logger,
@@ -403,7 +405,7 @@ func NewLogCaptureLogger(underlineLogger Logger,
 	procName string,
 	groupName string) *LogCaptureLogger {
 	r, w := io.Pipe()
-	eventCapture := NewProcCommEventCapture(r,
+	eventCapture := events.NewProcCommEventCapture(r,
 		captureMaxBytes,
 		stdType,
 		procName,
@@ -456,27 +458,27 @@ type StdLogEventEmitter struct {
 	Type         string
 	process_name string
 	group_name   string
-	process      *Process
+    pidFunc     func() int
 }
 
-func NewStdoutLogEventEmitter(process_name string, group_name string, process *Process) *StdLogEventEmitter {
+func NewStdoutLogEventEmitter(process_name string, group_name string, procPidFunc func() int ) *StdLogEventEmitter {
 	return &StdLogEventEmitter{Type: "stdout",
 		process_name: process_name,
 		group_name:   group_name,
-		process:      process}
+		pidFunc:      procPidFunc }
 }
 
-func NewStderrLogEventEmitter(process_name string, group_name string, process *Process) *StdLogEventEmitter {
+func NewStderrLogEventEmitter(process_name string, group_name string, procPidFunc func() int ) *StdLogEventEmitter {
 	return &StdLogEventEmitter{Type: "stderr",
 		process_name: process_name,
 		group_name:   group_name,
-		process:      process}
+		pidFunc:      procPidFunc }
 }
 
 func (se *StdLogEventEmitter) emitLogEvent(data string) {
 	if se.Type == "stdout" {
-		emitEvent(createProcessLogStdoutEvent(se.process_name, se.group_name, se.process.GetPid(), data))
+		events.EmitEvent( events.CreateProcessLogStdoutEvent(se.process_name, se.group_name, se.pidFunc(), data))
 	} else {
-		emitEvent(createProcessLogStderrEvent(se.process_name, se.group_name, se.process.GetPid(), data))
+		events.EmitEvent( events.CreateProcessLogStderrEvent(se.process_name, se.group_name, se.pidFunc(), data))
 	}
 }
