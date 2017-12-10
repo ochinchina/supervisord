@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+    "github.com/ochinchina/supervisord/xmlrpcclient"
 )
 
 type CtlCommand struct {
@@ -16,7 +17,7 @@ func (x *CtlCommand) Execute(args []string) error {
 		return nil
 	}
 
-	rpcc := NewXmlRPCClient(x.ServerUrl)
+	rpcc := xmlclient.NewXmlRPCClient(x.ServerUrl)
 
 	verb, processes := args[0], args[1:]
 	hasProcesses := len(processes) > 0

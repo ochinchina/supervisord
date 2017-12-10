@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+    "github.com/ochinchina/supervisord/types"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -21,23 +22,6 @@ type Supervisor struct {
 	xmlRPC     *XmlRPC
 	logger     Logger
 	restarting bool
-}
-
-type ProcessInfo struct {
-	Name           string `xml:"name"`
-	Group          string `xml:"group"`
-	Description    string `xml:"description"`
-	Start          int    `xml:"start"`
-	Stop           int    `xml:"stop"`
-	Now            int    `xml:"now"`
-	State          int    `xml:"state"`
-	Statename      string `xml:"statename"`
-	Spawnerr       string `xml:"spawnerr"`
-	Exitstatus     int    `xml:"exitstatus"`
-	Logfile        string `xml:"logfile"`
-	Stdout_logfile string `xml:"stdout_logfile"`
-	Stderr_logfile string `xml:"stderr_logfile"`
-	Pid            int    `xml:"pid"`
 }
 
 type StartProcessArgs struct {
@@ -87,12 +71,6 @@ type ProcessTailLog struct {
 	LogData  string
 	Offset   int64
 	Overflow bool
-}
-
-type ReloadConfigResult struct {
-	AddedGroup   []string
-	ChangedGroup []string
-	RemovedGroup []string
 }
 
 func NewSupervisor(configFile string) *Supervisor {
@@ -182,8 +160,8 @@ func (s *Supervisor) IsRestarting() bool {
 	return s.restarting
 }
 
-func getProcessInfo(proc *Process) *ProcessInfo {
-	return &ProcessInfo{Name: proc.GetName(),
+func getProcessInfo(proc *Process) *types.ProcessInfo {
+	return &types.ProcessInfo{Name: proc.GetName(),
 		Group:          proc.GetGroup(),
 		Description:    proc.GetDescription(),
 		Start:          int(proc.GetStartTime().Unix()),
@@ -200,8 +178,8 @@ func getProcessInfo(proc *Process) *ProcessInfo {
 
 }
 
-func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *struct{ AllProcessInfo []ProcessInfo }) error {
-	reply.AllProcessInfo = make([]ProcessInfo, 0)
+func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
+	reply.AllProcessInfo = make([]types.ProcessInfo, 0)
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		procInfo := getProcessInfo(proc)
 		reply.AllProcessInfo = append(reply.AllProcessInfo, *procInfo)
@@ -210,7 +188,7 @@ func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *s
 	return nil
 }
 
-func (s *Supervisor) GetProcessInfo(r *http.Request, args *struct{ Name string }, reply *struct{ ProcInfo ProcessInfo }) error {
+func (s *Supervisor) GetProcessInfo(r *http.Request, args *struct{ Name string }, reply *struct{ ProcInfo types.ProcessInfo }) error {
 	log.Debug("Get process info of: ", args.Name)
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
@@ -248,7 +226,7 @@ func (s *Supervisor) StartAllProcesses(r *http.Request, args *struct {
 	return nil
 }
 
-func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []ProcessInfo }) error {
+func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	log.WithFields(log.Fields{"group": args.Name}).Info("start process group")
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		if proc.GetGroup() == args.Name {
@@ -271,7 +249,7 @@ func (s *Supervisor) StopProcess(r *http.Request, args *StartProcessArgs, reply 
 	return nil
 }
 
-func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []ProcessInfo }) error {
+func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	log.WithFields(log.Fields{"group": args.Name}).Info("stop process group")
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		if proc.GetGroup() == args.Name {
@@ -310,7 +288,7 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *ProcessSignal, reply *
 	return nil
 }
 
-func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []ProcessInfo }) error {
+func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		if proc.GetGroup() == args.Name {
 			sig, err := toSignal(args.Signal)
@@ -328,7 +306,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, re
 	return nil
 }
 
-func (s *Supervisor) SignalAllProcesses(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []ProcessInfo }) error {
+func (s *Supervisor) SignalAllProcesses(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		sig, err := toSignal(args.Signal)
 		if err == nil {
@@ -506,7 +484,7 @@ func toLogLevel(level string) log.Level {
 	}
 }
 
-func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *ReloadConfigResult) error {
+func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *types.ReloadConfigResult) error {
 	log.Info("start to reload config")
 	err, addedGroup, changedGroup, removedGroup := s.Reload()
 	if len(addedGroup) > 0 {
