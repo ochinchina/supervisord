@@ -22,7 +22,7 @@ $ go get -u github.com/ochinchina/supervisord
 
 After the supervisord binary is generated, create a supervisord configuration file and start the supervisord like below:
 
-```
+```shell
 $ cat supervisor.conf
 [program:test]
 command = /your/program args
@@ -30,22 +30,30 @@ $ supervisord -c supervisor.conf
 ```
 # Run as daemon
 Add the inet interface in your configuration:
-```
+```ini
 [inet_http_server]
 port=127.0.0.1:9001
 ```
 then run
-```
+```shell
 $ supervisord -c supervisor.conf -d
 ```
 In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`, `reload`. 
     
-```
+```shell
 $ supervisord ctl status
 $ supervisord ctl stop <worker_name>
 $ supervisord ctl start <worker_name>
 $ supervisord ctl shutdown
 $ supervisord ctl reload
+```
+
+# Check the version
+
+command "version" will show the current supervisor version.
+
+```shell
+$ supervisord version
 ```
 
 # Supported features
