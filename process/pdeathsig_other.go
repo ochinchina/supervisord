@@ -1,7 +1,7 @@
 // +build !linux
 // +build !windows
 
-package main
+package process
 
 import (
 	"syscall"

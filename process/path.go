@@ -1,4 +1,4 @@
-package main
+package process
 
 import (
 	"os/user"
@@ -23,7 +23,7 @@ func path_split(path string) []string {
 	}
 	return r
 }
-func path_expand(path string) (string, error) {
+func Path_expand(path string) (string, error) {
 	pathList := path_split(path)
 
 	if len(pathList) > 0 && len(pathList[0]) > 0 && pathList[0][0] == '~' {

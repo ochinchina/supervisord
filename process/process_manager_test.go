@@ -1,10 +1,10 @@
-package main
+package process
 
 import (
 	"testing"
 )
 
-var procs *ProcessManager = newProcessManager()
+var procs *ProcessManager = NewProcessManager()
 
 func TestProcessMgrAdd(t *testing.T) {
 	procs.Clear()

@@ -1,4 +1,4 @@
-package main
+package process
 
 import (
 	"fmt"
@@ -66,8 +66,8 @@ type Process struct {
 	retryTimes int
 	lock       sync.RWMutex
 	stdin      io.WriteCloser
-	stdoutLog  logger.Logger
-	stderrLog  logger.Logger
+	StdoutLog  logger.Logger
+	StderrLog  logger.Logger
 }
 
 func NewProcess(supervisor_id string, config *config.ConfigEntry) *Process {
@@ -236,7 +236,7 @@ func (p *Process) GetStopTime() time.Time {
 
 func (p *Process) GetStdoutLogfile() string {
 	file_name := p.config.GetStringExpression("stdout_logfile", "/dev/null")
-	expand_file, err := path_expand(file_name)
+	expand_file, err := Path_expand(file_name)
 	if err == nil {
 		return expand_file
 	} else {
@@ -246,7 +246,7 @@ func (p *Process) GetStdoutLogfile() string {
 
 func (p *Process) GetStderrLogfile() string {
 	file_name := p.config.GetStringExpression("stderr_logfile", "/dev/null")
-	expand_file, err := path_expand(file_name)
+	expand_file, err := Path_expand(file_name)
 	if err == nil {
 		return expand_file
 	} else {
@@ -380,11 +380,11 @@ func (p *Process) run(finishCb func()) {
 		p.lock.Unlock()
 		finishCb()
 	} else {
-		if p.stdoutLog != nil {
-			p.stdoutLog.SetPid(p.cmd.Process.Pid)
+		if p.StdoutLog != nil {
+			p.StdoutLog.SetPid(p.cmd.Process.Pid)
 		}
-		if p.stderrLog != nil {
-			p.stderrLog.SetPid(p.cmd.Process.Pid)
+		if p.StderrLog != nil {
+			p.StderrLog.SetPid(p.cmd.Process.Pid)
 		}
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("success to start program")
 		startSecs := p.config.GetInt("startsecs", 1)
@@ -488,26 +488,26 @@ func (p *Process) setDir() {
 
 func (p *Process) setLog() {
 	if p.config.IsProgram() {
-		p.stdoutLog = p.createLogger(p.GetStdoutLogfile(),
+		p.StdoutLog = p.createLogger(p.GetStdoutLogfile(),
 			int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
 			p.config.GetInt("stdout_logfile_backups", 10),
 			p.createStdoutLogEventEmitter())
 		capture_bytes := p.config.GetBytes("stdout_capture_maxbytes", 0)
 		if capture_bytes > 0 {
 			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("capture stdout process communication")
-			p.stdoutLog = logger.NewLogCaptureLogger(p.stdoutLog,
+			p.StdoutLog = logger.NewLogCaptureLogger(p.StdoutLog,
 				capture_bytes,
 				"PROCESS_COMMUNICATION_STDOUT",
 				p.GetName(),
 				p.GetGroup())
 		}
 
-		p.cmd.Stdout = p.stdoutLog
+		p.cmd.Stdout = p.StdoutLog
 
 		if p.config.GetBool("redirect_stderr", false) {
-			p.stderrLog = p.stdoutLog
+			p.StderrLog = p.StdoutLog
 		} else {
-			p.stderrLog = p.createLogger(p.GetStderrLogfile(),
+			p.StderrLog = p.createLogger(p.GetStderrLogfile(),
 				int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
 				p.config.GetInt("stderr_logfile_backups", 10),
 				p.createStderrLogEventEmitter())
@@ -517,14 +517,14 @@ func (p *Process) setLog() {
 
 		if capture_bytes > 0 {
 			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("capture stderr process communication")
-			p.stderrLog = logger.NewLogCaptureLogger(p.stdoutLog,
+			p.StderrLog = logger.NewLogCaptureLogger(p.StdoutLog,
 				capture_bytes,
 				"PROCESS_COMMUNICATION_STDERR",
 				p.GetName(),
 				p.GetGroup())
 		}
 
-		p.cmd.Stderr = p.stderrLog
+		p.cmd.Stderr = p.StderrLog
 
 	} else if p.config.IsEventListener() {
 		in, err := p.cmd.StdoutPipe()

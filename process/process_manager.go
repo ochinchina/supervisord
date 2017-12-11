@@ -1,4 +1,4 @@
-package main
+package process
 
 import (
 	"strings"
@@ -14,7 +14,7 @@ type ProcessManager struct {
 	lock           sync.Mutex
 }
 
-func newProcessManager() *ProcessManager {
+func NewProcessManager() *ProcessManager {
 	return &ProcessManager{procs: make(map[string]*Process),
 		eventListeners: make(map[string]*Process),
 	}
