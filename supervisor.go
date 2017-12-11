@@ -7,6 +7,7 @@ import (
 	"github.com/ochinchina/supervisord/faults"
 	"github.com/ochinchina/supervisord/logger"
 	"github.com/ochinchina/supervisord/types"
+    "github.com/ochinchina/supervisord/signals"
 	"github.com/ochinchina/supervisord/util"
 	"net/http"
 	"os"
@@ -286,7 +287,7 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *ProcessSignal, reply *
 	if proc == nil {
 		return fmt.Errorf("No process named %s", args.Name)
 	}
-	sig, err := toSignal(args.Signal)
+	sig, err := signals.ToSignal(args.Signal)
 	if err == nil {
 		proc.Signal(sig)
 	}
@@ -296,7 +297,7 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *ProcessSignal, reply *
 func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
 		if proc.GetGroup() == args.Name {
-			sig, err := toSignal(args.Signal)
+			sig, err := signals.ToSignal(args.Signal)
 			if err == nil {
 				proc.Signal(sig)
 			}
@@ -313,7 +314,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, re
 
 func (s *Supervisor) SignalAllProcesses(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *Process) {
-		sig, err := toSignal(args.Signal)
+		sig, err := signals.ToSignal(args.Signal)
 		if err == nil {
 			proc.Signal(sig)
 		}

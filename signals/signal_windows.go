@@ -1,6 +1,6 @@
 // +build windows
 
-package main
+package signals
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 )
 
 //convert a signal name to signal
-func toSignal(signalName string) (os.Signal, error) {
+func ToSignal(signalName string) (os.Signal, error) {
 	if signalName == "HUP" {
 		return syscall.SIGHUP, nil
 	} else if signalName == "INT" {
@@ -34,7 +34,7 @@ func toSignal(signalName string) (os.Signal, error) {
 
 }
 
-func kill(process *os.Process, sig os.Signal) error {
+func Kill(process *os.Process, sig os.Signal) error {
 	//Signal command can't kill children processes, call  taskkill command to kill them
 	cmd := exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Pid))
 	err := cmd.Start()

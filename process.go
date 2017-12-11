@@ -6,6 +6,7 @@ import (
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/logger"
+    "github.com/ochinchina/supervisord/signals"
 	"io"
 	"os"
 	"os/exec"
@@ -463,7 +464,7 @@ func (p *Process) Signal(sig os.Signal) error {
 
 func (p *Process) sendSignal(sig os.Signal) error {
 	if p.cmd != nil && p.cmd.Process != nil {
-		err := kill(p.cmd.Process, sig)
+		err := signals.Kill(p.cmd.Process, sig)
 		return err
 	}
 	return fmt.Errorf("process is not started")
@@ -645,7 +646,7 @@ func (p *Process) Stop(wait bool) {
 	p.stopByUser = true
 	p.lock.RUnlock()
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
-	sig, err := toSignal(p.config.GetString("stopsignal", ""))
+	sig, err := signals.ToSignal(p.config.GetString("stopsignal", ""))
 	if err == nil {
 		p.Signal(sig)
 	}

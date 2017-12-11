@@ -1,6 +1,6 @@
 // +build !windows
 
-package main
+package signals
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 )
 
 //convert a signal name to signal
-func toSignal(signalName string) (os.Signal, error) {
+func ToSignal(signalName string) (os.Signal, error) {
 	if signalName == "HUP" {
 		return syscall.SIGHUP, nil
 	} else if signalName == "INT" {
@@ -28,7 +28,7 @@ func toSignal(signalName string) (os.Signal, error) {
 
 }
 
-func kill(process *os.Process, sig os.Signal) error {
+func Kill(process *os.Process, sig os.Signal) error {
 	localSig := sig.(syscall.Signal)
 	return syscall.Kill(-process.Pid, localSig)
 }
