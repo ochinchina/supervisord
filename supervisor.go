@@ -6,9 +6,9 @@ import (
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/faults"
 	"github.com/ochinchina/supervisord/logger"
-    "github.com/ochinchina/supervisord/process"
+	"github.com/ochinchina/supervisord/process"
+	"github.com/ochinchina/supervisord/signals"
 	"github.com/ochinchina/supervisord/types"
-    "github.com/ochinchina/supervisord/signals"
 	"github.com/ochinchina/supervisord/util"
 	"net/http"
 	"os"
@@ -356,7 +356,7 @@ func (s *Supervisor) Reload() (error, []string, []string, []string) {
 	prevPrograms := s.config.GetProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
 
-	err := s.config.Load()
+	loaded_programs, err := s.config.Load()
 
 	if err == nil {
 		s.setSupervisordInfo()
@@ -365,10 +365,15 @@ func (s *Supervisor) Reload() (error, []string, []string, []string) {
 		s.startHttpServer()
 		s.startAutoStartPrograms()
 	}
-	removedPrograms := util.Sub(prevPrograms, s.config.GetProgramNames())
+	removedPrograms := util.Sub(prevPrograms, loaded_programs)
 	for _, removedProg := range removedPrograms {
-		log.WithFields(log.Fields{"program": removedProg}).Info("the program is removed")
+		log.WithFields(log.Fields{"program": removedProg}).Info("the program is removed and will be stopped")
 		s.config.RemoveProgram(removedProg)
+		proc := s.procMgr.Remove(removedProg)
+		if proc != nil {
+			proc.Stop(false)
+		}
+
 	}
 	addedGroup, changedGroup, removedGroup := s.config.ProgramGroup.Sub(prevProgGroup)
 	return err, addedGroup, changedGroup, removedGroup

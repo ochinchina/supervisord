@@ -6,7 +6,7 @@ import (
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/logger"
-    "github.com/ochinchina/supervisord/signals"
+	"github.com/ochinchina/supervisord/signals"
 	"io"
 	"os"
 	"os/exec"

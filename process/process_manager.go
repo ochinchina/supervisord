@@ -73,6 +73,12 @@ func (pm *ProcessManager) Add(name string, proc *Process) {
 	log.Info("add process:", name)
 }
 
+// remove the process from the manager
+//
+// Arguments:
+// name - the name of program
+//
+// Return the process or nil
 func (pm *ProcessManager) Remove(name string) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()

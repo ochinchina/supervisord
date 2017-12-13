@@ -110,7 +110,9 @@ func (c *Config) createEntry(name string, configDir string) *ConfigEntry {
 	return entry
 }
 
-func (c *Config) Load() error {
+//
+// return the loaded programs
+func (c *Config) Load() ([]string, error) {
 	ini := ini.NewIni()
 	c.ProgramGroup = NewProcessGroup()
 	ini.LoadFile(c.configFile)
@@ -119,8 +121,7 @@ func (c *Config) Load() error {
 	for _, f := range includeFiles {
 		ini.LoadFile(f)
 	}
-	c.parse(ini)
-	return nil
+	return c.parse(ini), nil
 }
 
 func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
@@ -156,16 +157,19 @@ func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
 
 }
 
-func (c *Config) parse(cfg *ini.Ini) {
+func (c *Config) parse(cfg *ini.Ini) []string {
 	c.parseGroup(cfg)
-	c.parseProgram(cfg)
+	loaded_programs := c.parseProgram(cfg)
+
+	//parse non-group,non-program and non-eventlistener sections
 	for _, section := range cfg.Sections() {
-		if !strings.HasPrefix(section.Name, "group:") && !strings.HasPrefix(section.Name, "program:") {
+		if !strings.HasPrefix(section.Name, "group:") && !strings.HasPrefix(section.Name, "program:") && !strings.HasPrefix(section.Name, "eventlistener:") {
 			entry := c.createEntry(section.Name, c.GetConfigFileDir())
 			c.entries[section.Name] = entry
 			entry.parse(section)
 		}
 	}
+	return loaded_programs
 }
 
 func (c *Config) GetConfigFileDir() string {
@@ -465,7 +469,12 @@ func (c *Config) isProgramOrEventListener(section *ini.Section) (bool, string) {
 	}
 	return is_program || is_event_listener, prefix
 }
-func (c *Config) parseProgram(cfg *ini.Ini) {
+
+// parse the sections starts with "program:" prefix.
+//
+// Return all the parsed program names in the ini
+func (c *Config) parseProgram(cfg *ini.Ini) []string {
+	loaded_programs := make([]string, 0)
 	for _, section := range cfg.Sections() {
 
 		program_or_event_listener, prefix := c.isProgramOrEventListener(section)
@@ -516,9 +525,11 @@ func (c *Config) parseProgram(cfg *ini.Ini) {
 				entry.Name = prefix + procName
 				group := c.ProgramGroup.GetGroup(programName, programName)
 				entry.Group = group
+				loaded_programs = append(loaded_programs, procName)
 			}
 		}
 	}
+	return loaded_programs
 
 }
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-const VERSION = "1.0.005"
+const VERSION = "1.0.006"
 
 type VersionCommand struct {
 }
