@@ -8,10 +8,13 @@
   version = "1.0.2"
 
 [[projects]]
-  name = "github.com/go-ini/ini"
-  packages = ["."]
-  revision = "20b96f641a5ea98f2f8619ff4f3e061cff4833bd"
-  version = "v1.28.2"
+  branch = "master"
+  name = "github.com/alexbrainman/ps"
+  packages = [
+    ".",
+    "winapi"
+  ]
+  revision = "f37a767b4c3e86b29ded78636a7bb741a3613a1e"
 
 [[projects]]
   name = "github.com/gorilla/rpc"
@@ -33,6 +36,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/ochinchina/go-ini"
+  packages = ["."]
+  revision = "378031a63e2d8155b39b81b225b7351bc11a6ffc"
+
+[[projects]]
+  branch = "master"
   name = "github.com/ochinchina/gorilla-xmlrpc"
   packages = ["xml"]
   revision = "d37a0d21ebabd0d9b59cd868499d6af4673ee9fe"
@@ -40,7 +49,10 @@
 [[projects]]
   branch = "master"
   name = "github.com/rogpeppe/go-charset"
-  packages = ["charset","data"]
+  packages = [
+    "charset",
+    "data"
+  ]
   revision = "e9ff06f347d3f5d0013d59ed83754f0e88de10d4"
 
 [[projects]]
@@ -52,12 +64,15 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "c84c1ab9fd18cdd4c23dd021c10f5f46dea95e46"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d765dd3cd60e45504031ba3cbd8f4b516e314572e0047939f23118993a985b67"
+  inputs-digest = "f72db4a067782c8ee7469dc56a1d414665cce15a7a3cd0e68aa25f8386056640"
   solver-name = "gps-cdcl"
   solver-version = 1

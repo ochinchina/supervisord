@@ -1,12 +1,8 @@
 package process
 
 import (
+	"errors"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/events"
-	"github.com/ochinchina/supervisord/logger"
-	"github.com/ochinchina/supervisord/signals"
 	"io"
 	"os"
 	"os/exec"
@@ -16,6 +12,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/events"
+	"github.com/ochinchina/supervisord/logger"
+	"github.com/ochinchina/supervisord/signals"
 )
 
 type ProcessState int
@@ -118,8 +120,11 @@ func (p *Process) Start(wait bool) {
 			if wait {
 				runCond.L.Lock()
 			}
-			p.run(func() {
+			p.run(func(err error) {
 				finished = true
+				if err == nil {
+					p.postStart()
+				}
 				if wait {
 					runCond.L.Unlock()
 					runCond.Signal()
@@ -335,12 +340,12 @@ func (p *Process) getExitCodes() []int {
 	return result
 }
 
-func (p *Process) run(finishCb func()) {
+func (p *Process) run(finishCb func(error)) {
 	args, err := parseCommand(p.config.GetStringExpression("command", ""))
 
 	if err != nil {
 		log.Error("the command is empty string")
-		finishCb()
+		finishCb(err)
 		return
 	}
 	p.lock.Lock()
@@ -349,7 +354,7 @@ func (p *Process) run(finishCb func()) {
 		if status.Continued() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start program because it is running")
 			p.lock.Unlock()
-			finishCb()
+			finishCb(errors.New("program is running"))
 			return
 		}
 	}
@@ -358,10 +363,10 @@ func (p *Process) run(finishCb func()) {
 		p.cmd.Args = args
 	}
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
-	if p.setUser() != nil {
+	if err = p.setUser(); err != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		p.lock.Unlock()
-		finishCb()
+		finishCb(err)
 		return
 	}
 	set_deathsig(p.cmd.SysProcAttr)
@@ -378,7 +383,7 @@ func (p *Process) run(finishCb func()) {
 		p.changeStateTo(FATAL)
 		p.stopTime = time.Now()
 		p.lock.Unlock()
-		finishCb()
+		finishCb(err)
 	} else {
 		if p.StdoutLog != nil {
 			p.StdoutLog.SetPid(p.cmd.Process.Pid)
@@ -401,7 +406,7 @@ func (p *Process) run(finishCb func()) {
 		}
 		p.lock.Unlock()
 		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Debug("wait program exit")
-		finishCb()
+		finishCb(nil)
 		err = p.cmd.Wait()
 		if err == nil {
 			if p.cmd.ProcessState != nil {

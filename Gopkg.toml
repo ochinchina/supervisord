@@ -44,3 +44,7 @@
 [[constraint]]
   name = "github.com/sevlyar/go-daemon"
   version = "0.1.1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/alexbrainman/ps"
