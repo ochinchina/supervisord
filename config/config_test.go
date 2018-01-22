@@ -36,7 +36,7 @@ func parse(b []byte) (*Config, error) {
 		return nil, err
 	}
 	config := NewConfig(fileName)
-	err = config.Load()
+	_, err = config.Load()
 
 	if err != nil {
 		return nil, err
