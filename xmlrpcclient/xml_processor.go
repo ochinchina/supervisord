@@ -1,4 +1,4 @@
-package xmlclient
+package xmlrpcclient
 
 import (
 	"encoding/xml"

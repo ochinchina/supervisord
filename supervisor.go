@@ -36,11 +36,6 @@ type StartProcessArgs struct {
 	Wait bool `default:"true"`
 }
 
-type ProcessSignal struct {
-	Name   string
-	Signal string
-}
-
 type ProcessStdin struct {
 	Name  string
 	Chars string
@@ -283,19 +278,21 @@ func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 	return nil
 }
 
-func (s *Supervisor) SignalProcess(r *http.Request, args *ProcessSignal, reply *struct{ Success bool }) error {
+func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, reply *struct{ Success bool }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
+        reply.Success = false
 		return fmt.Errorf("No process named %s", args.Name)
 	}
 	sig, err := signals.ToSignal(args.Signal)
 	if err == nil {
 		proc.Signal(sig)
 	}
+    reply.Success = true
 	return nil
 }
 
-func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
+func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		if proc.GetGroup() == args.Name {
 			sig, err := signals.ToSignal(args.Signal)
@@ -313,7 +310,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *ProcessSignal, re
 	return nil
 }
 
-func (s *Supervisor) SignalAllProcesses(r *http.Request, args *ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
+func (s *Supervisor) SignalAllProcesses(r *http.Request, args *types.ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		sig, err := signals.ToSignal(args.Signal)
 		if err == nil {

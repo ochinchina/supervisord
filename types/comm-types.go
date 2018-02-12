@@ -22,3 +22,12 @@ type ReloadConfigResult struct {
 	ChangedGroup []string
 	RemovedGroup []string
 }
+
+type ProcessSignal struct {
+    Name   string
+    Signal string
+}
+
+type BooleanReply struct {
+    Success bool
+}
