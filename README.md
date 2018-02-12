@@ -43,9 +43,13 @@ In order to controll the daemon, you can use `$ supervisord ctl` subcommand, ava
 ```shell
 $ supervisord ctl status
 $ supervisord ctl stop <worker_name>
+$ supervisord ctl stop all
 $ supervisord ctl start <worker_name>
+$ supervisord ctl start all
 $ supervisord ctl shutdown
 $ supervisord ctl reload
+$ supervisord ctl signal <process_name> <process_name> ...
+$ supervisord ctl signal all
 ```
 
 # Check the version
