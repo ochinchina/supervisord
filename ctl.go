@@ -3,21 +3,39 @@ package main
 import (
 	"fmt"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
+    "github.com/ochinchina/supervisord/config"
+    "os"
 	"strings"
 )
 
 type CtlCommand struct {
-	ServerUrl string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening" default:"http://localhost:9001"`
+    ServerUrl string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening"`
 }
 
 var ctlCommand CtlCommand
 
+func (x *CtlCommand)getServerUrl() string{
+    fmt.Printf("%v\n", options )
+    if x.ServerUrl != "" {
+        return x.ServerUrl
+    } else if _, err := os.Stat( options.Configuration ); err == nil {
+        config := config.NewConfig( options.Configuration )
+        config.Load()
+        if entry, ok := config.GetSupervisorctl(); ok {
+            serverurl := entry.GetString( "serverurl", "" )
+            if serverurl != "" {
+                return serverurl
+            }
+        }
+    }
+    return "http://localhost:9001"
+}
 func (x *CtlCommand) Execute(args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
 
-	rpcc := xmlrpcclient.NewXmlRPCClient(x.ServerUrl)
+	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl() )
     verb := args[0]
 
 	switch verb {
