@@ -52,6 +52,12 @@ $ supervisord ctl signal <process_name> <process_name> ...
 $ supervisord ctl signal all
 ```
 
+the URL of supervisord in the "supervisor ctl" subcommand is dected in following order:
+
+- check if option -s or --serverurl is present, use this url
+- check if -c option is present and the "serverurl" in "supervisorctl" section is present, use the "serverurl" in section "supervisorctl"
+- return http://localhost:9001
+
 # Check the version
 
 command "version" will show the current supervisor version.
