@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	ini "github.com/ochinchina/go-ini"
 )
 

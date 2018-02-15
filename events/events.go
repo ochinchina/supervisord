@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"strconv"
 	"strings"
