@@ -2,7 +2,7 @@ package process
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/logger"
