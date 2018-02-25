@@ -33,7 +33,7 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/ochinchina/gorilla-xmlrpc"
+  name = "github.com/rpoletaev/gorilla-xmlrpc"
   packages = ["xml"]
   revision = "d37a0d21ebabd0d9b59cd868499d6af4673ee9fe"
 

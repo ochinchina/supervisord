@@ -39,7 +39,7 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/ochinchina/gorilla-xmlrpc"
+  name = "github.com/rpoletaev/gorilla-xmlrpc"
 
 [[constraint]]
   name = "github.com/sevlyar/go-daemon"
