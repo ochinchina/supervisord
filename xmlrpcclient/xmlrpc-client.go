@@ -3,8 +3,9 @@ package xmlrpcclient
 import (
 	"bytes"
 	"fmt"
-	"github.com/ochinchina/supervisord/types"
 	"net/http"
+
+	"github.com/rpoletaev/supervisord/types"
 
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
 )
@@ -97,19 +98,19 @@ func (r *XmlRPCClient) ChangeProcessState(change string, processName string) (re
 	return
 }
 
-func (r *XmlRPCClient)ChangeAllProcessState( change string )( reply AllProcessInfoReply, err error ) {
-    if !(change == "start" || change == "stop") {
-        err = fmt.Errorf("Incorrect required state")
-        return
-    }
-    ins := struct{ Wait bool }{ true }
-    resp, err := r.post( fmt.Sprintf( "supervisor.%sAllProcesses", change) , &ins)
-    if err != nil {
-        return
-    }
-    defer resp.Body.Close()
-    err = xml.DecodeClientResponse(resp.Body, &reply)
-    return
+func (r *XmlRPCClient) ChangeAllProcessState(change string) (reply AllProcessInfoReply, err error) {
+	if !(change == "start" || change == "stop") {
+		err = fmt.Errorf("Incorrect required state")
+		return
+	}
+	ins := struct{ Wait bool }{true}
+	resp, err := r.post(fmt.Sprintf("supervisor.%sAllProcesses", change), &ins)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	err = xml.DecodeClientResponse(resp.Body, &reply)
+	return
 }
 
 func (r *XmlRPCClient) Shutdown() (reply ShutdownReply, err error) {
@@ -164,27 +165,27 @@ func (r *XmlRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 	return
 }
 
-func (r *XmlRPCClient)SignalProcess( signal string, name string ) ( reply types.BooleanReply, err error ) {
-    ins := types.ProcessSignal{ Name:name, Signal: signal }
-    resp, err := r.post("supervisor.signalProcess", &ins)
-    if err != nil {
-        return
-    }
-    defer resp.Body.Close()
+func (r *XmlRPCClient) SignalProcess(signal string, name string) (reply types.BooleanReply, err error) {
+	ins := types.ProcessSignal{Name: name, Signal: signal}
+	resp, err := r.post("supervisor.signalProcess", &ins)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
-    err = xml.DecodeClientResponse(resp.Body, &reply)
-    return
+	err = xml.DecodeClientResponse(resp.Body, &reply)
+	return
 }
 
-func (r *XmlRPCClient)SignalAll( signal string ) (reply AllProcessInfoReply, err error ) {
-    ins :=  struct { Signal string }{ signal }
-    resp, err := r.post("supervisor.signalProcess", &ins)
-    if err != nil {
-        return
-    }
-    defer resp.Body.Close()
+func (r *XmlRPCClient) SignalAll(signal string) (reply AllProcessInfoReply, err error) {
+	ins := struct{ Signal string }{signal}
+	resp, err := r.post("supervisor.signalProcess", &ins)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
-    err = xml.DecodeClientResponse(resp.Body, &reply)
+	err = xml.DecodeClientResponse(resp.Body, &reply)
 
-    return
+	return
 }

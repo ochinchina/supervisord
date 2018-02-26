@@ -2,11 +2,6 @@ package process
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/events"
-	"github.com/ochinchina/supervisord/logger"
-	"github.com/ochinchina/supervisord/signals"
 	"io"
 	"os"
 	"os/exec"
@@ -16,6 +11,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/rpoletaev/supervisord/config"
+	"github.com/rpoletaev/supervisord/events"
+	"github.com/rpoletaev/supervisord/logger"
+	"github.com/rpoletaev/supervisord/signals"
+	log "github.com/sirupsen/logrus"
 )
 
 type ProcessState int

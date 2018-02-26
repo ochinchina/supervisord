@@ -2,19 +2,20 @@ package main
 
 import (
 	"fmt"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/events"
-	"github.com/ochinchina/supervisord/faults"
-	"github.com/ochinchina/supervisord/logger"
-	"github.com/ochinchina/supervisord/process"
-	"github.com/ochinchina/supervisord/signals"
-	"github.com/ochinchina/supervisord/types"
-	"github.com/ochinchina/supervisord/util"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rpoletaev/supervisord/config"
+	"github.com/rpoletaev/supervisord/events"
+	"github.com/rpoletaev/supervisord/faults"
+	"github.com/rpoletaev/supervisord/logger"
+	"github.com/rpoletaev/supervisord/process"
+	"github.com/rpoletaev/supervisord/signals"
+	"github.com/rpoletaev/supervisord/types"
+	"github.com/rpoletaev/supervisord/util"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -281,14 +282,14 @@ func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, reply *struct{ Success bool }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-        reply.Success = false
+		reply.Success = false
 		return fmt.Errorf("No process named %s", args.Name)
 	}
 	sig, err := signals.ToSignal(args.Signal)
 	if err == nil {
 		proc.Signal(sig)
 	}
-    reply.Success = true
+	reply.Success = true
 	return nil
 }
 

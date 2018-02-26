@@ -4,8 +4,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/rpoletaev/supervisord/config"
 	log "github.com/sirupsen/logrus"
-	"github.com/ochinchina/supervisord/config"
 )
 
 type ProcessManager struct {
