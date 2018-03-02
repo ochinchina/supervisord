@@ -10,8 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gwaylib/errors"
 	log "github.com/sirupsen/logrus"
-	ini "github.com/ochinchina/go-ini"
+	"gopkg.in/go-ini/ini.v1"
 )
 
 type ConfigEntry struct {
@@ -113,24 +114,26 @@ func (c *Config) createEntry(name string, configDir string) *ConfigEntry {
 //
 // return the loaded programs
 func (c *Config) Load() ([]string, error) {
-	ini := ini.NewIni()
 	c.ProgramGroup = NewProcessGroup()
-	ini.LoadFile(c.configFile)
-
-	includeFiles := c.getIncludeFiles(ini)
-	for _, f := range includeFiles {
-		ini.LoadFile(f)
+	cfg, err := ini.InsensitiveLoad(c.configFile)
+	if err != nil {
+		return nil, errors.As(err)
 	}
-	return c.parse(ini), nil
+
+	includeFiles := c.getIncludeFiles(cfg)
+	for _, f := range includeFiles {
+		cfg.Append(f)
+	}
+	return c.parse(cfg), nil
 }
 
-func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
+func (c *Config) getIncludeFiles(cfg *ini.File) []string {
 	result := make([]string, 0)
 	if includeSection, err := cfg.GetSection("include"); err == nil {
-		key, err := includeSection.GetValue("files")
+		key, err := includeSection.GetKey("files")
 		if err == nil {
 			env := NewStringExpression("here", c.GetConfigFileDir())
-			files := strings.Fields(key)
+			files := strings.Fields(key.Value())
 			for _, f_raw := range files {
 				dir := c.GetConfigFileDir()
 				f, err := env.Eval(f_raw)
@@ -157,15 +160,15 @@ func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
 
 }
 
-func (c *Config) parse(cfg *ini.Ini) []string {
+func (c *Config) parse(cfg *ini.File) []string {
 	c.parseGroup(cfg)
 	loaded_programs := c.parseProgram(cfg)
 
 	//parse non-group,non-program and non-eventlistener sections
 	for _, section := range cfg.Sections() {
-		if !strings.HasPrefix(section.Name, "group:") && !strings.HasPrefix(section.Name, "program:") && !strings.HasPrefix(section.Name, "eventlistener:") {
-			entry := c.createEntry(section.Name, c.GetConfigFileDir())
-			c.entries[section.Name] = entry
+		if !strings.HasPrefix(section.Name(), "group:") && !strings.HasPrefix(section.Name(), "program:") && !strings.HasPrefix(section.Name(), "eventlistener:") {
+			entry := c.createEntry(section.Name(), c.GetConfigFileDir())
+			c.entries[section.Name()] = entry
 			entry.parse(section)
 		}
 	}
@@ -205,9 +208,9 @@ func (c *Config) GetInetHttpServer() (*ConfigEntry, bool) {
 	return entry, ok
 }
 
-func (c *Config)GetSupervisorctl() (*ConfigEntry, bool ) {
-    entry, ok := c.entries[ "supervisorctl" ]
-    return entry, ok
+func (c *Config) GetSupervisorctl() (*ConfigEntry, bool) {
+	entry, ok := c.entries["supervisorctl"]
+	return entry, ok
 }
 func (c *Config) GetEntries(filterFunc func(entry *ConfigEntry) bool) []*ConfigEntry {
 	result := make([]*ConfigEntry, 0)
@@ -439,18 +442,18 @@ func (c *ConfigEntry) GetBytes(key string, defValue int) int {
 }
 
 func (c *ConfigEntry) parse(section *ini.Section) {
-	c.Name = section.Name
+	c.Name = section.Name()
 	for _, key := range section.Keys() {
-		c.keyValues[key.Name()] = key.ValueWithDefault("")
+		c.keyValues[key.Name()] = key.Value()
 	}
 }
 
-func (c *Config) parseGroup(cfg *ini.Ini) {
+func (c *Config) parseGroup(cfg *ini.File) {
 
 	//parse the group at first
 	for _, section := range cfg.Sections() {
-		if strings.HasPrefix(section.Name, "group:") {
-			entry := c.createEntry(section.Name, c.GetConfigFileDir())
+		if strings.HasPrefix(section.Name(), "group:") {
+			entry := c.createEntry(section.Name(), c.GetConfigFileDir())
 			entry.parse(section)
 			groupName := entry.GetGroupName()
 			programs := entry.GetPrograms()
@@ -463,8 +466,8 @@ func (c *Config) parseGroup(cfg *ini.Ini) {
 
 func (c *Config) isProgramOrEventListener(section *ini.Section) (bool, string) {
 	//check if it is a program or event listener section
-	is_program := strings.HasPrefix(section.Name, "program:")
-	is_event_listener := strings.HasPrefix(section.Name, "eventlistener:")
+	is_program := strings.HasPrefix(section.Name(), "program:")
+	is_event_listener := strings.HasPrefix(section.Name(), "eventlistener:")
 	prefix := ""
 	if is_program {
 		prefix = "program:"
@@ -477,7 +480,7 @@ func (c *Config) isProgramOrEventListener(section *ini.Section) (bool, string) {
 // parse the sections starts with "program:" prefix.
 //
 // Return all the parsed program names in the ini
-func (c *Config) parseProgram(cfg *ini.Ini) []string {
+func (c *Config) parseProgram(cfg *ini.File) []string {
 	loaded_programs := make([]string, 0)
 	for _, section := range cfg.Sections() {
 
@@ -486,14 +489,14 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 		//if it is program or event listener
 		if program_or_event_listener {
 			//get the number of processes
-			numProcs, err := section.GetInt("numprocs")
-			programName := section.Name[len(prefix):]
+			numProcs, err := section.Key("numprocs").Int()
+			programName := section.Name()[len(prefix):]
 			if err != nil {
 				numProcs = 1
 			}
-			procName, err := section.GetValue("process_name")
+			procName, err := section.GetKey("process_name")
 			if numProcs > 1 {
-				if err != nil || strings.Index(procName, "%(process_num)") == -1 {
+				if err != nil || strings.Index(procName.String(), "%(process_num)") == -1 {
 					log.WithFields(log.Fields{
 						"numprocs":     numProcs,
 						"process_name": procName,
@@ -502,7 +505,7 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 			}
 			originalProcName := programName
 			if err == nil {
-				originalProcName = procName
+				originalProcName = procName.String()
 			}
 
 			for i := 1; i <= numProcs; i++ {
@@ -510,20 +513,20 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 					"process_num", fmt.Sprintf("%d", i),
 					"group_name", c.ProgramGroup.GetGroup(programName, programName),
 					"here", c.GetConfigFileDir())
-				cmd, err := envs.Eval(section.GetValueWithDefault("command", ""))
+				cmd, err := envs.Eval(section.Key("command").String())
 				if err != nil {
 					continue
 				}
-				section.Add("command", cmd)
+				section.NewKey("command", cmd)
 
 				procName, err := envs.Eval(originalProcName)
 				if err != nil {
 					continue
 				}
 
-				section.Add("process_name", procName)
-				section.Add("numprocs_start", fmt.Sprintf("%d", (i-1)))
-				section.Add("process_num", fmt.Sprintf("%d", i))
+				section.NewKey("process_name", procName)
+				section.NewKey("numprocs_start", fmt.Sprintf("%d", (i-1)))
+				section.NewKey("process_num", fmt.Sprintf("%d", i))
 				entry := c.createEntry(procName, c.GetConfigFileDir())
 				entry.parse(section)
 				entry.Name = prefix + procName
