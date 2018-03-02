@@ -319,7 +319,7 @@ func (c *ConfigEntry) GetEnv(key string) []string {
 					i++
 				}
 				if i < n {
-					env = append(env, fmt.Sprintf("%s=%s", key, value[start+1:i]))
+					env = append(env, fmt.Sprintf("%s=%s", strings.TrimSpace(key), strings.TrimSpace(value[start+1:i])))
 				}
 				if i+1 < n && value[i+1] == ',' {
 					start = i + 2
@@ -331,10 +331,10 @@ func (c *ConfigEntry) GetEnv(key string) []string {
 					i++
 				}
 				if i < n {
-					env = append(env, fmt.Sprintf("%s=%s", key, value[start:i]))
+					env = append(env, fmt.Sprintf("%s=%s", strings.TrimSpace(key), strings.TrimSpace(value[start:i])))
 					start = i + 1
 				} else {
-					env = append(env, fmt.Sprintf("%s=%s", key, value[start:]))
+					env = append(env, fmt.Sprintf("%s=%s", strings.TrimSpace(key), strings.TrimSpace(value[start:])))
 					break
 				}
 			}
