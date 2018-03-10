@@ -1,12 +1,14 @@
 package xmlrpcclient
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/ochinchina/supervisord/types"
-	"net/http"
-
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	"github.com/ochinchina/supervisord/types"
+	"net"
+	"net/http"
+	"net/url"
 )
 
 type XmlRPCClient struct {
@@ -37,10 +39,34 @@ func (r *XmlRPCClient) Url() string {
 
 func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, error) {
 	buf, _ := xml.EncodeClientRequest(method, data)
-	resp, err := http.Post(r.Url(), "text/xml", bytes.NewBuffer(buf))
+	url, err := url.Parse(r.serverurl)
 	if err != nil {
-		fmt.Println("Fail to send request to supervisord:", err)
 		return nil, err
+	}
+	var resp *http.Response = nil
+	if url.Scheme == "http" || url.Scheme == "https" {
+		resp, err = http.Post(r.Url(), "text/xml", bytes.NewBuffer(buf))
+		if err != nil {
+			fmt.Println("Fail to send request to supervisord:", err)
+			return nil, err
+		}
+	} else if url.Scheme == "unix" {
+		conn, err := net.Dial("unix", url.Path)
+		if err != nil {
+			fmt.Printf("Fail to connect unix socket path: %s\n", r.serverurl)
+			return nil, err
+		}
+		req, err := http.NewRequest("POST", "/RPC2", bytes.NewBuffer(buf))
+		if err != nil {
+			fmt.Printf("Fail to create a http request")
+			return nil, err
+		}
+		err = req.Write(conn)
+		if err != nil {
+			fmt.Printf("Fail to write to unix socket %s\n", r.serverurl)
+			return nil, err
+		}
+		resp, err = http.ReadResponse(bufio.NewReader(conn), req)
 	}
 
 	if resp.StatusCode/100 != 2 {
@@ -97,19 +123,19 @@ func (r *XmlRPCClient) ChangeProcessState(change string, processName string) (re
 	return
 }
 
-func (r *XmlRPCClient)ChangeAllProcessState( change string )( reply AllProcessInfoReply, err error ) {
-    if !(change == "start" || change == "stop") {
-        err = fmt.Errorf("Incorrect required state")
-        return
-    }
-    ins := struct{ Wait bool }{ true }
-    resp, err := r.post( fmt.Sprintf( "supervisor.%sAllProcesses", change) , &ins)
-    if err != nil {
-        return
-    }
-    defer resp.Body.Close()
-    err = xml.DecodeClientResponse(resp.Body, &reply)
-    return
+func (r *XmlRPCClient) ChangeAllProcessState(change string) (reply AllProcessInfoReply, err error) {
+	if !(change == "start" || change == "stop") {
+		err = fmt.Errorf("Incorrect required state")
+		return
+	}
+	ins := struct{ Wait bool }{true}
+	resp, err := r.post(fmt.Sprintf("supervisor.%sAllProcesses", change), &ins)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	err = xml.DecodeClientResponse(resp.Body, &reply)
+	return
 }
 
 func (r *XmlRPCClient) Shutdown() (reply ShutdownReply, err error) {
@@ -164,27 +190,27 @@ func (r *XmlRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 	return
 }
 
-func (r *XmlRPCClient)SignalProcess( signal string, name string ) ( reply types.BooleanReply, err error ) {
-    ins := types.ProcessSignal{ Name:name, Signal: signal }
-    resp, err := r.post("supervisor.signalProcess", &ins)
-    if err != nil {
-        return
-    }
-    defer resp.Body.Close()
+func (r *XmlRPCClient) SignalProcess(signal string, name string) (reply types.BooleanReply, err error) {
+	ins := types.ProcessSignal{Name: name, Signal: signal}
+	resp, err := r.post("supervisor.signalProcess", &ins)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
-    err = xml.DecodeClientResponse(resp.Body, &reply)
-    return
+	err = xml.DecodeClientResponse(resp.Body, &reply)
+	return
 }
 
-func (r *XmlRPCClient)SignalAll( signal string ) (reply AllProcessInfoReply, err error ) {
-    ins :=  struct { Signal string }{ signal }
-    resp, err := r.post("supervisor.signalProcess", &ins)
-    if err != nil {
-        return
-    }
-    defer resp.Body.Close()
+func (r *XmlRPCClient) SignalAll(signal string) (reply AllProcessInfoReply, err error) {
+	ins := struct{ Signal string }{signal}
+	resp, err := r.post("supervisor.signalProcess", &ins)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
-    err = xml.DecodeClientResponse(resp.Body, &reply)
+	err = xml.DecodeClientResponse(resp.Body, &reply)
 
-    return
+	return
 }
