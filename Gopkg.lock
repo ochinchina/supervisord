@@ -8,10 +8,10 @@
   version = "1.0.2"
 
 [[projects]]
-  name = "github.com/go-ini/ini"
+  name = "github.com/ochinchina/go-ini"
   packages = ["."]
-  revision = "20b96f641a5ea98f2f8619ff4f3e061cff4833bd"
-  version = "v1.28.2"
+  revision = "4dcbd5514a9220bb68c8d45eabf79b25479ea2d1"
+  version = "v1.0"
 
 [[projects]]
   name = "github.com/gorilla/rpc"
@@ -32,10 +32,10 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
-  branch = "master"
   name = "github.com/ochinchina/gorilla-xmlrpc"
   packages = ["xml"]
-  revision = "d37a0d21ebabd0d9b59cd868499d6af4673ee9fe"
+  revision = "ecf2fe693a2ca10ce68d2c7d4c559f1a57d2c845"
+  version = "v1.0"
 
 [[projects]]
   branch = "master"
