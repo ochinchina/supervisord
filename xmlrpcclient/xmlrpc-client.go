@@ -13,6 +13,8 @@ import (
 
 type XmlRPCClient struct {
 	serverurl string
+	user      string
+	password  string
 }
 
 type VersionReply struct {
@@ -33,6 +35,14 @@ func NewXmlRPCClient(serverurl string) *XmlRPCClient {
 	return &XmlRPCClient{serverurl: serverurl}
 }
 
+func (r *XmlRPCClient) SetUser(user string) {
+	r.user = user
+}
+
+func (r *XmlRPCClient) SetPassword(password string) {
+	r.password = password
+}
+
 func (r *XmlRPCClient) Url() string {
 	return fmt.Sprintf("%s/RPC2", r.serverurl)
 }
@@ -45,7 +55,17 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 	}
 	var resp *http.Response = nil
 	if url.Scheme == "http" || url.Scheme == "https" {
-		resp, err = http.Post(r.Url(), "text/xml", bytes.NewBuffer(buf))
+		req, err := http.NewRequest("POST", r.Url(), bytes.NewBuffer(buf))
+		if err != nil {
+			fmt.Println("Fail to create request:", err)
+			return nil, err
+		}
+		if len(r.user) > 0 && len(r.password) > 0 {
+			req.SetBasicAuth(r.user, r.password)
+		}
+		req.Header.Set("Content-Type", "text/xml")
+		resp, err = http.DefaultClient.Do(req)
+		//resp, err = http.Post(r.Url(), "text/xml", bytes.NewBuffer(buf))
 		if err != nil {
 			fmt.Println("Fail to send request to supervisord:", err)
 			return nil, err
@@ -61,6 +81,10 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 			fmt.Printf("Fail to create a http request")
 			return nil, err
 		}
+		if len(r.user) > 0 && len(r.password) > 0 {
+			req.SetBasicAuth(r.user, r.password)
+		}
+		req.Header.Set("Content-Type", "text/xml")
 		err = req.Write(conn)
 		if err != nil {
 			fmt.Printf("Fail to write to unix socket %s\n", r.serverurl)

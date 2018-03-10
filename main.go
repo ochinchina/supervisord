@@ -46,6 +46,9 @@ var options Options
 var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 
 func LoadEnvFile() {
+	if len(options.EnvFile) <= 0 {
+		return
+	}
 	f, err := os.Open(options.EnvFile)
 	if err != nil {
 		log.WithFields(log.Fields{"file": options.EnvFile}).Error("Fail to open environment file")

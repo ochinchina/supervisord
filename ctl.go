@@ -10,6 +10,8 @@ import (
 
 type CtlCommand struct {
 	ServerUrl string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening"`
+	User      string `short:"u" long:"user" description:"the user name"`
+	Password  string `short:"P" long:"password" description:"the password"`
 }
 
 var ctlCommand CtlCommand
@@ -35,6 +37,8 @@ func (x *CtlCommand) Execute(args []string) error {
 	}
 
 	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl())
+	rpcc.SetUser(x.User)
+	rpcc.SetPassword(x.Password)
 	verb := args[0]
 
 	switch verb {
