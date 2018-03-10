@@ -2,11 +2,11 @@ package process
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/logger"
 	"github.com/ochinchina/supervisord/signals"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"os/exec"
@@ -284,6 +284,9 @@ func (p *Process) SendProcessStdin(chars string) error {
 
 // check if the process should be
 func (p *Process) isAutoRestart() bool {
+	if p.config.IsEventListener() {
+		return true
+	}
 	autoRestart := p.config.GetString("autorestart", "unexpected")
 
 	if autoRestart == "false" {
@@ -541,6 +544,7 @@ func (p *Process) setLog() {
 		for i, event := range events {
 			events[i] = strings.TrimSpace(event)
 		}
+		p.cmd.Stderr = os.Stderr
 
 		p.registerEventListener(p.config.GetEventListenerName(),
 			events,

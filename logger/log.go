@@ -3,6 +3,8 @@ package logger
 import (
 	"errors"
 	"fmt"
+	"github.com/ochinchina/supervisord/events"
+	"github.com/ochinchina/supervisord/faults"
 	"io"
 	"io/ioutil"
 	"os"
@@ -10,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-    "github.com/ochinchina/supervisord/events"
-    "github.com/ochinchina/supervisord/faults"
 )
 
 //implements io.Writer interface
@@ -175,10 +175,10 @@ func (l *FileLogger) ClearAllLogFile() error {
 
 func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	if offset < 0 && length != 0 {
-		return "", faults.NewFault( faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
+		return "", faults.NewFault(faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
 	}
 	if offset >= 0 && length < 0 {
-		return "", faults.NewFault( faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
+		return "", faults.NewFault(faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
 	}
 
 	l.locker.Lock()
@@ -226,7 +226,7 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	b := make([]byte, length)
 	n, err := f.ReadAt(b, offset)
 	if err != nil {
-		return "", faults.NewFault( faults.FAILED, "FAILED")
+		return "", faults.NewFault(faults.FAILED, "FAILED")
 	}
 	return string(b[:n]), nil
 }
@@ -390,7 +390,7 @@ func (l *StdLogger) Write(p []byte) (int, error) {
 
 func NewStderrLogger(logEventEmitter LogEventEmitter) *StdLogger {
 	return &StdLogger{logEventEmitter: logEventEmitter,
-		writer: os.Stdout}
+		writer: os.Stderr}
 }
 
 type LogCaptureLogger struct {
@@ -458,27 +458,27 @@ type StdLogEventEmitter struct {
 	Type         string
 	process_name string
 	group_name   string
-    pidFunc     func() int
+	pidFunc      func() int
 }
 
-func NewStdoutLogEventEmitter(process_name string, group_name string, procPidFunc func() int ) *StdLogEventEmitter {
+func NewStdoutLogEventEmitter(process_name string, group_name string, procPidFunc func() int) *StdLogEventEmitter {
 	return &StdLogEventEmitter{Type: "stdout",
 		process_name: process_name,
 		group_name:   group_name,
-		pidFunc:      procPidFunc }
+		pidFunc:      procPidFunc}
 }
 
-func NewStderrLogEventEmitter(process_name string, group_name string, procPidFunc func() int ) *StdLogEventEmitter {
+func NewStderrLogEventEmitter(process_name string, group_name string, procPidFunc func() int) *StdLogEventEmitter {
 	return &StdLogEventEmitter{Type: "stderr",
 		process_name: process_name,
 		group_name:   group_name,
-		pidFunc:      procPidFunc }
+		pidFunc:      procPidFunc}
 }
 
 func (se *StdLogEventEmitter) emitLogEvent(data string) {
 	if se.Type == "stdout" {
-		events.EmitEvent( events.CreateProcessLogStdoutEvent(se.process_name, se.group_name, se.pidFunc(), data))
+		events.EmitEvent(events.CreateProcessLogStdoutEvent(se.process_name, se.group_name, se.pidFunc(), data))
 	} else {
-		events.EmitEvent( events.CreateProcessLogStderrEvent(se.process_name, se.group_name, se.pidFunc(), data))
+		events.EmitEvent(events.CreateProcessLogStderrEvent(se.process_name, se.group_name, se.pidFunc(), data))
 	}
 }

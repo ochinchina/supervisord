@@ -281,14 +281,14 @@ func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, reply *struct{ Success bool }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-        reply.Success = false
+		reply.Success = false
 		return fmt.Errorf("No process named %s", args.Name)
 	}
 	sig, err := signals.ToSignal(args.Signal)
 	if err == nil {
 		proc.Signal(sig)
 	}
-    reply.Success = true
+	reply.Success = true
 	return nil
 }
 
@@ -406,7 +406,8 @@ func (s *Supervisor) startAutoStartPrograms() {
 func (s *Supervisor) startEventListeners() {
 	eventListeners := s.config.GetEventListeners()
 	for _, entry := range eventListeners {
-		s.procMgr.CreateProcess(s.GetSupervisorId(), entry)
+		proc := s.procMgr.CreateProcess(s.GetSupervisorId(), entry)
+		proc.Start(false)
 	}
 
 	if len(eventListeners) > 0 {
