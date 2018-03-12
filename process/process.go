@@ -284,9 +284,6 @@ func (p *Process) SendProcessStdin(chars string) error {
 
 // check if the process should be
 func (p *Process) isAutoRestart() bool {
-	if p.config.IsEventListener() {
-		return true
-	}
 	autoRestart := p.config.GetString("autorestart", "unexpected")
 
 	if autoRestart == "false" {
@@ -377,7 +374,7 @@ func (p *Process) run(finishCb func()) {
 	p.changeStateTo(STARTING)
 	err = p.cmd.Start()
 	if err != nil {
-		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Errorf("fail to start program with error:%v", err)
+		log.WithFields(log.Fields{"program": p.GetName()}).Errorf("fail to start program with error:%v", err)
 		p.changeStateTo(FATAL)
 		p.stopTime = time.Now()
 		p.lock.Unlock()
@@ -389,7 +386,7 @@ func (p *Process) run(finishCb func()) {
 		if p.StderrLog != nil {
 			p.StderrLog.SetPid(p.cmd.Process.Pid)
 		}
-		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("success to start program")
+		log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 		startSecs := p.config.GetInt("startsecs", 1)
 		//Set startsec to 0 to indicate that the program needn't stay
 		//running for any particular amount of time.
@@ -403,17 +400,17 @@ func (p *Process) run(finishCb func()) {
 			}
 		}
 		p.lock.Unlock()
-		log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Debug("wait program exit")
+		log.WithFields(log.Fields{"program": p.GetName()}).Debug("wait program exit")
 		finishCb()
 		err = p.cmd.Wait()
 		if err == nil {
 			if p.cmd.ProcessState != nil {
-				log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Infof("program stopped with status:%v", p.cmd.ProcessState)
+				log.WithFields(log.Fields{"program": p.GetName()}).Infof("program stopped with status:%v", p.cmd.ProcessState)
 			} else {
-				log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("program stopped")
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("program stopped")
 			}
 		} else {
-			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Errorf("program stopped with error:%v", err)
+			log.WithFields(log.Fields{"program": p.GetName()}).Errorf("program stopped with error:%v", err)
 		}
 
 		p.lock.Lock()

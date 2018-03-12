@@ -70,7 +70,7 @@ func (eps *EventPoolSerial) nextSerial(pool string) uint64 {
 type EventListener struct {
 	pool        string
 	server      string
-	mutex       sync.Mutex
+	cond        *sync.Cond
 	events      *list.List
 	stdin       *bufio.Reader
 	stdout      io.Writer
@@ -84,6 +84,7 @@ func NewEventListener(pool string,
 	buffer_size int) *EventListener {
 	evtListener := &EventListener{pool: pool,
 		server:      server,
+		cond:        sync.NewCond(new(sync.Mutex)),
 		events:      list.New(),
 		stdin:       bufio.NewReader(stdin),
 		stdout:      stdout,
@@ -93,8 +94,13 @@ func NewEventListener(pool string,
 }
 
 func (el *EventListener) getFirstEvent() ([]byte, bool) {
-	el.mutex.Lock()
-	defer el.mutex.Unlock()
+	el.cond.L.Lock()
+
+	defer el.cond.L.Unlock()
+
+	for el.events.Len() <= 0 {
+		el.cond.Wait()
+	}
 
 	if el.events.Len() > 0 {
 		elem := el.events.Front()
@@ -106,8 +112,8 @@ func (el *EventListener) getFirstEvent() ([]byte, bool) {
 }
 
 func (el *EventListener) removeFirstEvent() {
-	el.mutex.Lock()
-	defer el.mutex.Unlock()
+	el.cond.L.Lock()
+	defer el.cond.L.Unlock()
 	if el.events.Len() > 0 {
 		el.events.Remove(el.events.Front())
 	}
@@ -198,10 +204,11 @@ func (el *EventListener) readResult() (string, error) {
 
 func (el *EventListener) HandleEvent(event Event) {
 	encodedEvent := el.encodeEvent(event)
-	el.mutex.Lock()
-	defer el.mutex.Unlock()
+	el.cond.L.Lock()
+	defer el.cond.L.Unlock()
 	if el.events.Len() <= el.buffer_size {
 		el.events.PushBack(encodedEvent)
+		el.cond.Signal()
 	} else {
 		log.WithFields(log.Fields{"eventListener": el.pool}).Error("events reaches the buffer_size, discard the events")
 	}
@@ -318,9 +325,9 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 }
 
 func RegisterEventListener(eventListenerName string,
-    events []string,
-        listener *EventListener) {
-    eventListenerManager.registerEventListener( eventListenerName, events, listener )
+	events []string,
+	listener *EventListener) {
+	eventListenerManager.registerEventListener(eventListenerName, events, listener)
 }
 
 func (em *EventListenerManager) unregisterEventListener(eventListenerName string) *EventListener {
@@ -340,7 +347,7 @@ func (em *EventListenerManager) unregisterEventListener(eventListenerName string
 }
 
 func UnregisterEventListener(eventListenerName string) *EventListener {
-    return eventListenerManager.unregisterEventListener( eventListenerName )
+	return eventListenerManager.unregisterEventListener(eventListenerName)
 }
 
 func (em *EventListenerManager) EmitEvent(event Event) {
