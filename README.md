@@ -1,4 +1,4 @@
-# Why this project? 
+# Why this project?
 
 The python script supervisord is a powerful tool used by a lot of guys to manage the processes. I like the tool supervisord also.
 
@@ -38,8 +38,8 @@ then run
 ```shell
 $ supervisord -c supervisor.conf -d
 ```
-In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`, `reload`. 
-    
+In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`, `reload`.
+
 ```shell
 $ supervisord ctl status
 $ supervisord ctl stop <worker_name>
@@ -131,7 +131,7 @@ depends_on = B, C
 user = user_name
 ...
 ```
-or 
+or
 ```ini
 [program:xxx]
 user = user_name:group_name
@@ -149,6 +149,16 @@ the supervisor 3.x defined events are supported partially. Now it supports follo
 - remote communication event
 - tick related events
 - process log related events
+
+# Usage from a Docker container
+
+supervisord is compiled inside a Docker image to be used directly inside another image, from the Docker Hub version.
+
+```Dockerfile
+FROM debian:latest
+COPY --from=ochinchina/supervisord:latest /usr/local/bin/supervisord /usr/local/bin/supervisord
+CMD ["/usr/local/bin/supervisord"]
+```
 
 # The MIT License (MIT)
 
