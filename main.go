@@ -49,7 +49,7 @@ func LoadEnvFile() {
 	if len(options.EnvFile) <= 0 {
 		return
 	}
-    //try to open the environment file
+	//try to open the environment file
 	f, err := os.Open(options.EnvFile)
 	if err != nil {
 		log.WithFields(log.Fields{"file": options.EnvFile}).Error("Fail to open environment file")
@@ -58,26 +58,26 @@ func LoadEnvFile() {
 	defer f.Close()
 	reader := bufio.NewReader(f)
 	for {
-        //for each line
+		//for each line
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			break
 		}
-        //if line starts with '#', it is a comment line, ignore it
-        line = strings.TrimSpace( line )
-        if len( line ) > 0 && line[0] == '#' {
-            continue
-        }
-        //if environment variable is exported with "export"
+		//if line starts with '#', it is a comment line, ignore it
+		line = strings.TrimSpace(line)
+		if len(line) > 0 && line[0] == '#' {
+			continue
+		}
+		//if environment variable is exported with "export"
 		if strings.HasPrefix(line, "export") && len(line) > len("export") && unicode.IsSpace(rune(line[len("export")])) {
 			line = strings.TrimSpace(line[len("export"):])
 		}
-        //split the environment variable with "="
+		//split the environment variable with "="
 		pos := strings.Index(line, "=")
 		if pos != -1 {
 			k := strings.TrimSpace(line[0:pos])
 			v := strings.TrimSpace(line[pos+1:])
-            //if key and value are not empty, put it into the environment
+			//if key and value are not empty, put it into the environment
 			if len(k) > 0 && len(v) > 0 {
 				os.Setenv(k, v)
 			}
@@ -113,7 +113,8 @@ func main() {
 					RunServer()
 				}
 			default:
-				panic(err)
+				fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)
+				os.Exit(1)
 			}
 		}
 	}
