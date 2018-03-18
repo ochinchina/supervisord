@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	ini "github.com/ochinchina/go-ini"
+	log "github.com/sirupsen/logrus"
 )
 
 type ConfigEntry struct {
@@ -205,9 +205,9 @@ func (c *Config) GetInetHttpServer() (*ConfigEntry, bool) {
 	return entry, ok
 }
 
-func (c *Config)GetSupervisorctl() (*ConfigEntry, bool ) {
-    entry, ok := c.entries[ "supervisorctl" ]
-    return entry, ok
+func (c *Config) GetSupervisorctl() (*ConfigEntry, bool) {
+	entry, ok := c.entries["supervisorctl"]
+	return entry, ok
 }
 func (c *Config) GetEntries(filterFunc func(entry *ConfigEntry) bool) []*ConfigEntry {
 	result := make([]*ConfigEntry, 0)

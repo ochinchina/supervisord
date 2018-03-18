@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gorilla/rpc"
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	log "github.com/sirupsen/logrus"
 )
 
 type XmlRPC struct {

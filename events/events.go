@@ -234,26 +234,26 @@ func (el *EventListener) encodeEvent(event Event) []byte {
 }
 
 var eventTypeDerives = map[string][]string{
-	"PROCESS_STATE_STARTING":           []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_RUNNING":            []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_BACKOFF":            []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_STOPPING":           []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_EXITED":             []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_STOPPED":            []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_FATAL":              []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_UNKNOWN":            []string{"EVENT", "PROCESS_STATE"},
-	"REMOTE_COMMUNICATION":             []string{"EVENT"},
-	"PROCESS_LOG_STDOUT":               []string{"EVENT", "PROCESS_LOG"},
-	"PROCESS_LOG_STDERR":               []string{"EVENT", "PROCESS_LOG"},
-	"PROCESS_COMMUNICATION_STDOUT":     []string{"EVENT", "PROCESS_COMMUNICATION"},
-	"PROCESS_COMMUNICATION_STDERR":     []string{"EVENT", "PROCESS_COMMUNICATION"},
-	"SUPERVISOR_STATE_CHANGE_RUNNING":  []string{"EVENT", "SUPERVISOR_STATE_CHANGE"},
-	"SUPERVISOR_STATE_CHANGE_STOPPING": []string{"EVENT", "SUPERVISOR_STATE_CHANGE"},
-	"TICK_5":                []string{"EVENT", "TICK"},
-	"TICK_60":               []string{"EVENT", "TICK"},
-	"TICK_3600":             []string{"EVENT", "TICK"},
-	"PROCESS_GROUP_ADDED":   []string{"EVENT", "PROCESS_GROUP"},
-	"PROCESS_GROUP_REMOVED": []string{"EVENT", "PROCESS_GROUP"}}
+	"PROCESS_STATE_STARTING":           {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_RUNNING":            {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_BACKOFF":            {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_STOPPING":           {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_EXITED":             {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_STOPPED":            {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_FATAL":              {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_UNKNOWN":            {"EVENT", "PROCESS_STATE"},
+	"REMOTE_COMMUNICATION":             {"EVENT"},
+	"PROCESS_LOG_STDOUT":               {"EVENT", "PROCESS_LOG"},
+	"PROCESS_LOG_STDERR":               {"EVENT", "PROCESS_LOG"},
+	"PROCESS_COMMUNICATION_STDOUT":     {"EVENT", "PROCESS_COMMUNICATION"},
+	"PROCESS_COMMUNICATION_STDERR":     {"EVENT", "PROCESS_COMMUNICATION"},
+	"SUPERVISOR_STATE_CHANGE_RUNNING":  {"EVENT", "SUPERVISOR_STATE_CHANGE"},
+	"SUPERVISOR_STATE_CHANGE_STOPPING": {"EVENT", "SUPERVISOR_STATE_CHANGE"},
+	"TICK_5":                {"EVENT", "TICK"},
+	"TICK_60":               {"EVENT", "TICK"},
+	"TICK_3600":             {"EVENT", "TICK"},
+	"PROCESS_GROUP_ADDED":   {"EVENT", "PROCESS_GROUP"},
+	"PROCESS_GROUP_REMOVED": {"EVENT", "PROCESS_GROUP"}}
 var eventSerial uint64 = 0
 var eventListenerManager = NewEventListenerManager()
 var eventPoolSerial = NewEventPoolSerial()
@@ -315,7 +315,7 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 			}
 		}
 	}
-	for event, _ := range all_events {
+	for event := range all_events {
 		log.WithFields(log.Fields{"eventListener": eventListenerName, "event": event}).Info("register event listener")
 		if _, ok := em.eventListeners[event]; !ok {
 			em.eventListeners[event] = make(map[*EventListener]bool)
@@ -354,7 +354,7 @@ func (em *EventListenerManager) EmitEvent(event Event) {
 	listeners, ok := em.eventListeners[event.GetType()]
 	if ok {
 		log.WithFields(log.Fields{"event": event.GetType()}).Info("process event")
-		for listener, _ := range listeners {
+		for listener := range listeners {
 			log.WithFields(log.Fields{"eventListener": listener.pool, "event": event.GetType()}).Info("receive event on listener")
 			listener.HandleEvent(event)
 		}

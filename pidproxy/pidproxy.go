@@ -11,14 +11,14 @@ import (
 
 func installSignalAndForward(pidfile string, exitIfDaemonStopped bool) {
 	c := make(chan os.Signal, 1)
-	install_signal( c )
+	install_signal(c)
 
 	timer := time.After(5 * time.Second)
 	for {
 		select {
 		case sig := <-c:
 			fmt.Printf("Get a signal %v\n", sig)
-			if allowForwardSig( sig ) {
+			if allowForwardSig(sig) {
 				forwardSignal(sig, pidfile)
 			}
 
