@@ -3,5 +3,10 @@ language: go
 go:
 - "1.10.x"
 
+after_script:
+  - go get -v github.com/alecthomas/gometalinter/...
+  - gometalinter --install
+  - gometalinter
+
 after_success:
   - test -n "$TRAVIS_TAG" && curl -sL https://git.io/goreleaser | bash
