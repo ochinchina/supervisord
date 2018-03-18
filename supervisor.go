@@ -441,7 +441,9 @@ func (s *Supervisor) setSupervisordInfo() {
 
 		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
 		logFile, err := env.Eval(supervisordConf.GetString("logfile", "supervisord.log"))
-		logFile, err = process.Path_expand(logFile)
+		if err != nil {
+			logFile, err = process.Path_expand(logFile)
+		}
 		logEventEmitter := logger.NewNullLogEventEmitter()
 		s.logger = logger.NewNullLogger(logEventEmitter)
 		if err == nil {
