@@ -91,6 +91,10 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 			return nil, err
 		}
 		resp, err = http.ReadResponse(bufio.NewReader(conn), req)
+		if err != nil {
+			fmt.Printf("Fail to read response %s\n", err)
+			return nil, err
+		}
 	}
 
 	if resp.StatusCode/100 != 2 {
