@@ -53,7 +53,7 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 	if err != nil {
 		return nil, err
 	}
-	var resp *http.Response = nil
+	var resp *http.Response
 	if url.Scheme == "http" || url.Scheme == "https" {
 		req, err := http.NewRequest("POST", r.Url(), bytes.NewBuffer(buf))
 		if err != nil {

@@ -103,11 +103,10 @@ func (s *Supervisor) GetIdentification(r *http.Request, args *struct{}, reply *s
 
 func (s *Supervisor) GetSupervisorId() string {
 	entry, ok := s.config.GetSupervisord()
-	if ok {
-		return entry.GetString("identifier", "supervisor")
-	} else {
+	if !ok {
 		return "supervisor"
 	}
+	return entry.GetString("identifier", "supervisor")
 }
 
 func (s *Supervisor) GetState(r *http.Request, args *struct{}, reply *struct{ StateInfo StateInfo }) error {

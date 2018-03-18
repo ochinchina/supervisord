@@ -104,7 +104,7 @@ func (p *Process) Start(wait bool) {
 	p.stopByUser = false
 	p.lock.Unlock()
 
-	var runCond *sync.Cond = nil
+	var runCond *sync.Cond
 	finished := false
 	if wait {
 		runCond = sync.NewCond(&sync.Mutex{})
@@ -177,9 +177,8 @@ func (p *Process) GetDescription() string {
 		days := hours / 24
 		if days > 0 {
 			return fmt.Sprintf("pid %d, uptime %d days, %d:%02d:%02d", p.cmd.Process.Pid, days, hours%24, minutes%60, seconds%60)
-		} else {
-			return fmt.Sprintf("pid %d, uptime %d:%02d:%02d", p.cmd.Process.Pid, hours%24, minutes%60, seconds%60)
 		}
+		return fmt.Sprintf("pid %d, uptime %d:%02d:%02d", p.cmd.Process.Pid, hours%24, minutes%60, seconds%60)
 	} else if p.state != STOPPED {
 		return p.stopTime.String()
 	}
@@ -237,21 +236,19 @@ func (p *Process) GetStopTime() time.Time {
 func (p *Process) GetStdoutLogfile() string {
 	file_name := p.config.GetStringExpression("stdout_logfile", "/dev/null")
 	expand_file, err := Path_expand(file_name)
-	if err == nil {
-		return expand_file
-	} else {
+	if err != nil {
 		return file_name
 	}
+	return expand_file
 }
 
 func (p *Process) GetStderrLogfile() string {
 	file_name := p.config.GetStringExpression("stderr_logfile", "/dev/null")
 	expand_file, err := Path_expand(file_name)
-	if err == nil {
-		return expand_file
-	} else {
+	if err != nil {
 		return file_name
 	}
+	return expand_file
 }
 
 func (p *Process) getStartSeconds() int {
@@ -555,9 +552,8 @@ func (p *Process) createStdoutLogEventEmitter() logger.LogEventEmitter {
 		return logger.NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), func() int {
 			return p.GetPid()
 		})
-	} else {
-		return logger.NewNullLogEventEmitter()
 	}
+	return logger.NewNullLogEventEmitter()
 }
 
 func (p *Process) createStderrLogEventEmitter() logger.LogEventEmitter {
@@ -565,9 +561,8 @@ func (p *Process) createStderrLogEventEmitter() logger.LogEventEmitter {
 		return logger.NewStdoutLogEventEmitter(p.config.GetProgramName(), p.config.GetGroupName(), func() int {
 			return p.GetPid()
 		})
-	} else {
-		return logger.NewNullLogEventEmitter()
 	}
+	return logger.NewNullLogEventEmitter()
 }
 
 func (p *Process) registerEventListener(eventListenerName string,

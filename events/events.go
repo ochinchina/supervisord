@@ -196,10 +196,8 @@ func (el *EventListener) readResult() (string, error) {
 		}
 		//ok, get the n bytes
 		return string(b), nil
-	} else {
-		return "", fmt.Errorf("Fail to read the result")
 	}
-
+	return "", fmt.Errorf("Fail to read the result")
 }
 
 func (el *EventListener) HandleEvent(event Event) {
@@ -254,7 +252,7 @@ var eventTypeDerives = map[string][]string{
 	"TICK_3600":             {"EVENT", "TICK"},
 	"PROCESS_GROUP_ADDED":   {"EVENT", "PROCESS_GROUP"},
 	"PROCESS_GROUP_REMOVED": {"EVENT", "PROCESS_GROUP"}}
-var eventSerial uint64 = 0
+var eventSerial uint64
 var eventListenerManager = NewEventListenerManager()
 var eventPoolSerial = NewEventPoolSerial()
 

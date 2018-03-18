@@ -98,7 +98,7 @@ func NewTcpChecker(host string, port int, includes []string, timeout int) *TcpCh
 func (tc *TcpChecker) start() {
 	go func() {
 		b := make([]byte, 1024)
-		var err error = nil
+		var err error
 		for {
 			tc.conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", tc.host, tc.port))
 			if err == nil || tc.baseChecker.timeoutTime.Before(time.Now()) {

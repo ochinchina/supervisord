@@ -75,11 +75,10 @@ func readPid(pidfile string) (int, error) {
 		pid := 0
 		n, err := fmt.Fscanf(file, "%d", &pid)
 		if err == nil {
-			if n == 1 {
-				return pid, nil
-			} else {
+			if n != 1 {
 				return pid, errors.New("Fail to get pid from file")
 			}
+			return pid, nil
 		}
 	}
 	return 0, err

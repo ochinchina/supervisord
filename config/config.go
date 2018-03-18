@@ -363,13 +363,12 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 		rep_s, err := env.Eval(s)
 		if err == nil {
 			return rep_s
-		} else {
-			log.WithFields(log.Fields{
-				log.ErrorKey: err,
-				"program":    c.GetProgramName(),
-				"key":        key,
-			}).Warn("Unable to parse expression")
 		}
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"program":    c.GetProgramName(),
+			"key":        key,
+		}).Warn("Unable to parse expression")
 	}
 	return defValue
 }
