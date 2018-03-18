@@ -298,7 +298,7 @@ func (c *ConfigEntry) GetInt(key string, defValue int) int {
 	return defValue
 }
 
-// get the value of key as environment setting. An enviroment string example:
+// GetEnv get the value of key as environment setting. An environment string example:
 //  environment = A="env 1",B="this is a test"
 func (c *ConfigEntry) GetEnv(key string) []string {
 	value, ok := c.keyValues[key]
