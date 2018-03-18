@@ -145,5 +145,4 @@ func (hc *HttpChecker) Check() bool {
 			}
 		}
 	}
-	return false
 }
