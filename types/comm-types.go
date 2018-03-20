@@ -24,10 +24,10 @@ type ReloadConfigResult struct {
 }
 
 type ProcessSignal struct {
-    Name   string
-    Signal string
+	Name   string
+	Signal string
 }
 
 type BooleanReply struct {
-    Success bool
+	Success bool
 }

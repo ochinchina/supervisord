@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/ochinchina/supervisord)](https://goreportcard.com/report/github.com/ochinchina/supervisord)
+
 # Why this project?
 
 The python script supervisord is a powerful tool used by a lot of guys to manage the processes. I like the tool supervisord also.

@@ -80,7 +80,7 @@ func (p *ProcessSorter) sortDepends() []string {
 	progs_start_order := make([]string, 0)
 
 	//get all process without depends
-	for prog_name, _ := range progs_with_depends_info {
+	for prog_name := range progs_with_depends_info {
 		if _, ok := p.depends_on_gragh[prog_name]; !ok {
 			finished_programs[prog_name] = prog_name
 			progs_start_order = append(progs_start_order, prog_name)
@@ -88,7 +88,7 @@ func (p *ProcessSorter) sortDepends() []string {
 	}
 
 	for len(finished_programs) < len(progs_with_depends_info) {
-		for prog_name, _ := range p.depends_on_gragh {
+		for prog_name := range p.depends_on_gragh {
 			if _, ok := finished_programs[prog_name]; !ok && p.inFinishedPrograms(prog_name, finished_programs) {
 				finished_programs[prog_name] = prog_name
 				progs_start_order = append(progs_start_order, prog_name)

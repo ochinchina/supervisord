@@ -103,11 +103,10 @@ func (s *Supervisor) GetIdentification(r *http.Request, args *struct{}, reply *s
 
 func (s *Supervisor) GetSupervisorId() string {
 	entry, ok := s.config.GetSupervisord()
-	if ok {
-		return entry.GetString("identifier", "supervisor")
-	} else {
+	if !ok {
 		return "supervisor"
 	}
+	return entry.GetString("identifier", "supervisor")
 }
 
 func (s *Supervisor) GetState(r *http.Request, args *struct{}, reply *struct{ StateInfo StateInfo }) error {
@@ -442,7 +441,9 @@ func (s *Supervisor) setSupervisordInfo() {
 
 		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
 		logFile, err := env.Eval(supervisordConf.GetString("logfile", "supervisord.log"))
-		logFile, err = process.Path_expand(logFile)
+		if err != nil {
+			logFile, err = process.Path_expand(logFile)
+		}
 		logEventEmitter := logger.NewNullLogEventEmitter()
 		s.logger = logger.NewNullLogger(logEventEmitter)
 		if err == nil {

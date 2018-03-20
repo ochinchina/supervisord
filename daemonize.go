@@ -3,8 +3,8 @@
 package main
 
 import (
+	daemon "github.com/sevlyar/go-daemon"
 	log "github.com/sirupsen/logrus"
-	"github.com/sevlyar/go-daemon"
 )
 
 func Deamonize(proc func()) {

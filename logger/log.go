@@ -312,19 +312,17 @@ func (l *FileLogger) Close() error {
 
 func (sl *SysLogger) Write(b []byte) (int, error) {
 	sl.logEventEmitter.emitLogEvent(string(b))
-	if sl.logWriter != nil {
-		return sl.logWriter.Write(b)
-	} else {
+	if sl.logWriter == nil {
 		return 0, errors.New("not connect to syslog server")
 	}
+	return sl.logWriter.Write(b)
 }
 
 func (sl *SysLogger) Close() error {
-	if sl.logWriter != nil {
-		return sl.logWriter.Close()
-	} else {
+	if sl.logWriter == nil {
 		return errors.New("not connect to syslog server")
 	}
+	return sl.logWriter.Close()
 }
 func NewNullLogger(logEventEmitter LogEventEmitter) *NullLogger {
 	return &NullLogger{logEventEmitter: logEventEmitter}
