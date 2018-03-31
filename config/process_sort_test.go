@@ -82,8 +82,7 @@ func TestSortProgram(t *testing.T) {
 		fmt.Printf("%s\n", e.GetProgramName())
 	}
 
-	if !isProgramBefore(result, "prog-4", "prog-5") ||
-		!isProgramBefore(result, "prog-5", "prog-3") ||
+	if	!isProgramBefore(result, "prog-5", "prog-3") ||
 		!isProgramBefore(result, "prog-3", "prog-1") ||
 		!isProgramBefore(result, "prog-1", "prog-2") ||
 		!isProgramBefore(result, "prog-7", "prog-6") {
