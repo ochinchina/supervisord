@@ -292,7 +292,10 @@ func (p *Process) isAutoRestart() bool {
 		defer p.lock.Unlock()
 		if p.cmd != nil && p.cmd.ProcessState != nil {
 			exitCode, err := p.getExitCode()
-			return err == nil && p.inExitCodes(exitCode)
+            //If unexpected, the process will be restarted when the program exits 
+            //with an exit code that is not one of the exit codes associated with 
+            //this process’ configuration (see exitcodes).
+			return err == nil && !p.inExitCodes(exitCode)
 		}
 	}
 	return false
