@@ -85,6 +85,8 @@ func (p *XmlRPC) startHttpServer(user string, password string, protocol string, 
 	p.started = true
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", NewHttpBasicAuth(user, password, p.createRPCServer(s)))
+	rest_handler := NewSupervisorRestful(s).CreateHandler()
+	mux.Handle("/", NewHttpBasicAuth(user, password, rest_handler))
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
 		p.listeners[protocol] = listener

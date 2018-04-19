@@ -122,6 +122,12 @@ func (s *Supervisor) GetState(r *http.Request, args *struct{}, reply *struct{ St
 	return nil
 }
 
+// Get all the name of prorams
+//
+// Return the name of all the programs
+func (s *Supervisor) GetPrograms() []string {
+	return s.config.GetProgramNames()
+}
 func (s *Supervisor) GetPID(r *http.Request, args *struct{}, reply *struct{ Pid int }) error {
 	reply.Pid = os.Getpid()
 	return nil
