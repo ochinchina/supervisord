@@ -1,20 +1,20 @@
 package types
 
 type ProcessInfo struct {
-	Name           string `xml:"name"`
-	Group          string `xml:"group"`
-	Description    string `xml:"description"`
-	Start          int    `xml:"start"`
-	Stop           int    `xml:"stop"`
-	Now            int    `xml:"now"`
-	State          int    `xml:"state"`
-	Statename      string `xml:"statename"`
-	Spawnerr       string `xml:"spawnerr"`
-	Exitstatus     int    `xml:"exitstatus"`
-	Logfile        string `xml:"logfile"`
-	Stdout_logfile string `xml:"stdout_logfile"`
-	Stderr_logfile string `xml:"stderr_logfile"`
-	Pid            int    `xml:"pid"`
+    Name           string `xml:"name" json:"name"`
+    Group          string `xml:"group" json:"group"`
+    Description    string `xml:"description" json:"description"`
+    Start          int    `xml:"start" json:"start"`
+    Stop           int    `xml:"stop" json:"stop"`
+    Now            int    `xml:"now" json:"now"`
+    State          int    `xml:"state" json:"state"`
+    Statename      string `xml:"statename" json:"statename"`
+    Spawnerr       string `xml:"spawnerr" json:"spawnerr"`
+    Exitstatus     int    `xml:"exitstatus" json:"exitstatus"`
+    Logfile        string `xml:"logfile" json:"logfile"`
+    Stdout_logfile string `xml:"stdout_logfile" json:"stdout_logfile"`
+    Stderr_logfile string `xml:"stderr_logfile" json:"stderr_logfile"`
+    Pid            int    `xml:"pid" json:"pid"`
 }
 
 type ReloadConfigResult struct {
