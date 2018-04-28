@@ -2,6 +2,7 @@ build:
   binary: supervisord
   goos:
     - linux
+    - darwin
   goarch:
     - amd64
 archive:
