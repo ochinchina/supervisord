@@ -3,18 +3,22 @@ package xmlrpcclient
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
-	"github.com/ochinchina/gorilla-xmlrpc/xml"
-	"github.com/ochinchina/supervisord/types"
 	"net"
 	"net/http"
 	"net/url"
+	"time"
+
+	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	"github.com/ochinchina/supervisord/types"
 )
 
 type XmlRPCClient struct {
 	serverurl string
 	user      string
 	password  string
+	timeout   time.Duration
 }
 
 type VersionReply struct {
@@ -43,6 +47,10 @@ func (r *XmlRPCClient) SetPassword(password string) {
 	r.password = password
 }
 
+func (r *XmlRPCClient) SetTimeout(timeout time.Duration) {
+	r.timeout = timeout
+}
+
 func (r *XmlRPCClient) Url() string {
 	return fmt.Sprintf("%s/RPC2", r.serverurl)
 }
@@ -63,19 +71,39 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 		if len(r.user) > 0 && len(r.password) > 0 {
 			req.SetBasicAuth(r.user, r.password)
 		}
+
+		if r.timeout > 0 {
+			ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+			defer cancel()
+			req = req.WithContext(ctx)
+		}
+
 		req.Header.Set("Content-Type", "text/xml")
 		resp, err = http.DefaultClient.Do(req)
-		//resp, err = http.Post(r.Url(), "text/xml", bytes.NewBuffer(buf))
 		if err != nil {
 			fmt.Println("Fail to send request to supervisord:", err)
 			return nil, err
 		}
 	} else if url.Scheme == "unix" {
-		conn, err := net.Dial("unix", url.Path)
+		var conn net.Conn
+		var err error
+		if r.timeout > 0 {
+			conn, err = net.DialTimeout("unix", url.Path, r.timeout)
+		} else {
+			conn, err = net.Dial("unix", url.Path)
+		}
 		if err != nil {
 			fmt.Printf("Fail to connect unix socket path: %s\n", r.serverurl)
 			return nil, err
 		}
+		defer conn.Close()
+
+		if r.timeout > 0 {
+			if err := conn.SetDeadline(time.Now().Add(r.timeout)); err != nil {
+				return nil, err
+			}
+		}
+
 		req, err := http.NewRequest("POST", "/RPC2", bytes.NewBuffer(buf))
 		if err != nil {
 			fmt.Printf("Fail to create a http request")
