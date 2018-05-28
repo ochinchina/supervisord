@@ -456,20 +456,7 @@ func (s *Supervisor) setSupervisordInfo() {
 			logfile_maxbytes := int64(supervisordConf.GetBytes("logfile_maxbytes", 50*1024*1024))
 			logfile_backups := supervisordConf.GetInt("logfile_backups", 10)
 			loglevel := supervisordConf.GetString("loglevel", "info")
-			switch logFile {
-			case "/dev/null":
-				s.logger = logger.NewNullLogger(logEventEmitter)
-			case "syslog":
-				s.logger = logger.NewSysLogger("supervisord", logEventEmitter)
-			case "/dev/stdout":
-				s.logger = logger.NewStdoutLogger(logEventEmitter)
-			case "/dev/stderr":
-				s.logger = logger.NewStderrLogger(logEventEmitter)
-			case "":
-				s.logger = logger.NewNullLogger(logEventEmitter)
-			default:
-				s.logger = logger.NewFileLogger(logFile, logfile_maxbytes, logfile_backups, logEventEmitter, &sync.Mutex{})
-			}
+			s.logger = logger.NewLogger("supervisord", logFile, &sync.Mutex{}, logfile_maxbytes, logfile_backups, logEventEmitter)
 			log.SetOutput(s.logger)
 			log.SetLevel(toLogLevel(loglevel))
 			log.SetFormatter(&log.TextFormatter{DisableColors: true})

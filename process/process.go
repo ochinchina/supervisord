@@ -585,19 +585,7 @@ func (p *Process) unregisterEventListener(eventListenerName string) {
 }
 
 func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logEventEmitter logger.LogEventEmitter) logger.Logger {
-	var mylogger logger.Logger
-	mylogger = logger.NewNullLogger(logEventEmitter)
-
-	if logFile == "/dev/stdout" {
-		mylogger = logger.NewStdoutLogger(logEventEmitter)
-	} else if logFile == "/dev/stderr" {
-		mylogger = logger.NewStderrLogger(logEventEmitter)
-	} else if logFile == "syslog" {
-		mylogger = logger.NewSysLogger(p.GetName(), logEventEmitter)
-	} else if len(logFile) > 0 {
-		mylogger = logger.NewFileLogger(logFile, maxBytes, backups, logEventEmitter, logger.NewNullLocker())
-	}
-	return mylogger
+    return logger.NewLogger( p.GetName(), logFile, logger.NewNullLocker(), maxBytes,  backups, logEventEmitter )
 }
 
 func (p *Process) setUser() error {
