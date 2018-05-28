@@ -152,6 +152,17 @@ the supervisor 3.x defined events are supported partially. Now it supports follo
 - tick related events
 - process log related events
 
+## Logs
+
+The logs ( field stdout_logfile, stderr_logfile ) from programs managed by the supervisord can be written to:
+
+- /dev/null, ignore the log
+- /dev/stdout, write log to stdout
+- /dev/stderr, write log to stderr
+- syslog, write the log to local syslog
+- syslog @[protocol:]host[:port], write the log to remote syslog. protocol must be "tcp" or "udp", if missing, "udp" will be used. If port is missing, for "udp" protocol, it's value is 514 and for "tcp" protocol, it's value is 6514.
+- file name, write log to a file
+
 # Usage from a Docker container
 
 supervisord is compiled inside a Docker image to be used directly inside another image, from the Docker Hub version.
