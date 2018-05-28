@@ -480,3 +480,71 @@ func (se *StdLogEventEmitter) emitLogEvent(data string) {
 		events.EmitEvent(events.CreateProcessLogStderrEvent(se.process_name, se.group_name, se.pidFunc(), data))
 	}
 }
+
+type BackgroundWriteCloser struct {
+	io.WriteCloser
+	logChannel  chan []byte
+	writeCloser io.WriteCloser
+}
+
+func NewBackgroundWriteCloser(writeCloser io.WriteCloser) *BackgroundWriteCloser {
+	channel := make(chan []byte)
+	bw := &BackgroundWriteCloser{logChannel: channel,
+		writeCloser: writeCloser}
+
+	bw.start()
+	return bw
+}
+
+func (bw *BackgroundWriteCloser) start() {
+	go func() {
+		for {
+			b, ok := <-bw.logChannel
+			if !ok {
+				break
+			}
+			bw.writeCloser.Write(b)
+		}
+	}()
+}
+
+func (bw *BackgroundWriteCloser) Write(p []byte) (n int, err error) {
+	bw.logChannel <- p
+	return len(p), nil
+}
+
+func (bw *BackgroundWriteCloser) Close() error {
+	close(bw.logChannel)
+	return bw.writeCloser.Close()
+}
+
+// create a logger for a program with parameters
+//
+func NewLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
+
+	if logFile == "/dev/stdout" {
+		return NewStdoutLogger(logEventEmitter)
+	}
+	if logFile == "/dev/stderr" {
+		return NewStderrLogger(logEventEmitter)
+	}
+	if logFile == "/dev/null" {
+		return NewNullLogger(logEventEmitter)
+	}
+
+	if logFile == "syslog" {
+		return NewSysLogger(programName, logEventEmitter)
+	}
+	if strings.HasPrefix(logFile, "syslog") {
+		fields := strings.Split(logFile, "@")
+		fields[0] = strings.TrimSpace(fields[0])
+		fields[1] = strings.TrimSpace(fields[1])
+		if len(fields) == 2 && fields[0] == "syslog" {
+			return NewRemoteSysLogger(programName, fields[1], logEventEmitter)
+		}
+	}
+	if len(logFile) > 0 {
+		return NewFileLogger(logFile, maxBytes, backups, logEventEmitter, locker)
+	}
+	return NewNullLogger(logEventEmitter)
+}
