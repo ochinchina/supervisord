@@ -292,9 +292,9 @@ func (p *Process) isAutoRestart() bool {
 		defer p.lock.Unlock()
 		if p.cmd != nil && p.cmd.ProcessState != nil {
 			exitCode, err := p.getExitCode()
-            //If unexpected, the process will be restarted when the program exits 
-            //with an exit code that is not one of the exit codes associated with 
-            //this process’ configuration (see exitcodes).
+			//If unexpected, the process will be restarted when the program exits
+			//with an exit code that is not one of the exit codes associated with
+			//this process’ configuration (see exitcodes).
 			return err == nil && !p.inExitCodes(exitCode)
 		}
 	}
@@ -585,7 +585,7 @@ func (p *Process) unregisterEventListener(eventListenerName string) {
 }
 
 func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logEventEmitter logger.LogEventEmitter) logger.Logger {
-    return logger.NewLogger( p.GetName(), logFile, logger.NewNullLocker(), maxBytes,  backups, logEventEmitter )
+	return logger.NewLogger(p.GetName(), logFile, logger.NewNullLocker(), maxBytes, backups, logEventEmitter)
 }
 
 func (p *Process) setUser() error {
@@ -633,27 +633,32 @@ func (p *Process) Stop(wait bool) {
 	p.stopByUser = true
 	p.lock.RUnlock()
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
-	sig, err := signals.ToSignal(p.config.GetString("stopsignal", ""))
-	if err == nil {
-		p.Signal(sig)
-	}
+	sigs := strings.Fields(p.config.GetString("stopsignal", ""))
 	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
-	endTime := time.Now().Add(waitsecs)
 	go func() {
-		//wait at most "stopwaitsecs" seconds
-		for {
-			//if it already exits
-			if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
-				break
+		stopped := false
+		for i := 0; i < len(sigs) && !stopped; i++ {
+			// send signal to process
+			sig, err := signals.ToSignal(sigs[i])
+			if err != nil {
+				continue
 			}
-			//if endTime reaches, raise signal syscall.SIGKILL
-			if endTime.Before(time.Now()) {
-				log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
-				p.Signal(syscall.SIGKILL)
-				break
-			} else {
-				time.Sleep(1 * time.Second)
+			log.WithFields(log.Fields{"program": p.GetName(), "signal": sigs[i] }).Info("send stop signal to program")
+			p.Signal(sig)
+			endTime := time.Now().Add(waitsecs)
+			//wait at most "stopwaitsecs" seconds for one signal
+			for endTime.After(time.Now()) {
+				//if it already exits
+				if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
+					stopped = true
+					break
+				}
+				time.Sleep(1 * time.Second )
 			}
+		}
+		if !stopped {
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
+			p.Signal(syscall.SIGKILL)
 		}
 	}()
 	if wait {
