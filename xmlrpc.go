@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/rpc"
-	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	"github.com/csxuejin/gorilla-xmlrpc/xml"
 	log "github.com/sirupsen/logrus"
 )
 

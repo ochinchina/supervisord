@@ -8,7 +8,7 @@
   version = "1.0.2"
 
 [[projects]]
-  name = "github.com/ochinchina/go-ini"
+  name = "github.com/csxuejin/go-ini"
   packages = ["."]
   revision = "4dcbd5514a9220bb68c8d45eabf79b25479ea2d1"
   version = "v1.0"
@@ -32,7 +32,7 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
-  name = "github.com/ochinchina/gorilla-xmlrpc"
+  name = "github.com/csxuejin/gorilla-xmlrpc"
   packages = ["xml"]
   revision = "ecf2fe693a2ca10ce68d2c7d4c559f1a57d2c845"
   version = "v1.0"

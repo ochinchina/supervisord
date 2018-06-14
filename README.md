@@ -1,4 +1,4 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/ochinchina/supervisord)](https://goreportcard.com/report/github.com/ochinchina/supervisord)
+[![Go Report Card](https://goreportcard.com/badge/github.com/csxuejin/supervisord)](https://goreportcard.com/report/github.com/csxuejin/supervisord)
 
 # Why this project?
 
@@ -17,7 +17,7 @@ To compile the go-lang version supervisord, run following commands:
 ```shell
 $ mkdir ~/go-supervisor
 $ export GOPATH=~/go-supervisor
-$ go get -u github.com/ochinchina/supervisord
+$ go get -u github.com/csxuejin/supervisord
 ```
 
 # Run the supervisord

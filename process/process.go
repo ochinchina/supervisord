@@ -2,11 +2,6 @@ package process
 
 import (
 	"fmt"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/events"
-	"github.com/ochinchina/supervisord/logger"
-	"github.com/ochinchina/supervisord/signals"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"os/exec"
@@ -16,6 +11,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/csxuejin/supervisord/config"
+	"github.com/csxuejin/supervisord/events"
+	"github.com/csxuejin/supervisord/logger"
+	"github.com/csxuejin/supervisord/signals"
+	log "github.com/sirupsen/logrus"
 )
 
 type ProcessState int
@@ -643,7 +644,7 @@ func (p *Process) Stop(wait bool) {
 			if err != nil {
 				continue
 			}
-			log.WithFields(log.Fields{"program": p.GetName(), "signal": sigs[i] }).Info("send stop signal to program")
+			log.WithFields(log.Fields{"program": p.GetName(), "signal": sigs[i]}).Info("send stop signal to program")
 			p.Signal(sig)
 			endTime := time.Now().Add(waitsecs)
 			//wait at most "stopwaitsecs" seconds for one signal
@@ -653,7 +654,7 @@ func (p *Process) Stop(wait bool) {
 					stopped = true
 					break
 				}
-				time.Sleep(1 * time.Second )
+				time.Sleep(1 * time.Second)
 			}
 		}
 		if !stopped {

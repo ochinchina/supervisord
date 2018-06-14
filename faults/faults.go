@@ -1,7 +1,7 @@
 package faults
 
 import (
-	xmlrpc "github.com/ochinchina/gorilla-xmlrpc/xml"
+	xmlrpc "github.com/csxuejin/gorilla-xmlrpc/xml"
 )
 
 const (
