@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/xmlrpcclient"
 	"os"
 	"strings"
+
+	"github.com/csxuejin/supervisord/config"
+	"github.com/csxuejin/supervisord/xmlrpcclient"
 )
 
 type CtlCommand struct {
@@ -31,6 +32,7 @@ func (x *CtlCommand) getServerUrl() string {
 	}
 	return "http://localhost:9001"
 }
+
 func (x *CtlCommand) Execute(args []string) error {
 	if len(args) == 0 {
 		return nil
@@ -100,9 +102,9 @@ func (x *CtlCommand) Execute(args []string) error {
 				fmt.Printf("Hmmm! Something gone wrong?!\n")
 			}
 		}
+
 	case "reload":
 		if reply, err := rpcc.ReloadConfig(); err == nil {
-
 			if len(reply.AddedGroup) > 0 {
 				fmt.Printf("Added Groups: %s\n", strings.Join(reply.AddedGroup, ","))
 			}
@@ -113,6 +115,7 @@ func (x *CtlCommand) Execute(args []string) error {
 				fmt.Printf("Removed Groups: %s\n", strings.Join(reply.RemovedGroup, ","))
 			}
 		}
+
 	case "signal":
 		sig_name, processes := args[1], args[2:]
 		for _, process := range processes {

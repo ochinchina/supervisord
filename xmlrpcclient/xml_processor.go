@@ -41,6 +41,7 @@ func (xp *XmlPath) Equals(other *XmlPath) bool {
 	}
 	return true
 }
+
 func (xp *XmlPath) String() string {
 	return strings.Join(xp.ElemNames, "/")
 }

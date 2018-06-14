@@ -26,7 +26,7 @@
   version = "1.0.2"
 
 [[constraint]]
-  name = "github.com/ochinchina/go-ini"
+  name = "github.com/csxuejin/go-ini"
   version = "1.0"
 
 [[constraint]]
@@ -38,7 +38,7 @@
   version = "1.3.0"
 
 [[constraint]]
-  name = "github.com/ochinchina/gorilla-xmlrpc"
+  name = "github.com/csxuejin/gorilla-xmlrpc"
   version = "1.0"
 
 [[constraint]]

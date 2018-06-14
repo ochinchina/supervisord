@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ochinchina/gorilla-xmlrpc/xml"
-	"github.com/ochinchina/supervisord/types"
+	"github.com/csxuejin/gorilla-xmlrpc/xml"
+	"github.com/csxuejin/supervisord/types"
 )
 
 type XmlRPCClient struct {
@@ -211,7 +211,6 @@ func (r *XmlRPCClient) Shutdown() (reply ShutdownReply, err error) {
 func (r *XmlRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error) {
 	ins := struct{}{}
 	resp, err := r.post("supervisor.reloadConfig", &ins)
-
 	if err != nil {
 		return
 	}
@@ -223,6 +222,7 @@ func (r *XmlRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 	reply.RemovedGroup = make([]string, 0)
 	i := -1
 	has_value := false
+
 	xmlProcMgr.AddNonLeafProcessor("methodResponse/params/param/value/array/data", func() {
 		if has_value {
 			has_value = false
@@ -230,6 +230,7 @@ func (r *XmlRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 			i++
 		}
 	})
+
 	xmlProcMgr.AddLeafProcessor("methodResponse/params/param/value/array/data/value", func(value string) {
 		has_value = true
 		i++
@@ -242,6 +243,7 @@ func (r *XmlRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 			reply.RemovedGroup = append(reply.RemovedGroup, value)
 		}
 	})
+
 	xmlProcMgr.ProcessXml(resp.Body)
 	return
 }
