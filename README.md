@@ -52,6 +52,7 @@ $ supervisord ctl shutdown
 $ supervisord ctl reload
 $ supervisord ctl signal <process_name> <process_name> ...
 $ supervisord ctl signal all
+$ supervisord ctl pid <process_name>
 ```
 
 the URL of supervisord in the "supervisor ctl" subcommand is dected in following order:
@@ -139,6 +140,9 @@ or
 user = user_name:group_name
 ...
 ```
+- stopsignal list
+one or more stop signal can be configured. If more than one stopsignal is configured, when stoping the program, the supervisor will send the signals to the program one by one with interval "stopwaitsecs". If the program does not exit after all the signals sent to the program, the supervisor will kill the program
+
 ## Group
 the "group" section is supported and you can set "programs" item
 
