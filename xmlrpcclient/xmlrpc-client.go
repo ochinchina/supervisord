@@ -113,7 +113,7 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 			req.SetBasicAuth(r.user, r.password)
 		}
 		req.Header.Set("Content-Type", "text/xml")
-		err = req.Write(conn)
+        err = req.Write(conn)
 		if err != nil {
 			fmt.Printf("Fail to write to unix socket %s\n", r.serverurl)
 			return nil, err
@@ -269,4 +269,22 @@ func (r *XmlRPCClient) SignalAll(signal string) (reply AllProcessInfoReply, err 
 	err = xml.DecodeClientResponse(resp.Body, &reply)
 
 	return
+}
+
+func (r *XmlRPCClient) GetProcessInfo( process string)( reply types.ProcessInfo, err error ) {
+    ins := struct{ Name string }{process}
+    resp, err := r.post("supervisor.getProcessInfo", &ins)
+    if err != nil {
+        return
+    }
+    defer resp.Body.Close()
+    result := struct { Reply types.ProcessInfo}{}
+    err = xml.DecodeClientResponse(resp.Body, &result)
+    if err != nil {
+        fmt.Printf( "Fail to decode to types.ProcessInfo\n")
+    } else {
+        reply = result.Reply
+    }
+
+    return
 }
