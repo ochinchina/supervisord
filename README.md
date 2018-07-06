@@ -50,7 +50,7 @@ $ supervisord ctl start <worker_name>
 $ supervisord ctl start all
 $ supervisord ctl shutdown
 $ supervisord ctl reload
-$ supervisord ctl signal <process_name> <process_name> ...
+$ supervisord ctl signal <signal_name> <process_name> <process_name> ...
 $ supervisord ctl signal all
 $ supervisord ctl pid <process_name>
 ```
