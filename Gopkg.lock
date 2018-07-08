@@ -10,8 +10,8 @@
 [[projects]]
   name = "github.com/ochinchina/go-ini"
   packages = ["."]
-  revision = "4dcbd5514a9220bb68c8d45eabf79b25479ea2d1"
-  version = "v1.0"
+  revision = "e85fd2395f660242cb2eb02419423297e7b8c2a3"
+  version = "v1.0.1"
 
 [[projects]]
   name = "github.com/gorilla/rpc"
