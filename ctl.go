@@ -82,7 +82,9 @@ func (x *CtlCommand) status(rpcc *xmlrpcclient.XmlRPCClient, processes []string)
 	}
 	if reply, err := rpcc.GetAllProcessInfo(); err == nil {
 		x.showProcessInfo(&reply, processesMap)
-	}
+	} else {
+        os.Exit( 1 )
+    }
 }
 
 // start or stop the processes
@@ -112,6 +114,7 @@ func (x *CtlCommand) startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb st
 				fmt.Printf("%s\n", state[verb])
 			} else {
 				fmt.Printf("%s: failed [%v]\n", pname, err)
+                os.Exit( 1 )
 			}
 		}
 	}
@@ -125,7 +128,9 @@ func (x *CtlCommand) shutdown(rpcc *xmlrpcclient.XmlRPCClient) {
 		} else {
 			fmt.Printf("Hmmm! Something gone wrong?!\n")
 		}
-	}
+	} else {
+        os.Exit( 1 )
+    }
 }
 
 // reload all the programs in the supervisord
@@ -141,7 +146,9 @@ func (x *CtlCommand) reload(rpcc *xmlrpcclient.XmlRPCClient) {
 		if len(reply.RemovedGroup) > 0 {
 			fmt.Printf("Removed Groups: %s\n", strings.Join(reply.RemovedGroup, ","))
 		}
-	}
+	} else {
+        os.Exit( 1 )
+    }
 }
 
 // send signal to one or more processes
@@ -153,6 +160,7 @@ func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, pr
 				x.showProcessInfo(&reply, make(map[string]bool))
 			} else {
 				fmt.Printf("Fail to send signal %s to all process", sig_name)
+                os.Exit( 1 )
 			}
 		} else {
 			reply, err := rpcc.SignalProcess(sig_name, process)
@@ -160,6 +168,7 @@ func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, pr
 				fmt.Printf("Succeed to send signal %s to process %s\n", sig_name, process)
 			} else {
 				fmt.Printf("Fail to send signal %s to process %s\n", sig_name, process)
+                os.Exit( 1 )
 			}
 		}
 	}
@@ -170,6 +179,7 @@ func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
     procInfo, err := rpcc.GetProcessInfo( process )
     if err != nil {
         fmt.Printf("Fail to get information of process:%s\n", process )
+        os.Exit( 1 )
     } else {
         fmt.Printf("%d\n", procInfo.Pid )
     }
