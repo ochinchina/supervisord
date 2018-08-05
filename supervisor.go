@@ -353,6 +353,9 @@ func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent,
 	return nil
 }
 
+// return err, addedGroup, changedGroup, removedGroup
+//
+//
 func (s *Supervisor) Reload() (error, []string, []string, []string) {
 	//get the previous loaded programs
 	prevPrograms := s.config.GetProgramNames()

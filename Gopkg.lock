@@ -55,6 +55,12 @@
   packages = ["unix"]
   revision = "c84c1ab9fd18cdd4c23dd021c10f5f46dea95e46"
 
+[[projects]]
+  branch = "master"
+  name = "github.com/GeertJohan/go.rice"
+  packages = ["go.rice"]
+  revision = "c02ca9a983da5807ddf7d796784928f5be4afd09"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
