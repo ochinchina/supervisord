@@ -78,7 +78,7 @@ func (x *CtlCommand) Execute(args []string) error {
 func (x *CtlCommand) status(rpcc *xmlrpcclient.XmlRPCClient, processes []string) {
 	processesMap := make(map[string]bool)
 	for _, process := range processes {
-		processesMap[strings.ToLower(process)] = true
+		processesMap[process] = true
 	}
 	if reply, err := rpcc.GetAllProcessInfo(); err == nil {
 		x.showProcessInfo(&reply, processesMap)
@@ -187,7 +187,7 @@ func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
 
 func (x *CtlCommand) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, processesMap map[string]bool) {
 	for _, pinfo := range reply.Value {
-		name := strings.ToLower(pinfo.Name)
+        name := pinfo.Name
 		description := pinfo.Description
 		if strings.ToLower(description) == "<string></string>" {
 			description = ""
