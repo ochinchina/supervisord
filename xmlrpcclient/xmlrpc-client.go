@@ -19,6 +19,7 @@ type XmlRPCClient struct {
 	user      string
 	password  string
 	timeout   time.Duration
+    verbose   bool
 }
 
 type VersionReply struct {
@@ -35,8 +36,8 @@ type AllProcessInfoReply struct {
 	Value []types.ProcessInfo
 }
 
-func NewXmlRPCClient(serverurl string) *XmlRPCClient {
-	return &XmlRPCClient{serverurl: serverurl}
+func NewXmlRPCClient(serverurl string, verbose bool ) *XmlRPCClient {
+    return &XmlRPCClient{serverurl: serverurl, verbose: verbose }
 }
 
 func (r *XmlRPCClient) SetUser(user string) {
@@ -65,7 +66,9 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 	if url.Scheme == "http" || url.Scheme == "https" {
 		req, err := http.NewRequest("POST", r.Url(), bytes.NewBuffer(buf))
 		if err != nil {
-			fmt.Println("Fail to create request:", err)
+            if r.verbose  {
+			    fmt.Println("Fail to create request:", err)
+            }
 			return nil, err
 		}
 		if len(r.user) > 0 && len(r.password) > 0 {
@@ -81,7 +84,9 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 		req.Header.Set("Content-Type", "text/xml")
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
-			fmt.Println("Fail to send request to supervisord:", err)
+            if r.verbose {
+			    fmt.Println("Fail to send request to supervisord:", err)
+            }
 			return nil, err
 		}
 	} else if url.Scheme == "unix" {
@@ -93,7 +98,9 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 			conn, err = net.Dial("unix", url.Path)
 		}
 		if err != nil {
-			fmt.Printf("Fail to connect unix socket path: %s\n", r.serverurl)
+            if r.verbose {
+			    fmt.Printf("Fail to connect unix socket path: %s\n", r.serverurl)
+            }
 			return nil, err
 		}
 		defer conn.Close()
@@ -106,7 +113,9 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 
 		req, err := http.NewRequest("POST", "/RPC2", bytes.NewBuffer(buf))
 		if err != nil {
-			fmt.Printf("Fail to create a http request")
+            if r.verbose {
+			    fmt.Printf("Fail to create a http request")
+            }
 			return nil, err
 		}
 		if len(r.user) > 0 && len(r.password) > 0 {
@@ -115,18 +124,24 @@ func (r *XmlRPCClient) post(method string, data interface{}) (*http.Response, er
 		req.Header.Set("Content-Type", "text/xml")
         err = req.Write(conn)
 		if err != nil {
-			fmt.Printf("Fail to write to unix socket %s\n", r.serverurl)
+			if r.verbose {
+                fmt.Printf("Fail to write to unix socket %s\n", r.serverurl)
+            }
 			return nil, err
 		}
 		resp, err = http.ReadResponse(bufio.NewReader(conn), req)
 		if err != nil {
-			fmt.Printf("Fail to read response %s\n", err)
+			if r.verbose {
+                fmt.Printf("Fail to read response %s\n", err)
+            }
 			return nil, err
 		}
 	}
 
 	if resp.StatusCode/100 != 2 {
-		fmt.Println("Bad Response:", resp.Status)
+		if r.verbose {
+            fmt.Println("Bad Response:", resp.Status)
+        }
 		resp.Body.Close()
 		return nil, fmt.Errorf("Response code is NOT 2xx")
 	}
@@ -281,7 +296,9 @@ func (r *XmlRPCClient) GetProcessInfo( process string)( reply types.ProcessInfo,
     result := struct { Reply types.ProcessInfo}{}
     err = xml.DecodeClientResponse(resp.Body, &result)
     if err != nil {
-        fmt.Printf( "Fail to decode to types.ProcessInfo\n")
+        if r.verbose {
+            fmt.Printf( "Fail to decode to types.ProcessInfo\n")
+        }
     } else {
         reply = result.Reply
     }

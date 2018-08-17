@@ -12,6 +12,7 @@ type CtlCommand struct {
 	ServerUrl string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening"`
 	User      string `short:"u" long:"user" description:"the user name"`
 	Password  string `short:"P" long:"password" description:"the password"`
+    Verbose   bool `short:"v" long:"verbose" description:"Show verbose debug information"`
 }
 
 var ctlCommand CtlCommand
@@ -36,7 +37,7 @@ func (x *CtlCommand) Execute(args []string) error {
 		return nil
 	}
 
-	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl())
+	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose )
 	rpcc.SetUser(x.User)
 	rpcc.SetPassword(x.Password)
 	verb := args[0]
@@ -178,7 +179,7 @@ func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, pr
 func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
     procInfo, err := rpcc.GetProcessInfo( process )
     if err != nil {
-        fmt.Printf("Fail to get information of process:%s\n", process )
+        fmt.Printf("program '%s' not found\n", process )
         os.Exit( 1 )
     } else {
         fmt.Printf("%d\n", procInfo.Pid )
