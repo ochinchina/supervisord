@@ -12,7 +12,7 @@ type CtlCommand struct {
 	ServerUrl string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening"`
 	User      string `short:"u" long:"user" description:"the user name"`
 	Password  string `short:"P" long:"password" description:"the password"`
-    Verbose   bool `short:"v" long:"verbose" description:"Show verbose debug information"`
+	Verbose   bool   `short:"v" long:"verbose" description:"Show verbose debug information"`
 }
 
 var ctlCommand CtlCommand
@@ -37,7 +37,7 @@ func (x *CtlCommand) Execute(args []string) error {
 		return nil
 	}
 
-	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose )
+	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose)
 	rpcc.SetUser(x.User)
 	rpcc.SetPassword(x.Password)
 	verb := args[0]
@@ -65,9 +65,9 @@ func (x *CtlCommand) Execute(args []string) error {
 		x.reload(rpcc)
 	case "signal":
 		sig_name, processes := args[1], args[2:]
-        x.signal( rpcc, sig_name, processes )
-    case "pid":
-        x.getPid( rpcc, args[1] )
+		x.signal(rpcc, sig_name, processes)
+	case "pid":
+		x.getPid(rpcc, args[1])
 	default:
 		fmt.Println("unknown command")
 	}
@@ -84,8 +84,8 @@ func (x *CtlCommand) status(rpcc *xmlrpcclient.XmlRPCClient, processes []string)
 	if reply, err := rpcc.GetAllProcessInfo(); err == nil {
 		x.showProcessInfo(&reply, processesMap)
 	} else {
-        os.Exit( 1 )
-    }
+		os.Exit(1)
+	}
 }
 
 // start or stop the processes
@@ -115,7 +115,7 @@ func (x *CtlCommand) startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb st
 				fmt.Printf("%s\n", state[verb])
 			} else {
 				fmt.Printf("%s: failed [%v]\n", pname, err)
-                os.Exit( 1 )
+				os.Exit(1)
 			}
 		}
 	}
@@ -130,8 +130,8 @@ func (x *CtlCommand) shutdown(rpcc *xmlrpcclient.XmlRPCClient) {
 			fmt.Printf("Hmmm! Something gone wrong?!\n")
 		}
 	} else {
-        os.Exit( 1 )
-    }
+		os.Exit(1)
+	}
 }
 
 // reload all the programs in the supervisord
@@ -148,8 +148,8 @@ func (x *CtlCommand) reload(rpcc *xmlrpcclient.XmlRPCClient) {
 			fmt.Printf("Removed Groups: %s\n", strings.Join(reply.RemovedGroup, ","))
 		}
 	} else {
-        os.Exit( 1 )
-    }
+		os.Exit(1)
+	}
 }
 
 // send signal to one or more processes
@@ -161,7 +161,7 @@ func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, pr
 				x.showProcessInfo(&reply, make(map[string]bool))
 			} else {
 				fmt.Printf("Fail to send signal %s to all process", sig_name)
-                os.Exit( 1 )
+				os.Exit(1)
 			}
 		} else {
 			reply, err := rpcc.SignalProcess(sig_name, process)
@@ -169,7 +169,7 @@ func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, pr
 				fmt.Printf("Succeed to send signal %s to process %s\n", sig_name, process)
 			} else {
 				fmt.Printf("Fail to send signal %s to process %s\n", sig_name, process)
-                os.Exit( 1 )
+				os.Exit(1)
 			}
 		}
 	}
@@ -177,25 +177,38 @@ func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, pr
 
 // get the pid of running program
 func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
-    procInfo, err := rpcc.GetProcessInfo( process )
-    if err != nil {
-        fmt.Printf("program '%s' not found\n", process )
-        os.Exit( 1 )
-    } else {
-        fmt.Printf("%d\n", procInfo.Pid )
-    }
+	procInfo, err := rpcc.GetProcessInfo(process)
+	if err != nil {
+		fmt.Printf("program '%s' not found\n", process)
+		os.Exit(1)
+	} else {
+		fmt.Printf("%d\n", procInfo.Pid)
+	}
 }
 
 func (x *CtlCommand) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, processesMap map[string]bool) {
 	for _, pinfo := range reply.Value {
-        name := pinfo.Name
+		name := pinfo.Name
 		description := pinfo.Description
 		if strings.ToLower(description) == "<string></string>" {
 			description = ""
 		}
 		if len(processesMap) <= 0 || processesMap[name] {
-			fmt.Printf("%-33s%-10s%s\n", name, pinfo.Statename, description)
+			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), name, pinfo.Statename, description, "\x1b[0m")
 		}
+	}
+}
+
+func (x *CtlCommand) getANSIColor(statename string) string {
+	if statename == "RUNNING" {
+		// green
+		return "\x1b[0;32m"
+	} else if statename == "BACKOFF" || statename == "FATAL" {
+		// red
+		return "\x1b[0;31m"
+	} else {
+		// yellow
+		return "\x1b[1;33m"
 	}
 }
 
