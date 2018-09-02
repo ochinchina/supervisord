@@ -32,14 +32,43 @@ func (x *CtlCommand) getServerUrl() string {
 	}
 	return "http://localhost:9001"
 }
+
+func (x *CtlCommand) getUser() string {
+	if x.User != "" {
+		return x.User
+	} else if _, err := os.Stat(options.Configuration); err == nil {
+		config := config.NewConfig(options.Configuration)
+		config.Load()
+		if entry, ok := config.GetSupervisorctl(); ok {
+			user := entry.GetString("username", "")
+			return user
+		}
+	}
+	return ""
+}
+
+func (x *CtlCommand) getPassword() string {
+	if x.Password != "" {
+		return x.Password
+	} else if _, err := os.Stat(options.Configuration); err == nil {
+		config := config.NewConfig(options.Configuration)
+		config.Load()
+		if entry, ok := config.GetSupervisorctl(); ok {
+			password := entry.GetString("password", "")
+			return password
+		}
+	}
+	return ""
+}
+
 func (x *CtlCommand) Execute(args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
 
 	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose)
-	rpcc.SetUser(x.User)
-	rpcc.SetPassword(x.Password)
+	rpcc.SetUser(x.getUser())
+	rpcc.SetPassword(x.getPassword())
 	verb := args[0]
 
 	switch verb {
