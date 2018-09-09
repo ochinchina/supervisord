@@ -394,7 +394,9 @@ func (p *Process) run(finishCb func()) {
 			p.changeStateTo(RUNNING)
 
 		} else {
+			p.lock.Unlock()
 			time.Sleep(time.Duration(startSecs) * time.Second)
+			p.lock.Lock()
 			if tmpProc, err := os.FindProcess(p.cmd.Process.Pid); err == nil && tmpProc != nil {
 				p.changeStateTo(RUNNING)
 			}
@@ -643,7 +645,7 @@ func (p *Process) Stop(wait bool) {
 			if err != nil {
 				continue
 			}
-			log.WithFields(log.Fields{"program": p.GetName(), "signal": sigs[i] }).Info("send stop signal to program")
+			log.WithFields(log.Fields{"program": p.GetName(), "signal": sigs[i]}).Info("send stop signal to program")
 			p.Signal(sig)
 			endTime := time.Now().Add(waitsecs)
 			//wait at most "stopwaitsecs" seconds for one signal
@@ -653,7 +655,7 @@ func (p *Process) Stop(wait bool) {
 					stopped = true
 					break
 				}
-				time.Sleep(1 * time.Second )
+				time.Sleep(1 * time.Second)
 			}
 		}
 		if !stopped {
