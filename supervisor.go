@@ -191,7 +191,7 @@ func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *s
 		procInfo := getProcessInfo(proc)
 		reply.AllProcessInfo = append(reply.AllProcessInfo, *procInfo)
 	})
-    types.SortProcessInfos( reply.AllProcessInfo )
+	types.SortProcessInfos(reply.AllProcessInfo)
 
 	return nil
 }
@@ -292,7 +292,7 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, r
 	}
 	sig, err := signals.ToSignal(args.Signal)
 	if err == nil {
-		proc.Signal(sig)
+		proc.Signal(sig, false)
 	}
 	reply.Success = true
 	return nil
@@ -303,7 +303,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSign
 		if proc.GetGroup() == args.Name {
 			sig, err := signals.ToSignal(args.Signal)
 			if err == nil {
-				proc.Signal(sig)
+				proc.Signal(sig, false)
 			}
 		}
 	})
@@ -320,7 +320,7 @@ func (s *Supervisor) SignalAllProcesses(r *http.Request, args *types.ProcessSign
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		sig, err := signals.ToSignal(args.Signal)
 		if err == nil {
-			proc.Signal(sig)
+			proc.Signal(sig, false)
 		}
 	})
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
