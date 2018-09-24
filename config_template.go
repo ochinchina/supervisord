@@ -47,8 +47,8 @@ autorestart=true
 exitcodes=0,2
 stopsignal=TERM
 stopwaitsecs=10
-#stopasgroup=not support
-#killasgroup=not support
+stopasgroup=true
+killasgroup=true
 user=user1
 redirect_stderr=false
 stdout_logfile=AUTO
@@ -106,6 +106,12 @@ serverurl=AUTO
 buffer_size=10240
 events=PROCESS_STATE
 #result_handler=not support
+
+[supervisorctl]
+serverurl = unix:///tmp/supervisor.sock
+username = chris
+password = 123
+#prompt = not support
 `
 
 type InitTemplateCommand struct {

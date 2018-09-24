@@ -500,16 +500,28 @@ func (p *Process) changeStateTo(procState ProcessState) {
 	p.state = procState
 }
 
-func (p *Process) Signal(sig os.Signal) error {
+// send signal to the process
+//
+// Args:
+//   sig - the signal to the process
+//   sigChildren - true: send the signal to the process and its children proess
+//
+func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	return p.sendSignal(sig)
+	return p.sendSignal(sig, sigChildren)
 }
 
-func (p *Process) sendSignal(sig os.Signal) error {
+// send signal to the process
+//
+// Args:
+//    sig - the signal to be sent
+//    sigChildren - true if the signal also need to be sent to children process
+//
+func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
 	if p.cmd != nil && p.cmd.Process != nil {
-		err := signals.Kill(p.cmd.Process, sig)
+		err := signals.Kill(p.cmd.Process, sig, sigChildren)
 		return err
 	}
 	return fmt.Errorf("process is not started")
@@ -674,12 +686,18 @@ func (p *Process) setUser() error {
 
 //send signal to process to stop it
 func (p *Process) Stop(wait bool) {
-	p.lock.RLock()
+	p.lock.Lock()
 	p.stopByUser = true
-	p.lock.RUnlock()
+	p.lock.Unlock()
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
 	sigs := strings.Fields(p.config.GetString("stopsignal", ""))
 	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
+	stopasgroup := p.config.GetBool("stopasgroup", false)
+	killasgroup := p.config.GetBool("killasgroup", stopasgroup)
+	if stopasgroup && !killasgroup {
+		log.WithFields(log.Fields{"program": p.GetName()}).Error("Cannot set stopasgroup=true and killasgroup=false")
+	}
+
 	go func() {
 		stopped := false
 		for i := 0; i < len(sigs) && !stopped; i++ {
@@ -689,7 +707,7 @@ func (p *Process) Stop(wait bool) {
 				continue
 			}
 			log.WithFields(log.Fields{"program": p.GetName(), "signal": sigs[i]}).Info("send stop signal to program")
-			p.Signal(sig)
+			p.Signal(sig, stopasgroup)
 			endTime := time.Now().Add(waitsecs)
 			//wait at most "stopwaitsecs" seconds for one signal
 			for endTime.After(time.Now()) {
@@ -703,7 +721,7 @@ func (p *Process) Stop(wait bool) {
 		}
 		if !stopped {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
-			p.Signal(syscall.SIGKILL)
+			p.Signal(syscall.SIGKILL, killasgroup)
 		}
 	}()
 	if wait {
