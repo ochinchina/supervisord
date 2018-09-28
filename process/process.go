@@ -86,6 +86,9 @@ func NewProcess(supervisor_id string, config *config.ConfigEntry) *Process {
 	return proc
 }
 
+// start the process
+// Args:
+//  wait - true, wait the program started or failed
 func (p *Process) Start(wait bool) {
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("try to start program")
 	p.lock.Lock()
@@ -153,8 +156,8 @@ func (p *Process) GetGroup() string {
 }
 
 func (p *Process) GetDescription() string {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	if p.state == RUNNING {
 		seconds := int(time.Now().Sub(p.startTime).Seconds())
 		minutes := seconds / 60
@@ -171,8 +174,8 @@ func (p *Process) GetDescription() string {
 }
 
 func (p *Process) GetExitstatus() int {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 
 	if p.state == EXITED || p.state == BACKOFF {
 		if p.cmd.ProcessState == nil {
@@ -187,8 +190,8 @@ func (p *Process) GetExitstatus() int {
 }
 
 func (p *Process) GetPid() int {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 
 	if p.state == STOPPED || p.state == FATAL || p.state == UNKNOWN || p.state == EXITED || p.state == BACKOFF {
 		return 0
@@ -273,8 +276,8 @@ func (p *Process) isAutoRestart() bool {
 	} else if autoRestart == "true" {
 		return true
 	} else {
-		p.lock.Lock()
-		defer p.lock.Unlock()
+		p.lock.RLock()
+		defer p.lock.RUnlock()
 		if p.cmd != nil && p.cmd.ProcessState != nil {
 			exitCode, err := p.getExitCode()
 			//If unexpected, the process will be restarted when the program exits
@@ -388,9 +391,10 @@ func (p *Process) failToStartProgram(reason string, finishCb func()) {
 }
 
 func (p *Process) monitorProgramIsRunning(endTime time.Time, finishCb func(), monitorExited *int32) {
+	// if time is not expired
 	for time.Now().Before(endTime) {
 		time.Sleep(time.Duration(100) * time.Millisecond)
-		if atomic.LoadInt32(p.retryTimes) >= p.getStartRetries() {
+		if atomic.LoadInt32(p.retryTimes) > p.getStartRetries() {
 			break
 		}
 	}
@@ -398,11 +402,14 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, finishCb func(), mo
 
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	if p.state == BACKOFF {
-		p.changeStateTo(FATAL)
-	} else {
+	if p.state == STARTING {
+		log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 		p.changeStateTo(RUNNING)
+	} else {
+		log.WithFields(log.Fields{"program": p.GetName()}).Info("fail to start program")
+		p.changeStateTo(FATAL)
 	}
+	finishCb()
 }
 
 func (p *Process) run(finishCb func()) {
@@ -423,8 +430,12 @@ func (p *Process) run(finishCb func()) {
 	startSecs := int64(p.config.GetInt("startsecs", 1))
 	endTime := time.Now().Add(time.Duration(startSecs) * time.Second)
 	monitorExited := int32(0)
-	for {
-		if atomic.LoadInt32(p.retryTimes) >= p.getStartRetries() {
+	//process is not expired and not stoped by user
+	for time.Now().Before(endTime) && !p.stopByUser {
+		// The number of serial failure attempts that supervisord will allow when attempting to
+		// start the program before giving up and putting the process into an FATAL state
+		// first start time is not the retry time
+		if atomic.LoadInt32(p.retryTimes) > 0 && atomic.LoadInt32(p.retryTimes) > p.getStartRetries() {
 			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.getStartRetries()), finishCb)
 			break
 		}
@@ -451,6 +462,7 @@ func (p *Process) run(finishCb func()) {
 		//Set startsec to 0 to indicate that the program needn't stay
 		//running for any particular amount of time.
 		if startSecs <= 0 {
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 			p.changeStateTo(RUNNING)
 		} else if atomic.LoadInt32(p.retryTimes) == 1 { // only start monitor for first try
 			go p.monitorProgramIsRunning(endTime, finishCb, &monitorExited)
@@ -507,8 +519,8 @@ func (p *Process) changeStateTo(procState ProcessState) {
 //   sigChildren - true: send the signal to the process and its children proess
 //
 func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 
 	return p.sendSignal(sig, sigChildren)
 }
@@ -727,9 +739,12 @@ func (p *Process) Stop(wait bool) {
 	if wait {
 		for {
 			// if the program exits
+			p.lock.RLock()
 			if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
+				p.lock.RUnlock()
 				break
 			}
+			p.lock.RUnlock()
 			time.Sleep(1 * time.Second)
 		}
 	}
