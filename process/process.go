@@ -390,7 +390,7 @@ func (p *Process) failToStartProgram(reason string, finishCb func()) {
 	finishCb()
 }
 
-func (p *Process) monitorProgramIsRunning(endTime time.Time, finishCb func(), monitorExited *int32) {
+func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited *int32) {
 	// if time is not expired
 	for time.Now().Before(endTime) {
 		time.Sleep(time.Duration(100) * time.Millisecond)
@@ -409,7 +409,6 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, finishCb func(), mo
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("fail to start program")
 		p.changeStateTo(FATAL)
 	}
-	finishCb()
 }
 
 func (p *Process) run(finishCb func()) {
@@ -430,27 +429,34 @@ func (p *Process) run(finishCb func()) {
 	startSecs := int64(p.config.GetInt("startsecs", 1))
 	endTime := time.Now().Add(time.Duration(startSecs) * time.Second)
 	monitorExited := int32(0)
+	var once sync.Once
+
+	// finishCb can be only called one time
+	finishCbWrapper := func() {
+		once.Do(finishCb)
+	}
 	//process is not expired and not stoped by user
 	for time.Now().Before(endTime) && !p.stopByUser {
+		atomic.StoreInt32(&monitorExited, 1)
 		// The number of serial failure attempts that supervisord will allow when attempting to
 		// start the program before giving up and putting the process into an FATAL state
 		// first start time is not the retry time
 		if atomic.LoadInt32(p.retryTimes) > 0 && atomic.LoadInt32(p.retryTimes) > p.getStartRetries() {
-			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.getStartRetries()), finishCb)
+			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.getStartRetries()), finishCbWrapper)
 			break
 		}
 		atomic.AddInt32(p.retryTimes, 1)
 		err := p.createProgramCommand()
 		if err != nil {
-			p.failToStartProgram("fail to create program", finishCb)
+			p.failToStartProgram("fail to create program", finishCbWrapper)
 			break
 		}
 
 		err = p.cmd.Start()
 
 		if err != nil {
-			p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishCb)
-			break
+			p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishCbWrapper)
+			continue
 		}
 		if p.StdoutLog != nil {
 			p.StdoutLog.SetPid(p.cmd.Process.Pid)
@@ -465,7 +471,11 @@ func (p *Process) run(finishCb func()) {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 			p.changeStateTo(RUNNING)
 		} else if atomic.LoadInt32(p.retryTimes) == 1 { // only start monitor for first try
-			go p.monitorProgramIsRunning(endTime, finishCb, &monitorExited)
+			atomic.StoreInt32(&monitorExited, 0)
+			go func() {
+				p.monitorProgramIsRunning(endTime, &monitorExited)
+				finishCbWrapper()
+			}()
 		}
 		log.WithFields(log.Fields{"program": p.GetName()}).Debug("wait program exit")
 		p.lock.Unlock()
