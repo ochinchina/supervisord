@@ -110,6 +110,8 @@ the following features is supported in the "program:x" section:
 - priority
 - user
 - directory
+- stopasgroup
+- killasgroup
 
 ### program extends
 
@@ -166,6 +168,12 @@ The logs ( field stdout_logfile, stderr_logfile ) from programs managed by the s
 - syslog, write the log to local syslog
 - syslog @[protocol:]host[:port], write the log to remote syslog. protocol must be "tcp" or "udp", if missing, "udp" will be used. If port is missing, for "udp" protocol, it's value is 514 and for "tcp" protocol, it's value is 6514.
 - file name, write log to a file
+
+# Web GUI
+
+This supervisord has a default web GUI, you can start, stop & check the status of program from the GUI. Following picture shows the default web GUI:
+
+![alt text](https://github.com/ochinchina/supervisord/blob/master/go_supervisord_gui.png)
 
 # Usage from a Docker container
 
