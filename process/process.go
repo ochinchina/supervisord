@@ -428,7 +428,7 @@ func (p *Process) run(finishCb func()) {
 	atomic.StoreInt32(p.retryTimes, 0)
 	startSecs := int64(p.config.GetInt("startsecs", 1))
 	endTime := time.Now().Add(time.Duration(startSecs) * time.Second)
-	monitorExited := int32(0)
+	monitorExited := int32(1)
 	var once sync.Once
 
 	// finishCb can be only called one time
@@ -436,8 +436,13 @@ func (p *Process) run(finishCb func()) {
 		once.Do(finishCb)
 	}
 	//process is not expired and not stoped by user
-	for time.Now().Before(endTime) && !p.stopByUser {
+	for !p.stopByUser {
 		atomic.StoreInt32(&monitorExited, 1)
+		// if the start-up time reaches startSecs
+		if startSecs > 0 && time.Now().After(endTime) {
+			p.failToStartProgram(fmt.Sprintf("fail to start program because the start-up time reaches the startsecs %d", startSecs), finishCbWrapper)
+			break
+		}
 		// The number of serial failure attempts that supervisord will allow when attempting to
 		// start the program before giving up and putting the process into an FATAL state
 		// first start time is not the retry time
@@ -464,12 +469,12 @@ func (p *Process) run(finishCb func()) {
 		if p.StderrLog != nil {
 			p.StderrLog.SetPid(p.cmd.Process.Pid)
 		}
-		log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 		//Set startsec to 0 to indicate that the program needn't stay
 		//running for any particular amount of time.
 		if startSecs <= 0 {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 			p.changeStateTo(RUNNING)
+			go finishCbWrapper()
 		} else if atomic.LoadInt32(p.retryTimes) == 1 { // only start monitor for first try
 			atomic.StoreInt32(&monitorExited, 0)
 			go func() {
@@ -483,10 +488,7 @@ func (p *Process) run(finishCb func()) {
 		p.lock.Lock()
 	}
 	// wait for monitor thread exit
-	for {
-		if atomic.LoadInt32(&monitorExited) != 0 {
-			break
-		}
+	for atomic.LoadInt32(&monitorExited) == 0 {
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 
