@@ -61,6 +61,12 @@
   packages = ["go.rice"]
   revision = "c02ca9a983da5807ddf7d796784928f5be4afd09"
 
+[[projects]]
+  branch = "master"
+  name = "github.com/ramr/go-reaper"
+  packages = ["."]
+  revision = "35f6a64e44ff062abfcec2d27cef674212d445c0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1

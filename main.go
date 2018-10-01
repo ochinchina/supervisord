@@ -3,15 +3,15 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/jessevdk/go-flags"
+	reaper "github.com/ramr/go-reaper"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"runtime"
 	"strings"
 	"syscall"
 	"unicode"
-
-	"github.com/jessevdk/go-flags"
-	log "github.com/sirupsen/logrus"
 )
 
 type Options struct {
@@ -99,6 +99,8 @@ func RunServer() {
 }
 
 func main() {
+	go reaper.Reap()
+
 	if _, err := parser.Parse(); err != nil {
 		flagsErr, ok := err.(*flags.Error)
 		if ok {
