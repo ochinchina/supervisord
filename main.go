@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/jessevdk/go-flags"
-	reaper "github.com/ramr/go-reaper"
+	reaper "github.com/ochinchina/go-reaper"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"

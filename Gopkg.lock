@@ -63,9 +63,9 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/ramr/go-reaper"
+  name = "github.com/ochinchina/go-reaper"
   packages = ["."]
-  revision = "35f6a64e44ff062abfcec2d27cef674212d445c0"
+  revision = "6b11389e79fc503b94473cf3bdf2acf19825c8cc"
 
 [solve-meta]
   analyzer-name = "dep"
