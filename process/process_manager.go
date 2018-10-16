@@ -119,9 +119,21 @@ func (pm *ProcessManager) ForEachProcess(procFunc func(p *Process)) {
 	defer pm.lock.Unlock()
 
 	procs := pm.getAllProcess()
+	done := make(chan struct{}, 1048576)
+
 	for _, proc := range procs {
-		procFunc(proc)
+		go forOneProcess(proc, procFunc, done)
 	}
+
+	for range procs {
+		<-done
+	}
+}
+
+func forOneProcess(process *Process, action func(p *Process), done chan struct{}) {
+	action(process)
+
+	done <- struct{}{}
 }
 
 func (pm *ProcessManager) getAllProcess() []*Process {
