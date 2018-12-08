@@ -192,7 +192,6 @@ func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *s
 		reply.AllProcessInfo = append(reply.AllProcessInfo, *procInfo)
 	})
 	types.SortProcessInfos(reply.AllProcessInfo)
-
 	return nil
 }
 
