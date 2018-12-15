@@ -327,10 +327,7 @@ func (p *Process) getExitCodes() []int {
 //
 func (p *Process) isRunning() bool {
 	if p.cmd != nil && p.cmd.ProcessState != nil {
-		status := p.cmd.ProcessState.Sys().(syscall.WaitStatus)
-		if status.Continued() {
-			return true
-		}
+        return p.cmd.Process.Signal( syscall.Signal( 0 ) ) == nil
 	}
 	return false
 }
