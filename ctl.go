@@ -18,6 +18,8 @@ type CtlCommand struct {
 var ctlCommand CtlCommand
 
 func (x *CtlCommand) getServerUrl() string {
+	options.Configuration, _ = findSupervisordConf()
+
 	if x.ServerUrl != "" {
 		return x.ServerUrl
 	} else if _, err := os.Stat(options.Configuration); err == nil {
@@ -34,6 +36,8 @@ func (x *CtlCommand) getServerUrl() string {
 }
 
 func (x *CtlCommand) getUser() string {
+	options.Configuration, _ = findSupervisordConf()
+
 	if x.User != "" {
 		return x.User
 	} else if _, err := os.Stat(options.Configuration); err == nil {
@@ -48,6 +52,8 @@ func (x *CtlCommand) getUser() string {
 }
 
 func (x *CtlCommand) getPassword() string {
+	options.Configuration, _ = findSupervisordConf()
+
 	if x.Password != "" {
 		return x.Password
 	} else if _, err := os.Stat(options.Configuration); err == nil {

@@ -63,10 +63,13 @@ func NewXmlRPC() *XmlRPC {
 	return &XmlRPC{listeners: make(map[string]net.Listener), started: false}
 }
 
+// stop network listening
 func (p *XmlRPC) Stop() {
+	log.Info("stop listening")
 	for _, listener := range p.listeners {
 		listener.Close()
 	}
+	p.started = false
 }
 
 func (p *XmlRPC) StartUnixHttpServer(user string, password string, listenAddr string, s *Supervisor) {
@@ -87,12 +90,13 @@ func (p *XmlRPC) startHttpServer(user string, password string, protocol string, 
 	mux.Handle("/RPC2", NewHttpBasicAuth(user, password, p.createRPCServer(s)))
 	prog_rest_handler := NewSupervisorRestful(s).CreateProgramHandler()
 	mux.Handle("/program/", NewHttpBasicAuth(user, password, prog_rest_handler))
-    supervisor_rest_handler := NewSupervisorRestful(s).CreateSupervisorHandler()
-    mux.Handle("/supervisor/", NewHttpBasicAuth(user, password, supervisor_rest_handler))
-    webgui_handler := NewSupervisorWebgui( s ).CreateHandler()
-    mux.Handle( "/", NewHttpBasicAuth( user, password, webgui_handler ) )
+	supervisor_rest_handler := NewSupervisorRestful(s).CreateSupervisorHandler()
+	mux.Handle("/supervisor/", NewHttpBasicAuth(user, password, supervisor_rest_handler))
+	webgui_handler := NewSupervisorWebgui(s).CreateHandler()
+	mux.Handle("/", NewHttpBasicAuth(user, password, webgui_handler))
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
+		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Info("success to listen on address")
 		p.listeners[protocol] = listener
 		http.Serve(listener, mux)
 	} else {

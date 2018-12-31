@@ -425,6 +425,7 @@ func (s *Supervisor) startEventListeners() {
 
 func (s *Supervisor) startHttpServer() {
 	httpServerConfig, ok := s.config.GetInetHttpServer()
+	s.xmlRPC.Stop()
 	if ok {
 		addr := httpServerConfig.GetString("port", "")
 		if addr != "" {
