@@ -220,27 +220,44 @@ func (s *Supervisor) StartProcess(r *http.Request, args *StartProcessArgs, reply
 func (s *Supervisor) StartAllProcesses(r *http.Request, args *struct {
 	Wait bool `default:"true"`
 }, reply *struct{ RpcTaskResults []RpcTaskResult }) error {
-	s.procMgr.ForEachProcess(func(proc *process.Process) {
+
+	finishedProcCh := make(chan *process.Process)
+
+	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
 		proc.Start(args.Wait)
-		processInfo := *getProcessInfo(proc)
-		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
-			Name:        processInfo.Name,
-			Group:       processInfo.Group,
-			Status:      faults.SUCCESS,
-			Description: "OK",
-		})
-	})
+	}, finishedProcCh)
+
+	for i := 0; i < n; i++ {
+		proc, ok := <-finishedProcCh
+		if ok {
+			processInfo := *getProcessInfo(proc)
+			reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
+				Name:        processInfo.Name,
+				Group:       processInfo.Group,
+				Status:      faults.SUCCESS,
+				Description: "OK",
+			})
+		}
+	}
 	return nil
 }
 
 func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	log.WithFields(log.Fields{"group": args.Name}).Info("start process group")
-	s.procMgr.ForEachProcess(func(proc *process.Process) {
+	finishedProcCh := make(chan *process.Process)
+
+	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
 		if proc.GetGroup() == args.Name {
 			proc.Start(args.Wait)
+		}
+	}, finishedProcCh)
+
+	for i := 0; i < n; i++ {
+		proc, ok := <-finishedProcCh
+		if ok && proc.GetGroup() == args.Name {
 			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
 		}
-	})
+	}
 
 	return nil
 }
@@ -258,28 +275,43 @@ func (s *Supervisor) StopProcess(r *http.Request, args *StartProcessArgs, reply 
 
 func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	log.WithFields(log.Fields{"group": args.Name}).Info("stop process group")
-	s.procMgr.ForEachProcess(func(proc *process.Process) {
+	finishedProcCh := make(chan *process.Process)
+	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
 		if proc.GetGroup() == args.Name {
 			proc.Stop(args.Wait)
+		}
+	}, finishedProcCh)
+
+	for i := 0; i < n; i++ {
+		proc, ok := <-finishedProcCh
+		if ok && proc.GetGroup() == args.Name {
 			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
 		}
-	})
+	}
 	return nil
 }
 
 func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 	Wait bool `default:"true"`
 }, reply *struct{ RpcTaskResults []RpcTaskResult }) error {
-	s.procMgr.ForEachProcess(func(proc *process.Process) {
+	finishedProcCh := make(chan *process.Process)
+
+	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
 		proc.Stop(args.Wait)
-		processInfo := *getProcessInfo(proc)
-		reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
-			Name:        processInfo.Name,
-			Group:       processInfo.Group,
-			Status:      faults.SUCCESS,
-			Description: "OK",
-		})
-	})
+	}, finishedProcCh)
+
+	for i := 0; i < n; i++ {
+		proc, ok := <-finishedProcCh
+		if ok {
+			processInfo := *getProcessInfo(proc)
+			reply.RpcTaskResults = append(reply.RpcTaskResults, RpcTaskResult{
+				Name:        processInfo.Name,
+				Group:       processInfo.Group,
+				Status:      faults.SUCCESS,
+				Description: "OK",
+			})
+		}
+	}
 	return nil
 }
 

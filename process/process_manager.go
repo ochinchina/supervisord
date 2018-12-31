@@ -114,26 +114,37 @@ func (pm *ProcessManager) Clear() {
 	pm.procs = make(map[string]*Process)
 }
 
+// process each process in sync mode
 func (pm *ProcessManager) ForEachProcess(procFunc func(p *Process)) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
 	procs := pm.getAllProcess()
-	done := make(chan struct{}, 1048576)
+	for _, proc := range procs {
+		procFunc(proc)
+	}
+}
+
+// handle each process in async mode
+// Args:
+// - procFunc, the function to handle the process
+// - done, signal the process is completed
+// Returns: number of total processes
+func (pm *ProcessManager) AsyncForEachProcess(procFunc func(p *Process), done chan *Process) int {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
+
+	procs := pm.getAllProcess()
 
 	for _, proc := range procs {
 		go forOneProcess(proc, procFunc, done)
 	}
-
-	for range procs {
-		<-done
-	}
+	return len(procs)
 }
 
-func forOneProcess(process *Process, action func(p *Process), done chan struct{}) {
-	action(process)
-
-	done <- struct{}{}
+func forOneProcess(proc *Process, action func(p *Process), done chan *Process) {
+	action(proc)
+	done <- proc
 }
 
 func (pm *ProcessManager) getAllProcess() []*Process {
