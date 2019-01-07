@@ -100,7 +100,7 @@ func (p *XmlRPC) startHttpServer(user string, password string, protocol string, 
 		p.listeners[protocol] = listener
 		http.Serve(listener, mux)
 	} else {
-		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Error("fail to listen on address")
+		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Fatal("fail to listen on address")
 	}
 
 }

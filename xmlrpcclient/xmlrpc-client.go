@@ -91,7 +91,7 @@ func (r *XmlRPCClient) processResponse(resp *http.Response, processBody func(io.
 		if r.verbose {
 			fmt.Println("Bad Response:", resp.Status)
 		}
-		processBody(emptyReader, fmt.Errorf("Bad response with status %d", resp.Status))
+		processBody(emptyReader, fmt.Errorf("Bad response with status code %d", resp.StatusCode ))
 	} else {
 		processBody(resp.Body, nil)
 	}
