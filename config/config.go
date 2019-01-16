@@ -547,6 +547,6 @@ func (c *Config) String() string {
 }
 
 func (c *Config) RemoveProgram(programName string) {
-	delete(c.entries, fmt.Sprintf("program:%s", programName))
+	delete(c.entries, programName)
 	c.ProgramGroup.Remove(programName)
 }
