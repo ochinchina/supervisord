@@ -166,12 +166,20 @@ the supervisor 3.x defined events are supported partially. Now it supports follo
 
 The logs ( field stdout_logfile, stderr_logfile ) from programs managed by the supervisord can be written to:
 
+```
 - /dev/null, ignore the log
 - /dev/stdout, write log to stdout
 - /dev/stderr, write log to stderr
 - syslog, write the log to local syslog
 - syslog @[protocol:]host[:port], write the log to remote syslog. protocol must be "tcp" or "udp", if missing, "udp" will be used. If port is missing, for "udp" protocol, it's value is 514 and for "tcp" protocol, it's value is 6514.
 - file name, write log to a file
+```
+
+Mutiple log file can be configured for the stdout_logfile and stderr_logfile with delimeter ',', for example if want to a program write log to both stdout and test.log file, the stdout_logfile for the program can be configured as:
+
+```ini
+stdout_logfile = test.log, /dev/stdout
+```
 
 # Web GUI
 
