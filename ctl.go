@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
 	"os"
 	"strings"
@@ -15,7 +16,35 @@ type CtlCommand struct {
 	Verbose   bool   `short:"v" long:"verbose" description:"Show verbose debug information"`
 }
 
+type StatusCommand struct {
+}
+
+type StartCommand struct {
+}
+
+type StopCommand struct {
+}
+
+type ShutdownCommand struct {
+}
+
+type ReloadCommand struct {
+}
+
+type PidCommand struct {
+}
+
+type SignalCommand struct {
+}
+
 var ctlCommand CtlCommand
+var statusCommand StatusCommand
+var startCommand StartCommand
+var stopCommand StopCommand
+var shutdownCommand ShutdownCommand
+var reloadCommand ReloadCommand
+var pidCommand PidCommand
+var signalCommand SignalCommand
 
 func (x *CtlCommand) getServerUrl() string {
 	options.Configuration, _ = findSupervisordConf()
@@ -67,14 +96,19 @@ func (x *CtlCommand) getPassword() string {
 	return ""
 }
 
+func (x *CtlCommand) createRpcClient() *xmlrpcclient.XmlRPCClient {
+	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose)
+	rpcc.SetUser(x.getUser())
+	rpcc.SetPassword(x.getPassword())
+	return rpcc
+}
+
 func (x *CtlCommand) Execute(args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
 
-	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose)
-	rpcc.SetUser(x.getUser())
-	rpcc.SetPassword(x.getPassword())
+	rpcc := x.createRpcClient()
 	verb := args[0]
 
 	switch verb {
@@ -223,15 +257,36 @@ func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
 
 func (x *CtlCommand) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, processesMap map[string]bool) {
 	for _, pinfo := range reply.Value {
-		name := pinfo.Name
 		description := pinfo.Description
 		if strings.ToLower(description) == "<string></string>" {
 			description = ""
 		}
-		if len(processesMap) <= 0 || processesMap[name] {
-			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), name, pinfo.Statename, description, "\x1b[0m")
+		if x.inProcessMap(&pinfo, processesMap) {
+			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), pinfo.GetFullName(), pinfo.Statename, description, "\x1b[0m")
 		}
 	}
+}
+
+func (x *CtlCommand) inProcessMap(procInfo *types.ProcessInfo, processesMap map[string]bool) bool {
+	if len(processesMap) <= 0 {
+		return true
+	}
+	for procName, _ := range processesMap {
+		if procName == procInfo.Name || procName == procInfo.GetFullName() {
+			return true
+		}
+
+		// check the wildcast '*'
+		pos := strings.Index(procName, ":")
+		if pos != -1 {
+			groupName := procName[0:pos]
+			programName := procName[pos+1:]
+			if programName == "*" && groupName == procInfo.Group {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (x *CtlCommand) getANSIColor(statename string) string {
@@ -247,9 +302,74 @@ func (x *CtlCommand) getANSIColor(statename string) string {
 	}
 }
 
+func (sc *StatusCommand) Execute(args []string) error {
+	ctlCommand.status(ctlCommand.createRpcClient(), args)
+	return nil
+}
+
+func (sc *StartCommand) Execute(args []string) error {
+	ctlCommand.startStopProcesses(ctlCommand.createRpcClient(), "start", args)
+	return nil
+}
+
+func (sc *StopCommand) Execute(args []string) error {
+	ctlCommand.startStopProcesses(ctlCommand.createRpcClient(), "stop", args)
+	return nil
+}
+
+func (sc *ShutdownCommand) Execute(args []string) error {
+	ctlCommand.shutdown(ctlCommand.createRpcClient())
+	return nil
+}
+
+func (rc *ReloadCommand) Execute(args []string) error {
+	ctlCommand.reload(ctlCommand.createRpcClient())
+	return nil
+}
+
+func (rc *SignalCommand) Execute(args []string) error {
+	sig_name, processes := args[0], args[1:]
+	ctlCommand.signal(ctlCommand.createRpcClient(), sig_name, processes)
+	return nil
+}
+
+func (pc *PidCommand) Execute(args []string) error {
+	ctlCommand.getPid(ctlCommand.createRpcClient(), args[0])
+	return nil
+}
+
 func init() {
-	parser.AddCommand("ctl",
+	ctlCmd, _ := parser.AddCommand("ctl",
 		"Control a running daemon",
 		"The ctl subcommand resembles supervisorctl command of original daemon.",
 		&ctlCommand)
+	ctlCmd.AddCommand("status",
+		"show program status",
+		"show all or some program status",
+		&statusCommand)
+	ctlCmd.AddCommand("start",
+		"start programs",
+		"start one or more programs",
+		&startCommand)
+	ctlCmd.AddCommand("stop",
+		"stop programs",
+		"stop one or more programs",
+		&stopCommand)
+	ctlCmd.AddCommand("shutdown",
+		"shutdown supervisord",
+		"shutdown supervisord",
+		&shutdownCommand)
+	ctlCmd.AddCommand("reload",
+		"reload the programs",
+		"reload the programs",
+		&reloadCommand)
+	ctlCmd.AddCommand("signal",
+		"send signal to program",
+		"send signal to program",
+		&signalCommand)
+	ctlCmd.AddCommand("pid",
+		"get the pid of specified program",
+		"get the pid of specified program",
+		&pidCommand)
+
 }

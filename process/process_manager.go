@@ -1,6 +1,7 @@
 package process
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -90,21 +91,39 @@ func (pm *ProcessManager) Remove(name string) *Process {
 
 // return process if found or nil if not found
 func (pm *ProcessManager) Find(name string) *Process {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
-	proc, ok := pm.procs[name]
-	if ok {
-		log.Debug("succeed to find process:", name)
-	} else {
-		//remove group field if it is included
-		if pos := strings.Index(name, ":"); pos != -1 {
-			proc, ok = pm.procs[name[pos+1:]]
-		}
-		if !ok {
-			log.Info("fail to find process:", name)
+	procs := pm.FindMatch(name)
+	if len(procs) == 1 {
+		if procs[0].GetName() == name || name == fmt.Sprintf("%s:%s", procs[0].GetGroup(), procs[0].GetName()) {
+			return procs[0]
 		}
 	}
-	return proc
+	return nil
+}
+
+func (pm *ProcessManager) FindMatch(name string) []*Process {
+	result := make([]*Process, 0)
+	if pos := strings.Index(name, ":"); pos != -1 {
+		groupName := name[0:pos]
+		programName := name[pos+1:]
+		pm.ForEachProcess(func(p *Process) {
+			if p.GetGroup() == groupName {
+				if programName == "*" || programName == p.GetName() {
+					result = append(result, p)
+				}
+			}
+		})
+	} else {
+		pm.lock.Lock()
+		defer pm.lock.Unlock()
+		proc, ok := pm.procs[name]
+		if ok {
+			result = append(result, proc)
+		}
+	}
+	if len(result) <= 0 {
+		log.Info("fail to find process:", name)
+	}
+	return result
 }
 
 // clear all the processes

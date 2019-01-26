@@ -207,12 +207,14 @@ func (s *Supervisor) GetProcessInfo(r *http.Request, args *struct{ Name string }
 }
 
 func (s *Supervisor) StartProcess(r *http.Request, args *StartProcessArgs, reply *struct{ Success bool }) error {
-	proc := s.procMgr.Find(args.Name)
+	procs := s.procMgr.FindMatch(args.Name)
 
-	if proc == nil {
+	if len(procs) <= 0 {
 		return fmt.Errorf("fail to find process %s", args.Name)
 	}
-	proc.Start(args.Wait)
+	for _, proc := range procs {
+		proc.Start(args.Wait)
+	}
 	reply.Success = true
 	return nil
 }
@@ -264,11 +266,13 @@ func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, 
 
 func (s *Supervisor) StopProcess(r *http.Request, args *StartProcessArgs, reply *struct{ Success bool }) error {
 	log.WithFields(log.Fields{"program": args.Name}).Info("stop process")
-	proc := s.procMgr.Find(args.Name)
-	if proc == nil {
+	procs := s.procMgr.FindMatch(args.Name)
+	if len(procs) <= 0 {
 		return fmt.Errorf("fail to find process %s", args.Name)
 	}
-	proc.Stop(args.Wait)
+	for _, proc := range procs {
+		proc.Stop(args.Wait)
+	}
 	reply.Success = true
 	return nil
 }
@@ -316,14 +320,16 @@ func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 }
 
 func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, reply *struct{ Success bool }) error {
-	proc := s.procMgr.Find(args.Name)
-	if proc == nil {
+	procs := s.procMgr.FindMatch(args.Name)
+	if len(procs) <= 0 {
 		reply.Success = false
 		return fmt.Errorf("No process named %s", args.Name)
 	}
 	sig, err := signals.ToSignal(args.Signal)
 	if err == nil {
-		proc.Signal(sig, false)
+		for _, proc := range procs {
+			proc.Signal(sig, false)
+		}
 	}
 	reply.Success = true
 	return nil
