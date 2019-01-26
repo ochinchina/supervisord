@@ -44,9 +44,13 @@ In order to controll the daemon, you can use `$ supervisord ctl` subcommand, ava
 
 ```shell
 $ supervisord ctl status
-$ supervisord ctl stop <worker_name>
+$ supervisord ctl status program-1 program-2...
+$ supervisord ctl status group:*
+$ supervisord ctl stop program-1 program-2...
+$ supervisord ctl stop group:*
 $ supervisord ctl stop all
-$ supervisord ctl start <worker_name>
+$ supervisord ctl start program-1 program-2...
+$ supervisord ctl start group:*
 $ supervisord ctl start all
 $ supervisord ctl shutdown
 $ supervisord ctl reload
