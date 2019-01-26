@@ -492,6 +492,9 @@ func (s *Supervisor) setSupervisordInfo() {
 		if err != nil {
 			logFile, err = process.Path_expand(logFile)
 		}
+		if logFile == "/dev/stdout" {
+			return
+		}
 		logEventEmitter := logger.NewNullLogEventEmitter()
 		s.logger = logger.NewNullLogger(logEventEmitter)
 		if err == nil {
@@ -499,9 +502,9 @@ func (s *Supervisor) setSupervisordInfo() {
 			logfile_backups := supervisordConf.GetInt("logfile_backups", 10)
 			loglevel := supervisordConf.GetString("loglevel", "info")
 			s.logger = logger.NewLogger("supervisord", logFile, &sync.Mutex{}, logfile_maxbytes, logfile_backups, logEventEmitter)
-			log.SetOutput(s.logger)
 			log.SetLevel(toLogLevel(loglevel))
-			log.SetFormatter(&log.TextFormatter{DisableColors: true})
+			log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
+			log.SetOutput(s.logger)
 		}
 		//set the pid
 		pidfile, err := env.Eval(supervisordConf.GetString("pidfile", "supervisord.pid"))

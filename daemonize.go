@@ -8,7 +8,7 @@ import (
 )
 
 func Deamonize(proc func()) {
-	context := new(daemon.Context)
+	context := daemon.Context{LogFileName: "/dev/stdout"}
 
 	child, err := context.Reborn()
 	if err != nil {
@@ -18,8 +18,5 @@ func Deamonize(proc func()) {
 		return
 	}
 	defer context.Release()
-
-	log.Info("daemon started")
-
 	proc()
 }
