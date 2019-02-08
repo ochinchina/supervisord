@@ -575,9 +575,7 @@ func (cl *CompositeLogger) ClearAllLogFile() error {
 func NewLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
 	files := splitLogFile(logFile)
 	loggers := make([]Logger, 0)
-	fmt.Printf("before split:%s\n", logFile)
 	for i, f := range files {
-		fmt.Printf("logFile:-%s-\n", f)
 		var lr Logger
 		if i == 0 {
 			lr = createLogger(programName, f, locker, maxBytes, backups, logEventEmitter)
