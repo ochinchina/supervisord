@@ -175,9 +175,19 @@ func (pm *ProcessManager) getAllProcess() []*Process {
 }
 
 func (pm *ProcessManager) StopAllProcesses() {
+	var wg sync.WaitGroup
+
 	pm.ForEachProcess(func(proc *Process) {
-		proc.Stop(true)
+		wg.Add(1)
+
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+
+			proc.Stop(true)
+		}(&wg)
 	})
+
+	wg.Wait()
 }
 
 func sortProcess(procs []*Process) []*Process {
