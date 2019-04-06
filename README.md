@@ -116,6 +116,7 @@ the following features is supported in the "program:x" section:
 - directory
 - stopasgroup
 - killasgroup
+- restartpause
 
 ### program extends
 
