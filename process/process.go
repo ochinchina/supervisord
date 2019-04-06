@@ -11,7 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-    "runtime"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -240,8 +240,12 @@ func (p *Process) GetStderrLogfile() string {
 	return expand_file
 }
 
-func (p *Process) getStartSeconds() int {
-	return p.config.GetInt("startsecs", 1)
+func (p *Process) getStartSeconds() int64 {
+	return int64(p.config.GetInt("startsecs", 1))
+}
+
+func (p *Process) getRestartPause() int {
+	return p.config.GetInt("restartpause", 0)
 }
 
 func (p *Process) getStartRetries() int32 {
@@ -328,12 +332,12 @@ func (p *Process) getExitCodes() []int {
 //
 func (p *Process) isRunning() bool {
 	if p.cmd != nil && p.cmd.ProcessState != nil {
-        if runtime.GOOS == "windows" {
-            proc, err := os.FindProcess( p.cmd.Process.Pid )
-            return proc != nil && err == nil
-        } else {
-            return p.cmd.Process.Signal( syscall.Signal( 0 ) ) == nil
-        }
+		if runtime.GOOS == "windows" {
+			proc, err := os.FindProcess(p.cmd.Process.Pid)
+			return proc != nil && err == nil
+		} else {
+			return p.cmd.Process.Signal(syscall.Signal(0)) == nil
+		}
 	}
 	return false
 }
@@ -374,16 +378,9 @@ func (p *Process) waitForExit(startSecs int64) {
 	} else {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("program stopped")
 	}
-
 	p.lock.Lock()
 	defer p.lock.Unlock()
-
 	p.stopTime = time.Now()
-	if p.stopTime.Unix()-p.startTime.Unix() < startSecs {
-		p.changeStateTo(BACKOFF)
-	} else {
-		p.changeStateTo(EXITED)
-	}
 }
 
 // fail to start the program
@@ -393,24 +390,21 @@ func (p *Process) failToStartProgram(reason string, finishCb func()) {
 	finishCb()
 }
 
-func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited *int32) {
+// monitor if the program is in running before endTime
+//
+func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited *int32, programExited *int32) {
 	// if time is not expired
-	for time.Now().Before(endTime) {
+	for time.Now().Before(endTime) && atomic.LoadInt32(programExited) == 0 {
 		time.Sleep(time.Duration(100) * time.Millisecond)
-		if atomic.LoadInt32(p.retryTimes) > p.getStartRetries() {
-			break
-		}
 	}
 	atomic.StoreInt32(monitorExited, 1)
 
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	if p.state == STARTING {
+	// if the program does not exit
+	if atomic.LoadInt32(programExited) == 0 && p.state == STARTING {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 		p.changeStateTo(RUNNING)
-	} else {
-		log.WithFields(log.Fields{"program": p.GetName()}).Info("fail to start program")
-		p.changeStateTo(FATAL)
 	}
 }
 
@@ -425,13 +419,10 @@ func (p *Process) run(finishCb func()) {
 		return
 
 	}
-
 	p.startTime = time.Now()
-	p.changeStateTo(STARTING)
 	atomic.StoreInt32(p.retryTimes, 0)
-	startSecs := int64(p.config.GetInt("startsecs", 1))
-	endTime := time.Now().Add(time.Duration(startSecs) * time.Second)
-	monitorExited := int32(1)
+	startSecs := p.getStartSeconds()
+	restartPause := p.getRestartPause()
 	var once sync.Once
 
 	// finishCb can be only called one time
@@ -440,20 +431,17 @@ func (p *Process) run(finishCb func()) {
 	}
 	//process is not expired and not stoped by user
 	for !p.stopByUser {
-		atomic.StoreInt32(&monitorExited, 1)
-		// if the start-up time reaches startSecs
-		if startSecs > 0 && time.Now().After(endTime) {
-			p.failToStartProgram(fmt.Sprintf("fail to start program because the start-up time reaches the startsecs %d", startSecs), finishCbWrapper)
-			break
+		if restartPause > 0 && atomic.LoadInt32(p.retryTimes) != 0 {
+			//pause
+			p.lock.Unlock()
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("don't restart the program, start it after ", restartPause, " seconds")
+			time.Sleep(time.Duration(restartPause) * time.Second)
+			p.lock.Lock()
 		}
-		// The number of serial failure attempts that supervisord will allow when attempting to
-		// start the program before giving up and putting the process into an FATAL state
-		// first start time is not the retry time
-		if atomic.LoadInt32(p.retryTimes) > 0 && atomic.LoadInt32(p.retryTimes) > p.getStartRetries() {
-			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.getStartRetries()), finishCbWrapper)
-			break
-		}
+		endTime := time.Now().Add(time.Duration(startSecs) * time.Second)
+		p.changeStateTo(STARTING)
 		atomic.AddInt32(p.retryTimes, 1)
+
 		err := p.createProgramCommand()
 		if err != nil {
 			p.failToStartProgram("fail to create program", finishCbWrapper)
@@ -463,8 +451,14 @@ func (p *Process) run(finishCb func()) {
 		err = p.cmd.Start()
 
 		if err != nil {
-			p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishCbWrapper)
-			continue
+			if atomic.LoadInt32(p.retryTimes) >= p.getStartRetries() {
+				p.failToStartProgram(fmt.Sprintf("fail to start program with error:", err), finishCbWrapper)
+				break
+			} else {
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("fail to start program with error:", err)
+				p.changeStateTo(BACKOFF)
+				continue
+			}
 		}
 		if p.StdoutLog != nil {
 			p.StdoutLog.SetPid(p.cmd.Process.Pid)
@@ -472,27 +466,49 @@ func (p *Process) run(finishCb func()) {
 		if p.StderrLog != nil {
 			p.StderrLog.SetPid(p.cmd.Process.Pid)
 		}
+
+		monitorExited := int32(0)
+		programExited := int32(0)
 		//Set startsec to 0 to indicate that the program needn't stay
 		//running for any particular amount of time.
 		if startSecs <= 0 {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 			p.changeStateTo(RUNNING)
 			go finishCbWrapper()
-		} else if atomic.LoadInt32(p.retryTimes) == 1 { // only start monitor for first try
-			atomic.StoreInt32(&monitorExited, 0)
+		} else {
 			go func() {
-				p.monitorProgramIsRunning(endTime, &monitorExited)
+				p.monitorProgramIsRunning(endTime, &monitorExited, &programExited)
 				finishCbWrapper()
 			}()
 		}
 		log.WithFields(log.Fields{"program": p.GetName()}).Debug("wait program exit")
 		p.lock.Unlock()
 		p.waitForExit(startSecs)
+
+		atomic.StoreInt32(&programExited, 1)
+		// wait for monitor thread exit
+		for atomic.LoadInt32(&monitorExited) == 0 {
+			time.Sleep(time.Duration(10) * time.Millisecond)
+		}
+
 		p.lock.Lock()
-	}
-	// wait for monitor thread exit
-	for atomic.LoadInt32(&monitorExited) == 0 {
-		time.Sleep(time.Duration(100) * time.Millisecond)
+
+		// if the program still in running after startSecs
+		if p.state == RUNNING {
+			p.changeStateTo(EXITED)
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("program exited")
+			break
+		} else {
+			p.changeStateTo(BACKOFF)
+		}
+
+		// The number of serial failure attempts that supervisord will allow when attempting to
+		// start the program before giving up and putting the process into an FATAL state
+		// first start time is not the retry time
+		if atomic.LoadInt32(p.retryTimes) >= p.getStartRetries() {
+			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.getStartRetries()), finishCbWrapper)
+			break
+		}
 	}
 
 }
