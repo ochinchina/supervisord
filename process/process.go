@@ -452,7 +452,7 @@ func (p *Process) run(finishCb func()) {
 
 		if err != nil {
 			if atomic.LoadInt32(p.retryTimes) >= p.getStartRetries() {
-				p.failToStartProgram(fmt.Sprintf("fail to start program with error:", err), finishCbWrapper)
+				p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishCbWrapper)
 				break
 			} else {
 				log.WithFields(log.Fields{"program": p.GetName()}).Info("fail to start program with error:", err)
