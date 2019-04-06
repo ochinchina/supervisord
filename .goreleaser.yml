@@ -2,11 +2,11 @@ build:
   binary: supervisord
   goos:
     - linux
-    - darwin
+    #- darwin
   goarch:
     - amd64
   ldflags:
-  - -extldflags -static
+  - "-linkmode external -extldflags -static"
 archive:
   format: binary
 snapshot:
