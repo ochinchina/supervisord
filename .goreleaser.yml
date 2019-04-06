@@ -5,6 +5,8 @@ build:
     - darwin
   goarch:
     - amd64
+  ldflags:
+  - -extldflags -static
 archive:
   format: binary
 snapshot:
