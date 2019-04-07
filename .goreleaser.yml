@@ -2,7 +2,7 @@ build:
   binary: supervisord
   goos:
     - linux
-    #- darwin
+    - darwin
   goarch:
     - amd64
   ldflags:
