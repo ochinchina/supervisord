@@ -3,7 +3,7 @@ builds:
     binary: supervisord_static
     goos:
       - linux
-      - darwin
+      #- darwin
     goarch:
       - amd64
     ldflags:
