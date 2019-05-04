@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/jessevdk/go-flags"
-	reaper "github.com/ochinchina/go-reaper"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -132,7 +131,7 @@ func RunServer() {
 }
 
 func main() {
-	go reaper.Reap()
+	ReapZombie()
 
 	if _, err := parser.Parse(); err != nil {
 		flagsErr, ok := err.(*flags.Error)
