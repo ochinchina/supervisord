@@ -12,13 +12,10 @@ In this project, the supervisord is re-implemented in go-lang. The compiled supe
 
 Before compiling the supervisord, make sure the go-lang is installed in your environement.
 
-To compile the go-lang version supervisord, run following commands:
+To compile the go-lang version supervisord, run following commands (required go 1.11+):
 
-```shell
-$ mkdir ~/go-supervisor
-$ export GOPATH=~/go-supervisor
-$ go get -u github.com/ochinchina/supervisord
-```
+1. local: `go build`
+1. linux: `env GOOS=linux GOARCH=amd64 go build -o supervisord_linux_amd64`
 
 # Run the supervisord
 

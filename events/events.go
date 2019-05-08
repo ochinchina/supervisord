@@ -247,11 +247,11 @@ var eventTypeDerives = map[string][]string{
 	"PROCESS_COMMUNICATION_STDERR":     {"EVENT", "PROCESS_COMMUNICATION"},
 	"SUPERVISOR_STATE_CHANGE_RUNNING":  {"EVENT", "SUPERVISOR_STATE_CHANGE"},
 	"SUPERVISOR_STATE_CHANGE_STOPPING": {"EVENT", "SUPERVISOR_STATE_CHANGE"},
-	"TICK_5":                {"EVENT", "TICK"},
-	"TICK_60":               {"EVENT", "TICK"},
-	"TICK_3600":             {"EVENT", "TICK"},
-	"PROCESS_GROUP_ADDED":   {"EVENT", "PROCESS_GROUP"},
-	"PROCESS_GROUP_REMOVED": {"EVENT", "PROCESS_GROUP"}}
+	"TICK_5":                           {"EVENT", "TICK"},
+	"TICK_60":                          {"EVENT", "TICK"},
+	"TICK_3600":                        {"EVENT", "TICK"},
+	"PROCESS_GROUP_ADDED":              {"EVENT", "PROCESS_GROUP"},
+	"PROCESS_GROUP_REMOVED":            {"EVENT", "PROCESS_GROUP"}}
 var eventSerial uint64
 var eventListenerManager = NewEventListenerManager()
 var eventPoolSerial = NewEventPoolSerial()
