@@ -1,7 +1,12 @@
 language: go
 
 go:
-- "1.12.x"
+  - "1.12.x"
+
+env:
+  - GO111MODULE=on
+
+install: true
 
 after_script:
   - go get -v github.com/alecthomas/gometalinter/...
