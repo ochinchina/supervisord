@@ -1,16 +1,16 @@
 package process
 
 import (
+	"supervisord/config"
 	"testing"
-    "github.com/ochinchina/supervisord/config"
 )
 
 var procs *ProcessManager = NewProcessManager()
 
 func TestProcessMgrAdd(t *testing.T) {
-    entry := &config.ConfigEntry{ ConfigDir:".", Group:"test", Name: "program:test1" }
+	entry := &config.ConfigEntry{ConfigDir: ".", Group: "test", Name: "program:test1"}
 	procs.Clear()
-	procs.Add("test1", NewProcess("supervisord", entry ))
+	procs.Add("test1", NewProcess("supervisord", entry))
 
 	if procs.Find("test1") == nil {
 		t.Error("fail to add process")

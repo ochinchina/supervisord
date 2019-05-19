@@ -2,10 +2,6 @@ package process
 
 import (
 	"fmt"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/events"
-	"github.com/ochinchina/supervisord/logger"
-	"github.com/ochinchina/supervisord/signals"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
@@ -14,6 +10,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"supervisord/config"
+	"supervisord/events"
+	"supervisord/logger"
+	"supervisord/signals"
 	"sync"
 	"sync/atomic"
 	"syscall"

@@ -3,14 +3,14 @@ package logger
 import (
 	"errors"
 	"fmt"
-	"github.com/ochinchina/supervisord/events"
-	"github.com/ochinchina/supervisord/faults"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
 	"strings"
+	"supervisord/events"
+	"supervisord/faults"
 	"sync"
 )
 
