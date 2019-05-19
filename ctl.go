@@ -25,6 +25,9 @@ type StartCommand struct {
 type StopCommand struct {
 }
 
+type RestartCommand struct {
+}
+
 type ShutdownCommand struct {
 }
 
@@ -41,6 +44,7 @@ var ctlCommand CtlCommand
 var statusCommand StatusCommand
 var startCommand StartCommand
 var stopCommand StopCommand
+var restartCommand RestartCommand
 var shutdownCommand ShutdownCommand
 var reloadCommand ReloadCommand
 var pidCommand PidCommand
@@ -164,6 +168,10 @@ func (x *CtlCommand) startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb st
 		"start": "started",
 		"stop":  "stopped",
 	}
+	x._startStopProcesses(rpcc, verb, processes, state[verb], true)
+}
+
+func (x *CtlCommand) _startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb string, processes []string, state string, showProcessInfo bool) {
 	if len(processes) <= 0 {
 		fmt.Printf("Please specify process for %s\n", verb)
 	}
@@ -171,23 +179,32 @@ func (x *CtlCommand) startStopProcesses(rpcc *xmlrpcclient.XmlRPCClient, verb st
 		if pname == "all" {
 			reply, err := rpcc.ChangeAllProcessState(verb)
 			if err == nil {
-				x.showProcessInfo(&reply, make(map[string]bool))
+				if showProcessInfo {
+					x.showProcessInfo(&reply, make(map[string]bool))
+				}
 			} else {
 				fmt.Printf("Fail to change all process state to %s", state)
 			}
 		} else {
 			if reply, err := rpcc.ChangeProcessState(verb, pname); err == nil {
-				fmt.Printf("%s: ", pname)
-				if !reply.Value {
-					fmt.Printf("not ")
+				if showProcessInfo {
+					fmt.Printf("%s: ", pname)
+					if !reply.Value {
+						fmt.Printf("not ")
+					}
+					fmt.Printf("%s\n", state)
 				}
-				fmt.Printf("%s\n", state[verb])
 			} else {
 				fmt.Printf("%s: failed [%v]\n", pname, err)
 				os.Exit(1)
 			}
 		}
 	}
+}
+
+func (x *CtlCommand) restartProcesses(rpcc *xmlrpcclient.XmlRPCClient, processes []string) {
+	x._startStopProcesses(rpcc, "stop", processes, "stopped", false)
+	x._startStopProcesses(rpcc, "start", processes, "restarted", true)
 }
 
 // shutdown the supervisord
@@ -317,6 +334,11 @@ func (sc *StopCommand) Execute(args []string) error {
 	return nil
 }
 
+func (rc *RestartCommand) Execute(args []string) error {
+	ctlCommand.restartProcesses(ctlCommand.createRpcClient(), args)
+	return nil
+}
+
 func (sc *ShutdownCommand) Execute(args []string) error {
 	ctlCommand.shutdown(ctlCommand.createRpcClient())
 	return nil
@@ -355,6 +377,10 @@ func init() {
 		"stop programs",
 		"stop one or more programs",
 		&stopCommand)
+	ctlCmd.AddCommand("restart",
+		"restart programs",
+		"restart one or more programs",
+		&restartCommand)
 	ctlCmd.AddCommand("shutdown",
 		"shutdown supervisord",
 		"shutdown supervisord",
