@@ -272,6 +272,17 @@ func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
 	}
 }
 
+// check if group name should be displayed
+func (x *CtlCommand) showGroupName() bool {
+	val, ok := os.LookupEnv("SUPERVISOR_GROUP_DISPLAY")
+	if !ok {
+		return false
+	}
+
+	val = strings.ToLower(val)
+	return val == "yes" || val == "true" || val == "y" || val == "t" || val == "1"
+}
+
 func (x *CtlCommand) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, processesMap map[string]bool) {
 	for _, pinfo := range reply.Value {
 		description := pinfo.Description
@@ -279,7 +290,11 @@ func (x *CtlCommand) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, pr
 			description = ""
 		}
 		if x.inProcessMap(&pinfo, processesMap) {
-			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), pinfo.GetFullName(), pinfo.Statename, description, "\x1b[0m")
+			processName := pinfo.GetFullName()
+			if !x.showGroupName() {
+				processName = pinfo.Name
+			}
+			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), processName, pinfo.Statename, description, "\x1b[0m")
 		}
 	}
 }
