@@ -1,4 +1,5 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/ochinchina/supervisord)](https://goreportcard.com/report/github.com/ochinchina/supervisord)
+[![Build Status]( https://www.travis-ci.org/ochinchina/supervisord.svg?branch=master)]( https://www.travis-ci.org/ochinchina/supervisord)
 
 # Why this project?
 
