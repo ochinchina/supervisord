@@ -1,21 +1,52 @@
+before:
+  hooks:
+    - go generate ./...
+project_name: supervisord
 builds:
-  -
-    binary: supervisord_static
-    goos:
-      - linux
-      #- darwin
-    goarch:
-      - amd64
-    ldflags:
-    - "-linkmode external -extldflags -static"
-  -
-    binary: supervisord
-    goos:
-      - linux
-      - darwin
-    goarch:
-      - amd64
+- env:
+    - CGO_ENABLED=0
+  ldflags:
+    - "-s -w"
+  binary: supervisord
+  flags:
+    - -tags=release
+  goos:
+    - windows
+    - darwin
+    - linux
+  goarch:
+    - 386
+    - amd64
+    - arm
+  goarm:
+    - 6
+    - 7
+  hooks:
+    post: ./upx.sh
 archive:
-  format: binary
-snapshot:
-  name_template: "{{.Commit}}"
+  name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  format: tar.gz
+  format_overrides:
+    - goos: windows
+      format: zip
+  wrap_in_directory: true
+  files:
+  - none*
+  replacements:
+    amd64: 64-bit
+    386: 32-bit
+    arm: ARM
+    arm64: ARM64
+    darwin: macOS
+    linux: Linux
+    windows: Windows
+    openbsd: OpenBSD
+    netbsd: NetBSD
+    freebsd: FreeBSD
+release:
+  github:
+    owner: ochinchina
+    name: supervisord
+  draft: true
+  prerelease: true
+  name_template: "{{.ProjectName}}-v{{.Version}}-{{.ShortCommit}}"
