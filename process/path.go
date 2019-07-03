@@ -27,8 +27,8 @@ func Path_expand(path string) (string, error) {
 	pathList := path_split(path)
 
 	if len(pathList) > 0 && len(pathList[0]) > 0 && pathList[0][0] == '~' {
-		var usr *user.User = nil
-		var err error = nil
+		var usr *user.User
+		var err error
 
 		if pathList[0] == "~" {
 			usr, err = user.Current()

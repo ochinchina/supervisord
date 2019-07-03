@@ -40,14 +40,14 @@ func readEvent(reader *bufio.Reader) (string, string) {
 	header, err := reader.ReadString('\n')
 	if err != nil {
 		return "", ""
-	} else {
-		tmp := strings.Split(header[0:len(header)-1], ":")
-		len, _ := strconv.Atoi(tmp[len(tmp)-1])
-		b := make([]byte, len)
-		io.ReadFull(reader, b)
-		return header, string(b)
 	}
+	tmp := strings.Split(header[0:len(header)-1], ":")
+	len, _ := strconv.Atoi(tmp[len(tmp)-1])
+	b := make([]byte, len)
+	io.ReadFull(reader, b)
+	return header, string(b)
 }
+
 func TestEventListener(t *testing.T) {
 	r1, w1 := io.Pipe()
 	r2, w2 := io.Pipe()

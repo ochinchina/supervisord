@@ -1,11 +1,12 @@
 package process
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/ochinchina/supervisord/config"
+	log "github.com/sirupsen/logrus"
 )
 
 type ProcessManager struct {
@@ -90,21 +91,39 @@ func (pm *ProcessManager) Remove(name string) *Process {
 
 // return process if found or nil if not found
 func (pm *ProcessManager) Find(name string) *Process {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
-	proc, ok := pm.procs[name]
-	if ok {
-		log.Debug("succeed to find process:", name)
-	} else {
-		//remove group field if it is included
-		if pos := strings.Index(name, ":"); pos != -1 {
-			proc, ok = pm.procs[name[pos+1:]]
-		}
-		if !ok {
-			log.Info("fail to find process:", name)
+	procs := pm.FindMatch(name)
+	if len(procs) == 1 {
+		if procs[0].GetName() == name || name == fmt.Sprintf("%s:%s", procs[0].GetGroup(), procs[0].GetName()) {
+			return procs[0]
 		}
 	}
-	return proc
+	return nil
+}
+
+func (pm *ProcessManager) FindMatch(name string) []*Process {
+	result := make([]*Process, 0)
+	if pos := strings.Index(name, ":"); pos != -1 {
+		groupName := name[0:pos]
+		programName := name[pos+1:]
+		pm.ForEachProcess(func(p *Process) {
+			if p.GetGroup() == groupName {
+				if programName == "*" || programName == p.GetName() {
+					result = append(result, p)
+				}
+			}
+		})
+	} else {
+		pm.lock.Lock()
+		defer pm.lock.Unlock()
+		proc, ok := pm.procs[name]
+		if ok {
+			result = append(result, proc)
+		}
+	}
+	if len(result) <= 0 {
+		log.Info("fail to find process:", name)
+	}
+	return result
 }
 
 // clear all the processes
@@ -114,6 +133,7 @@ func (pm *ProcessManager) Clear() {
 	pm.procs = make(map[string]*Process)
 }
 
+// process each process in sync mode
 func (pm *ProcessManager) ForEachProcess(procFunc func(p *Process)) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
@@ -122,6 +142,28 @@ func (pm *ProcessManager) ForEachProcess(procFunc func(p *Process)) {
 	for _, proc := range procs {
 		procFunc(proc)
 	}
+}
+
+// handle each process in async mode
+// Args:
+// - procFunc, the function to handle the process
+// - done, signal the process is completed
+// Returns: number of total processes
+func (pm *ProcessManager) AsyncForEachProcess(procFunc func(p *Process), done chan *Process) int {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
+
+	procs := pm.getAllProcess()
+
+	for _, proc := range procs {
+		go forOneProcess(proc, procFunc, done)
+	}
+	return len(procs)
+}
+
+func forOneProcess(proc *Process, action func(p *Process), done chan *Process) {
+	action(proc)
+	done <- proc
 }
 
 func (pm *ProcessManager) getAllProcess() []*Process {
@@ -133,9 +175,19 @@ func (pm *ProcessManager) getAllProcess() []*Process {
 }
 
 func (pm *ProcessManager) StopAllProcesses() {
+	var wg sync.WaitGroup
+
 	pm.ForEachProcess(func(proc *Process) {
-		proc.Stop(true)
+		wg.Add(1)
+
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+
+			proc.Stop(true)
+		}(&wg)
 	})
+
+	wg.Wait()
 }
 
 func sortProcess(procs []*Process) []*Process {

@@ -301,7 +301,7 @@ func (c *ConfigEntry) GetInt(key string, defValue int) int {
 	return defValue
 }
 
-// get the value of key as environment setting. An enviroment string example:
+// GetEnv get the value of key as environment setting. An environment string example:
 //  environment = A="env 1",B="this is a test"
 func (c *ConfigEntry) GetEnv(key string) []string {
 	value, ok := c.keyValues[key]
@@ -366,13 +366,12 @@ func (c *ConfigEntry) GetString(key string, defValue string) string {
 		rep_s, err := env.Eval(s)
 		if err == nil {
 			return rep_s
-		} else {
-			log.WithFields(log.Fields{
-				log.ErrorKey: err,
-				"program":    c.GetProgramName(),
-				"key":        key,
-			}).Warn("Unable to parse expression")
 		}
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"program":    c.GetProgramName(),
+			"key":        key,
+		}).Warn("Unable to parse expression")
 	}
 	return defValue
 }
@@ -551,6 +550,6 @@ func (c *Config) String() string {
 }
 
 func (c *Config) RemoveProgram(programName string) {
-	delete(c.entries, fmt.Sprintf("program:%s", programName))
+	delete(c.entries, programName)
 	c.ProgramGroup.Remove(programName)
 }

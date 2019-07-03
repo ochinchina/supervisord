@@ -3,6 +3,8 @@ package logger
 import (
 	"errors"
 	"fmt"
+	"github.com/ochinchina/supervisord/events"
+	"github.com/ochinchina/supervisord/faults"
 	"io"
 	"io/ioutil"
 	"os"
@@ -10,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-    "github.com/ochinchina/supervisord/events"
-    "github.com/ochinchina/supervisord/faults"
 )
 
 //implements io.Writer interface
@@ -51,6 +51,10 @@ type NullLogger struct {
 }
 
 type NullLocker struct {
+}
+
+type CompositeLogger struct {
+	loggers []Logger
 }
 
 func NewFileLogger(name string, maxSize int64, backups int, logEventEmitter LogEventEmitter, locker sync.Locker) *FileLogger {
@@ -175,10 +179,10 @@ func (l *FileLogger) ClearAllLogFile() error {
 
 func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	if offset < 0 && length != 0 {
-		return "", faults.NewFault( faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
+		return "", faults.NewFault(faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
 	}
 	if offset >= 0 && length < 0 {
-		return "", faults.NewFault( faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
+		return "", faults.NewFault(faults.BAD_ARGUMENTS, "BAD_ARGUMENTS")
 	}
 
 	l.locker.Lock()
@@ -226,7 +230,7 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	b := make([]byte, length)
 	n, err := f.ReadAt(b, offset)
 	if err != nil {
-		return "", faults.NewFault( faults.FAILED, "FAILED")
+		return "", faults.NewFault(faults.FAILED, "FAILED")
 	}
 	return string(b[:n]), nil
 }
@@ -312,19 +316,17 @@ func (l *FileLogger) Close() error {
 
 func (sl *SysLogger) Write(b []byte) (int, error) {
 	sl.logEventEmitter.emitLogEvent(string(b))
-	if sl.logWriter != nil {
-		return sl.logWriter.Write(b)
-	} else {
+	if sl.logWriter == nil {
 		return 0, errors.New("not connect to syslog server")
 	}
+	return sl.logWriter.Write(b)
 }
 
 func (sl *SysLogger) Close() error {
-	if sl.logWriter != nil {
-		return sl.logWriter.Close()
-	} else {
+	if sl.logWriter == nil {
 		return errors.New("not connect to syslog server")
 	}
+	return sl.logWriter.Close()
 }
 func NewNullLogger(logEventEmitter LogEventEmitter) *NullLogger {
 	return &NullLogger{logEventEmitter: logEventEmitter}
@@ -390,7 +392,7 @@ func (l *StdLogger) Write(p []byte) (int, error) {
 
 func NewStderrLogger(logEventEmitter LogEventEmitter) *StdLogger {
 	return &StdLogger{logEventEmitter: logEventEmitter,
-		writer: os.Stdout}
+		writer: os.Stderr}
 }
 
 type LogCaptureLogger struct {
@@ -458,27 +460,169 @@ type StdLogEventEmitter struct {
 	Type         string
 	process_name string
 	group_name   string
-    pidFunc     func() int
+	pidFunc      func() int
 }
 
-func NewStdoutLogEventEmitter(process_name string, group_name string, procPidFunc func() int ) *StdLogEventEmitter {
+func NewStdoutLogEventEmitter(process_name string, group_name string, procPidFunc func() int) *StdLogEventEmitter {
 	return &StdLogEventEmitter{Type: "stdout",
 		process_name: process_name,
 		group_name:   group_name,
-		pidFunc:      procPidFunc }
+		pidFunc:      procPidFunc}
 }
 
-func NewStderrLogEventEmitter(process_name string, group_name string, procPidFunc func() int ) *StdLogEventEmitter {
+func NewStderrLogEventEmitter(process_name string, group_name string, procPidFunc func() int) *StdLogEventEmitter {
 	return &StdLogEventEmitter{Type: "stderr",
 		process_name: process_name,
 		group_name:   group_name,
-		pidFunc:      procPidFunc }
+		pidFunc:      procPidFunc}
 }
 
 func (se *StdLogEventEmitter) emitLogEvent(data string) {
 	if se.Type == "stdout" {
-		events.EmitEvent( events.CreateProcessLogStdoutEvent(se.process_name, se.group_name, se.pidFunc(), data))
+		events.EmitEvent(events.CreateProcessLogStdoutEvent(se.process_name, se.group_name, se.pidFunc(), data))
 	} else {
-		events.EmitEvent( events.CreateProcessLogStderrEvent(se.process_name, se.group_name, se.pidFunc(), data))
+		events.EmitEvent(events.CreateProcessLogStderrEvent(se.process_name, se.group_name, se.pidFunc(), data))
 	}
+}
+
+type BackgroundWriteCloser struct {
+	io.WriteCloser
+	logChannel  chan []byte
+	writeCloser io.WriteCloser
+}
+
+func NewBackgroundWriteCloser(writeCloser io.WriteCloser) *BackgroundWriteCloser {
+	channel := make(chan []byte)
+	bw := &BackgroundWriteCloser{logChannel: channel,
+		writeCloser: writeCloser}
+
+	bw.start()
+	return bw
+}
+
+func (bw *BackgroundWriteCloser) start() {
+	go func() {
+		for {
+			b, ok := <-bw.logChannel
+			if !ok {
+				break
+			}
+			bw.writeCloser.Write(b)
+		}
+	}()
+}
+
+func (bw *BackgroundWriteCloser) Write(p []byte) (n int, err error) {
+	bw.logChannel <- p
+	return len(p), nil
+}
+
+func (bw *BackgroundWriteCloser) Close() error {
+	close(bw.logChannel)
+	return bw.writeCloser.Close()
+}
+
+func NewCompositeLogger(loggers []Logger) *CompositeLogger {
+	return &CompositeLogger{loggers: loggers}
+}
+
+func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
+	for i, logger := range cl.loggers {
+		if i == 0 {
+			n, err = logger.Write(p)
+		} else {
+			logger.Write(p)
+		}
+	}
+	return
+}
+
+func (cl *CompositeLogger) Close() (err error) {
+	for i, logger := range cl.loggers {
+		if i == 0 {
+			err = logger.Close()
+		} else {
+			logger.Close()
+		}
+	}
+	return
+}
+
+func (cl *CompositeLogger) SetPid(pid int) {
+	for _, logger := range cl.loggers {
+		logger.SetPid(pid)
+	}
+}
+
+func (cl *CompositeLogger) ReadLog(offset int64, length int64) (string, error) {
+	return cl.loggers[0].ReadLog(offset, length)
+}
+
+func (cl *CompositeLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
+	return cl.loggers[0].ReadTailLog(offset, length)
+}
+
+func (cl *CompositeLogger) ClearCurLogFile() error {
+	return cl.loggers[0].ClearCurLogFile()
+}
+
+func (cl *CompositeLogger) ClearAllLogFile() error {
+	return cl.loggers[0].ClearAllLogFile()
+}
+
+// create a logger for a program with parameters
+//
+func NewLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
+	files := splitLogFile(logFile)
+	loggers := make([]Logger, 0)
+	for i, f := range files {
+		var lr Logger
+		if i == 0 {
+			lr = createLogger(programName, f, locker, maxBytes, backups, logEventEmitter)
+		} else {
+			lr = createLogger(programName, f, NewNullLocker(), maxBytes, backups, NewNullLogEventEmitter())
+		}
+		loggers = append(loggers, lr)
+	}
+	if len(loggers) > 1 {
+		return NewCompositeLogger(loggers)
+	} else {
+		return loggers[0]
+	}
+}
+
+func splitLogFile(logFile string) []string {
+	files := strings.Split(logFile, ",")
+	for i, f := range files {
+		files[i] = strings.TrimSpace(f)
+	}
+	return files
+}
+
+func createLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
+	if logFile == "/dev/stdout" {
+		return NewStdoutLogger(logEventEmitter)
+	}
+	if logFile == "/dev/stderr" {
+		return NewStderrLogger(logEventEmitter)
+	}
+	if logFile == "/dev/null" {
+		return NewNullLogger(logEventEmitter)
+	}
+
+	if logFile == "syslog" {
+		return NewSysLogger(programName, logEventEmitter)
+	}
+	if strings.HasPrefix(logFile, "syslog") {
+		fields := strings.Split(logFile, "@")
+		fields[0] = strings.TrimSpace(fields[0])
+		fields[1] = strings.TrimSpace(fields[1])
+		if len(fields) == 2 && fields[0] == "syslog" {
+			return NewRemoteSysLogger(programName, fields[1], logEventEmitter)
+		}
+	}
+	if len(logFile) > 0 {
+		return NewFileLogger(logFile, maxBytes, backups, logEventEmitter, locker)
+	}
+	return NewNullLogger(logEventEmitter)
 }

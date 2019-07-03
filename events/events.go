@@ -70,7 +70,7 @@ func (eps *EventPoolSerial) nextSerial(pool string) uint64 {
 type EventListener struct {
 	pool        string
 	server      string
-	mutex       sync.Mutex
+	cond        *sync.Cond
 	events      *list.List
 	stdin       *bufio.Reader
 	stdout      io.Writer
@@ -84,6 +84,7 @@ func NewEventListener(pool string,
 	buffer_size int) *EventListener {
 	evtListener := &EventListener{pool: pool,
 		server:      server,
+		cond:        sync.NewCond(new(sync.Mutex)),
 		events:      list.New(),
 		stdin:       bufio.NewReader(stdin),
 		stdout:      stdout,
@@ -93,8 +94,13 @@ func NewEventListener(pool string,
 }
 
 func (el *EventListener) getFirstEvent() ([]byte, bool) {
-	el.mutex.Lock()
-	defer el.mutex.Unlock()
+	el.cond.L.Lock()
+
+	defer el.cond.L.Unlock()
+
+	for el.events.Len() <= 0 {
+		el.cond.Wait()
+	}
 
 	if el.events.Len() > 0 {
 		elem := el.events.Front()
@@ -106,8 +112,8 @@ func (el *EventListener) getFirstEvent() ([]byte, bool) {
 }
 
 func (el *EventListener) removeFirstEvent() {
-	el.mutex.Lock()
-	defer el.mutex.Unlock()
+	el.cond.L.Lock()
+	defer el.cond.L.Unlock()
 	if el.events.Len() > 0 {
 		el.events.Remove(el.events.Front())
 	}
@@ -190,18 +196,17 @@ func (el *EventListener) readResult() (string, error) {
 		}
 		//ok, get the n bytes
 		return string(b), nil
-	} else {
-		return "", fmt.Errorf("Fail to read the result")
 	}
-
+	return "", fmt.Errorf("Fail to read the result")
 }
 
 func (el *EventListener) HandleEvent(event Event) {
 	encodedEvent := el.encodeEvent(event)
-	el.mutex.Lock()
-	defer el.mutex.Unlock()
+	el.cond.L.Lock()
+	defer el.cond.L.Unlock()
 	if el.events.Len() <= el.buffer_size {
 		el.events.PushBack(encodedEvent)
+		el.cond.Signal()
 	} else {
 		log.WithFields(log.Fields{"eventListener": el.pool}).Error("events reaches the buffer_size, discard the events")
 	}
@@ -227,27 +232,27 @@ func (el *EventListener) encodeEvent(event Event) []byte {
 }
 
 var eventTypeDerives = map[string][]string{
-	"PROCESS_STATE_STARTING":           []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_RUNNING":            []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_BACKOFF":            []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_STOPPING":           []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_EXITED":             []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_STOPPED":            []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_FATAL":              []string{"EVENT", "PROCESS_STATE"},
-	"PROCESS_STATE_UNKNOWN":            []string{"EVENT", "PROCESS_STATE"},
-	"REMOTE_COMMUNICATION":             []string{"EVENT"},
-	"PROCESS_LOG_STDOUT":               []string{"EVENT", "PROCESS_LOG"},
-	"PROCESS_LOG_STDERR":               []string{"EVENT", "PROCESS_LOG"},
-	"PROCESS_COMMUNICATION_STDOUT":     []string{"EVENT", "PROCESS_COMMUNICATION"},
-	"PROCESS_COMMUNICATION_STDERR":     []string{"EVENT", "PROCESS_COMMUNICATION"},
-	"SUPERVISOR_STATE_CHANGE_RUNNING":  []string{"EVENT", "SUPERVISOR_STATE_CHANGE"},
-	"SUPERVISOR_STATE_CHANGE_STOPPING": []string{"EVENT", "SUPERVISOR_STATE_CHANGE"},
-	"TICK_5":                []string{"EVENT", "TICK"},
-	"TICK_60":               []string{"EVENT", "TICK"},
-	"TICK_3600":             []string{"EVENT", "TICK"},
-	"PROCESS_GROUP_ADDED":   []string{"EVENT", "PROCESS_GROUP"},
-	"PROCESS_GROUP_REMOVED": []string{"EVENT", "PROCESS_GROUP"}}
-var eventSerial uint64 = 0
+	"PROCESS_STATE_STARTING":           {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_RUNNING":            {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_BACKOFF":            {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_STOPPING":           {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_EXITED":             {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_STOPPED":            {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_FATAL":              {"EVENT", "PROCESS_STATE"},
+	"PROCESS_STATE_UNKNOWN":            {"EVENT", "PROCESS_STATE"},
+	"REMOTE_COMMUNICATION":             {"EVENT"},
+	"PROCESS_LOG_STDOUT":               {"EVENT", "PROCESS_LOG"},
+	"PROCESS_LOG_STDERR":               {"EVENT", "PROCESS_LOG"},
+	"PROCESS_COMMUNICATION_STDOUT":     {"EVENT", "PROCESS_COMMUNICATION"},
+	"PROCESS_COMMUNICATION_STDERR":     {"EVENT", "PROCESS_COMMUNICATION"},
+	"SUPERVISOR_STATE_CHANGE_RUNNING":  {"EVENT", "SUPERVISOR_STATE_CHANGE"},
+	"SUPERVISOR_STATE_CHANGE_STOPPING": {"EVENT", "SUPERVISOR_STATE_CHANGE"},
+	"TICK_5":                           {"EVENT", "TICK"},
+	"TICK_60":                          {"EVENT", "TICK"},
+	"TICK_3600":                        {"EVENT", "TICK"},
+	"PROCESS_GROUP_ADDED":              {"EVENT", "PROCESS_GROUP"},
+	"PROCESS_GROUP_REMOVED":            {"EVENT", "PROCESS_GROUP"}}
+var eventSerial uint64
 var eventListenerManager = NewEventListenerManager()
 var eventPoolSerial = NewEventPoolSerial()
 
@@ -308,7 +313,7 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 			}
 		}
 	}
-	for event, _ := range all_events {
+	for event := range all_events {
 		log.WithFields(log.Fields{"eventListener": eventListenerName, "event": event}).Info("register event listener")
 		if _, ok := em.eventListeners[event]; !ok {
 			em.eventListeners[event] = make(map[*EventListener]bool)
@@ -318,9 +323,9 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 }
 
 func RegisterEventListener(eventListenerName string,
-    events []string,
-        listener *EventListener) {
-    eventListenerManager.registerEventListener( eventListenerName, events, listener )
+	events []string,
+	listener *EventListener) {
+	eventListenerManager.registerEventListener(eventListenerName, events, listener)
 }
 
 func (em *EventListenerManager) unregisterEventListener(eventListenerName string) *EventListener {
@@ -340,14 +345,14 @@ func (em *EventListenerManager) unregisterEventListener(eventListenerName string
 }
 
 func UnregisterEventListener(eventListenerName string) *EventListener {
-    return eventListenerManager.unregisterEventListener( eventListenerName )
+	return eventListenerManager.unregisterEventListener(eventListenerName)
 }
 
 func (em *EventListenerManager) EmitEvent(event Event) {
 	listeners, ok := em.eventListeners[event.GetType()]
 	if ok {
 		log.WithFields(log.Fields{"event": event.GetType()}).Info("process event")
-		for listener, _ := range listeners {
+		for listener := range listeners {
 			log.WithFields(log.Fields{"eventListener": listener.pool, "event": event.GetType()}).Info("receive event on listener")
 			listener.HandleEvent(event)
 		}

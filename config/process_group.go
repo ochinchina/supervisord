@@ -2,8 +2,8 @@ package config
 
 import (
 	"bytes"
-	"github.com/ochinchina/supervisord/util"
 	"strings"
+	"github.com/ochinchina/supervisord/util"
 )
 
 type ProcessGroup struct {
@@ -59,7 +59,7 @@ func (pg *ProcessGroup) GetAllGroup() []string {
 	}
 
 	result := make([]string, 0)
-	for group, _ := range groups {
+	for group := range groups {
 		result = append(result, group)
 	}
 	return result
