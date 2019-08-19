@@ -2,6 +2,7 @@ package process
 
 import (
 	"fmt"
+	"github.com/ochinchina/filechangemonitor"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/logger"
@@ -358,6 +359,7 @@ func (p *Process) createProgramCommand() error {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		return fmt.Errorf("fail to set user")
 	}
+	p.setProgramRestartChangeMonitor(args[0])
 	set_deathsig(p.cmd.SysProcAttr)
 	p.setEnv()
 	p.setDir()
@@ -365,6 +367,29 @@ func (p *Process) createProgramCommand() error {
 
 	p.stdin, _ = p.cmd.StdinPipe()
 	return nil
+
+}
+
+func (p *Process) setProgramRestartChangeMonitor(programPath string) {
+	if p.config.GetBool("restart_when_binary_changed", false) {
+		AddProgramChangeMonitor(programPath, func(path string, mode filechangemonitor.FileChangeMode) {
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is changed, resatrt it")
+			p.Stop(true)
+			p.Start(true)
+		})
+	}
+	dir_monitor := p.config.GetString("restart_directory_monitor", "")
+	file_pattern := p.config.GetString("restart_file_pattern", "*")
+	if dir_monitor != "" {
+		AddConfigChangeMonitor(dir_monitor, file_pattern, func(path string, mode filechangemonitor.FileChangeMode) {
+            //fmt.Printf( "file_pattern=%s, base=%s\n", file_pattern, filepath.Base( path ) )
+            //if matched, err := filepath.Match( file_pattern, filepath.Base( path ) ); matched && err == nil {
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("configure file for program is changed, resatrt it")
+			p.Stop(true)
+			p.Start(true)
+            //}
+		})
+	}
 
 }
 
