@@ -124,6 +124,10 @@ func (p *Process) Start(wait bool) {
 					runCond.Signal()
 				}
 			})
+            //avoid print too many logs if fail to start program too quickly
+            if time.Now().Unix() - p.startTime.Unix() < 2 {
+                time.Sleep( 5 * time.Second )
+            }
 			if p.stopByUser {
 				log.WithFields(log.Fields{"program": p.GetName()}).Info("Stopped by user, don't start it again")
 				break

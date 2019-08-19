@@ -9,7 +9,7 @@ require (
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/nkovacs/streamquote v1.0.0 // indirect
-	github.com/ochinchina/filechangemonitor v0.3.1 // indirect
+	github.com/ochinchina/filechangemonitor v0.3.1
 	github.com/ochinchina/go-daemon v0.1.5
 	github.com/ochinchina/go-ini v1.0.1
 	github.com/ochinchina/go-reaper v0.0.0-20181016012355-6b11389e79fc
