@@ -119,7 +119,7 @@ the following features is supported in the "program:x" section:
 
 Following new keys are supported by the [program:xxx] section:
 
-- depends_on: define program depends information. If program A depends on program B, C, the program B, C will be started before program A. Example:
+- **depends_on**: define program depends information. If program A depends on program B, C, the program B, C will be started before program A. Example:
 
 ```ini
 [program:A]
@@ -131,7 +131,7 @@ depends_on = B, C
 ...
 ```
 
-- user: user in the section "program:xxx" now is extended to support group with format "user[:group]". So "user" can be configured as:
+- **user**: user in the section "program:xxx" now is extended to support group with format "user[:group]". So "user" can be configured as:
 
 ```ini
 [program:xxx]
@@ -144,8 +144,13 @@ or
 user = user_name:group_name
 ...
 ```
-- stopsignal list
+- **stopsignal** list
 one or more stop signal can be configured. If more than one stopsignal is configured, when stoping the program, the supervisor will send the signals to the program one by one with interval "stopwaitsecs". If the program does not exit after all the signals sent to the program, the supervisor will kill the program
+
+- **restart_when_binary_changed**: a bool flag to control if the program should be restarted when the executable binary is changed
+
+- **restart_directory_monitor**: a path to be monitored for restarting purpose
+- **restart_file_pattern**: if a file is changed under restart_directory_monitor and the filename matches this pattern, the program will be restarted.
 
 ## Group
 the "group" section is supported and you can set "programs" item
