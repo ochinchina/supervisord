@@ -65,24 +65,26 @@ type Process struct {
 	//true if process is starting
 	inStart bool
 	//true if the process is stopped by user
-	stopByUser bool
-	retryTimes *int32
-	lock       sync.RWMutex
-	stdin      io.WriteCloser
-	StdoutLog  logger.Logger
-	StderrLog  logger.Logger
+	stopByUser      bool
+	retryTimes      *int32
+	totalRetryTimes *int32
+	lock            sync.RWMutex
+	stdin           io.WriteCloser
+	StdoutLog       logger.Logger
+	StderrLog       logger.Logger
 }
 
 func NewProcess(supervisor_id string, config *config.ConfigEntry) *Process {
 	proc := &Process{supervisor_id: supervisor_id,
-		config:     config,
-		cmd:        nil,
-		startTime:  time.Unix(0, 0),
-		stopTime:   time.Unix(0, 0),
-		state:      STOPPED,
-		inStart:    false,
-		stopByUser: false,
-		retryTimes: new(int32)}
+		config:          config,
+		cmd:             nil,
+		startTime:       time.Unix(0, 0),
+		stopTime:        time.Unix(0, 0),
+		state:           STOPPED,
+		inStart:         false,
+		stopByUser:      false,
+		retryTimes:      new(int32),
+		totalRetryTimes: new(int32)}
 	proc.config = config
 	proc.cmd = nil
 	return proc
@@ -470,6 +472,7 @@ func (p *Process) run(finishCb func()) {
 		endTime := time.Now().Add(time.Duration(startSecs) * time.Second)
 		p.changeStateTo(STARTING)
 		atomic.AddInt32(p.retryTimes, 1)
+		atomic.AddInt32(p.totalRetryTimes, 1)
 
 		err := p.createProgramCommand()
 		if err != nil {
@@ -760,6 +763,7 @@ func (p *Process) setUser() error {
 func (p *Process) Stop(wait bool) {
 	p.lock.Lock()
 	p.stopByUser = true
+	myRetryTimes := atomic.LoadInt32(p.totalRetryTimes)
 	p.lock.Unlock()
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
 	sigs := strings.Fields(p.config.GetString("stopsignal", ""))
@@ -770,7 +774,15 @@ func (p *Process) Stop(wait bool) {
 		log.WithFields(log.Fields{"program": p.GetName()}).Error("Cannot set stopasgroup=true and killasgroup=false")
 	}
 
+	var wg sync.WaitGroup
+	if wait {
+		wg.Add(1)
+	}
 	go func() {
+		if wait {
+			defer wg.Done()
+		}
+
 		stopped := false
 		for i := 0; i < len(sigs) && !stopped; i++ {
 			// send signal to process
@@ -783,11 +795,12 @@ func (p *Process) Stop(wait bool) {
 			endTime := time.Now().Add(waitsecs)
 			//wait at most "stopwaitsecs" seconds for one signal
 			for endTime.After(time.Now()) {
-				//if it already exits
-				if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
+				//if it already exits or total retry times change
+				if myRetryTimes != atomic.LoadInt32(p.totalRetryTimes) || p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
 					stopped = true
 					break
 				}
+				// one second is enough for the process to exit and start again
 				time.Sleep(1 * time.Second)
 			}
 		}
@@ -797,16 +810,7 @@ func (p *Process) Stop(wait bool) {
 		}
 	}()
 	if wait {
-		for {
-			// if the program exits
-			p.lock.RLock()
-			if p.state != STARTING && p.state != RUNNING && p.state != STOPPING {
-				p.lock.RUnlock()
-				break
-			}
-			p.lock.RUnlock()
-			time.Sleep(1 * time.Second)
-		}
+		wg.Wait()
 	}
 }
 
