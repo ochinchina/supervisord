@@ -124,10 +124,10 @@ func (p *Process) Start(wait bool) {
 					runCond.Signal()
 				}
 			})
-            //avoid print too many logs if fail to start program too quickly
-            if time.Now().Unix() - p.startTime.Unix() < 2 {
-                time.Sleep( 5 * time.Second )
-            }
+			//avoid print too many logs if fail to start program too quickly
+			if time.Now().Unix()-p.startTime.Unix() < 2 {
+				time.Sleep(5 * time.Second)
+			}
 			if p.stopByUser {
 				log.WithFields(log.Fields{"program": p.GetName()}).Info("Stopped by user, don't start it again")
 				break
@@ -386,12 +386,12 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 	file_pattern := p.config.GetString("restart_file_pattern", "*")
 	if dir_monitor != "" {
 		AddConfigChangeMonitor(dir_monitor, file_pattern, func(path string, mode filechangemonitor.FileChangeMode) {
-            //fmt.Printf( "file_pattern=%s, base=%s\n", file_pattern, filepath.Base( path ) )
-            //if matched, err := filepath.Match( file_pattern, filepath.Base( path ) ); matched && err == nil {
+			//fmt.Printf( "file_pattern=%s, base=%s\n", file_pattern, filepath.Base( path ) )
+			//if matched, err := filepath.Match( file_pattern, filepath.Base( path ) ); matched && err == nil {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("configure file for program is changed, resatrt it")
 			p.Stop(true)
 			p.Start(true)
-            //}
+			//}
 		})
 	}
 
@@ -410,6 +410,8 @@ func (p *Process) waitForExit(startSecs int64) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.stopTime = time.Now()
+	p.StdoutLog.Close()
+	p.StderrLog.Close()
 }
 
 // fail to start the program
