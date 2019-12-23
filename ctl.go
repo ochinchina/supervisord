@@ -5,6 +5,7 @@ import (
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -40,6 +41,9 @@ type PidCommand struct {
 type SignalCommand struct {
 }
 
+type LogtailCommand struct {
+}
+
 var ctlCommand CtlCommand
 var statusCommand StatusCommand
 var startCommand StartCommand
@@ -49,6 +53,7 @@ var shutdownCommand ShutdownCommand
 var reloadCommand ReloadCommand
 var pidCommand PidCommand
 var signalCommand SignalCommand
+var logtailCommand LogtailCommand
 
 func (x *CtlCommand) getServerUrl() string {
 	options.Configuration, _ = findSupervisordConf()
@@ -272,6 +277,10 @@ func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
 	}
 }
 
+func (x *CtlCommand) getProcessInfo(rpcc *xmlrpcclient.XmlRPCClient, process string) (types.ProcessInfo, error) {
+	return rpcc.GetProcessInfo(process)
+}
+
 // check if group name should be displayed
 func (x *CtlCommand) showGroupName() bool {
 	val, ok := os.LookupEnv("SUPERVISOR_GROUP_DISPLAY")
@@ -375,6 +384,46 @@ func (pc *PidCommand) Execute(args []string) error {
 	return nil
 }
 
+func (lc *LogtailCommand) Execute(args []string) error {
+	program := args[0]
+	go func() {
+		lc.tailLog(program, "stderr")
+	}()
+	return lc.tailLog(program, "stdout")
+}
+
+func (lc *LogtailCommand) tailLog(program string, dev string) error {
+	_, err := ctlCommand.getProcessInfo(ctlCommand.createRpcClient(), program)
+	if err != nil {
+		fmt.Printf("Not exist program %s\n", program)
+		return err
+	}
+	url := fmt.Sprintf("%s/logtail/%s/%s", ctlCommand.getServerUrl(), program, dev)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(ctlCommand.getUser(), ctlCommand.getPassword())
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 10240)
+	for {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			return err
+		}
+		if dev == "stdout" {
+			os.Stdout.Write(buf[0:n])
+		} else {
+			os.Stderr.Write(buf[0:n])
+		}
+	}
+	return nil
+}
+
 func init() {
 	ctlCmd, _ := parser.AddCommand("ctl",
 		"Control a running daemon",
@@ -412,5 +461,9 @@ func init() {
 		"get the pid of specified program",
 		"get the pid of specified program",
 		&pidCommand)
+	ctlCmd.AddCommand("fg",
+		"get the standard output&standard error of the program",
+		"get the standard output&standard error of the program",
+		&logtailCommand)
 
 }

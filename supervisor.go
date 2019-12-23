@@ -634,3 +634,7 @@ func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply 
 
 	return nil
 }
+
+func (s *Supervisor) GetProcessManager() *process.ProcessManager {
+	return s.procMgr
+}

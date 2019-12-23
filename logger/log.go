@@ -49,7 +49,12 @@ type NullLogger struct {
 type NullLocker struct {
 }
 
+type ChanLogger struct {
+	channel chan []byte
+}
+
 type CompositeLogger struct {
+	lock    sync.Mutex
 	loggers []Logger
 }
 
@@ -317,6 +322,44 @@ func (l *NullLogger) ClearAllLogFile() error {
 	return faults.NewFault(faults.NO_FILE, "NO_FILE")
 }
 
+func NewChanLogger(channel chan []byte) *ChanLogger {
+	return &ChanLogger{channel: channel}
+}
+
+func (l *ChanLogger) SetPid(pid int) {
+	//NOTHING TO DO
+}
+
+func (l *ChanLogger) Write(p []byte) (int, error) {
+	l.channel <- p
+	return len(p), nil
+}
+
+func (l *ChanLogger) Close() error {
+	defer func() {
+		if err := recover(); err != nil {
+		}
+	}()
+	close(l.channel)
+	return nil
+}
+
+func (l *ChanLogger) ReadLog(offset int64, length int64) (string, error) {
+	return "", faults.NewFault(faults.NO_FILE, "NO_FILE")
+}
+
+func (l *ChanLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
+	return "", 0, false, faults.NewFault(faults.NO_FILE, "NO_FILE")
+}
+
+func (l *ChanLogger) ClearCurLogFile() error {
+	return fmt.Errorf("No log")
+}
+
+func (l *ChanLogger) ClearAllLogFile() error {
+	return faults.NewFault(faults.NO_FILE, "NO_FILE")
+}
+
 func NewNullLocker() *NullLocker {
 	return &NullLocker{}
 }
@@ -482,7 +525,27 @@ func NewCompositeLogger(loggers []Logger) *CompositeLogger {
 	return &CompositeLogger{loggers: loggers}
 }
 
+func (cl *CompositeLogger) AddLogger(logger Logger) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	cl.loggers = append(cl.loggers, logger)
+}
+
+func (cl *CompositeLogger) RemoveLogger(logger Logger) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	for i, t := range cl.loggers {
+		if t == logger {
+			cl.loggers = append(cl.loggers[:i], cl.loggers[i+1:]...)
+			break
+		}
+	}
+}
+
 func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+
 	for i, logger := range cl.loggers {
 		if i == 0 {
 			n, err = logger.Write(p)
@@ -494,6 +557,9 @@ func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
 }
 
 func (cl *CompositeLogger) Close() (err error) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+
 	for i, logger := range cl.loggers {
 		if i == 0 {
 			err = logger.Close()
@@ -505,6 +571,9 @@ func (cl *CompositeLogger) Close() (err error) {
 }
 
 func (cl *CompositeLogger) SetPid(pid int) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+
 	for _, logger := range cl.loggers {
 		logger.SetPid(pid)
 	}
@@ -540,11 +609,7 @@ func NewLogger(programName string, logFile string, locker sync.Locker, maxBytes 
 		}
 		loggers = append(loggers, lr)
 	}
-	if len(loggers) > 1 {
-		return NewCompositeLogger(loggers)
-	} else {
-		return loggers[0]
-	}
+	return NewCompositeLogger(loggers)
 }
 
 func splitLogFile(logFile string) []string {
