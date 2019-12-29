@@ -762,7 +762,11 @@ func (p *Process) setUser() error {
 func (p *Process) Stop(wait bool) {
 	p.lock.Lock()
 	p.stopByUser = true
+	isRunning := p.isRunning()
 	p.lock.Unlock()
+	if !isRunning {
+		return
+	}
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
 	sigs := strings.Fields(p.config.GetString("stopsignal", ""))
 	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
