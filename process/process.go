@@ -112,29 +112,35 @@ func (p *Process) Start(wait bool) {
 	}
 
 	go func() {
-		// fiexd: When retries fail many times, we should exit the goroutine
-		// rather than refreshing the loop every 5 seconds
-		if wait {
-			runCond.L.Lock()
-		}
-		p.run(func() {
-			finished = true
+
+		for {
 			if wait {
-				runCond.L.Unlock()
-				runCond.Signal()
+				runCond.L.Lock()
 			}
-		})
-		if p.stopByUser {
-			log.WithFields(log.Fields{"program": p.GetName()}).Info("Stopped by user, don't start it again")
-		}
-		if !p.isAutoRestart() {
-			log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start the stopped program because its autorestart flag is false")
+			p.run(func() {
+				finished = true
+				if wait {
+					runCond.L.Unlock()
+					runCond.Signal()
+				}
+			})
+			//avoid print too many logs if fail to start program too quickly
+			if time.Now().Unix()-p.startTime.Unix() < 2 {
+				time.Sleep(5 * time.Second)
+			}
+			if p.stopByUser {
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("Stopped by user, don't start it again")
+				break
+			}
+			if !p.isAutoRestart() {
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start the stopped program because its autorestart flag is false")
+				break
+			}
 		}
 		p.lock.Lock()
 		p.inStart = false
 		p.lock.Unlock()
 	}()
-
 	if wait && !finished {
 		runCond.Wait()
 		runCond.L.Unlock()
