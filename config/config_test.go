@@ -181,3 +181,22 @@ func TestConfigWithInclude(t *testing.T) {
 	}
 
 }
+
+func TestDefaultParams(t *testing.T) {
+	config, _ := parse([]byte("[program:test]\nautorestart=true\ntest=1\n[program-default]\ncommand=/usr/bin/ls\nrestart=true\nautorestart=false"))
+	entry := config.GetProgram("test")
+	if entry.GetString("command", "") != "/usr/bin/ls" {
+		t.Error("fail to get command of program")
+	}
+	if entry.GetString("restart", "") != "true" {
+		t.Error("Fail to get restart value")
+	}
+
+	if entry.GetInt("test", 0) != 1 {
+		t.Error("Fail to get test value")
+	}
+	if entry.GetString("autorestart", "") != "true" {
+		t.Error("autorestart value should be true")
+	}
+
+}

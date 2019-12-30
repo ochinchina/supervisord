@@ -169,7 +169,29 @@ func (c *Config) parse(cfg *ini.Ini) []string {
 			entry.parse(section)
 		}
 	}
+	c.setProgramDefaultParams()
 	return loaded_programs
+}
+
+// set the default parameteres of programs
+func (c *Config) setProgramDefaultParams() {
+	defParams, ok := c.entries["program-default"]
+
+	if ok {
+		for _, entry := range c.entries {
+			if !entry.IsProgram() {
+				continue
+			}
+			for param, value := range defParams.keyValues {
+				v, exist := entry.keyValues[param]
+				if !exist || len(v) <= 0 {
+					entry.keyValues[param] = value
+				}
+			}
+
+		}
+	}
+
 }
 
 func (c *Config) GetConfigFileDir() string {
