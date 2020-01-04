@@ -533,12 +533,20 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 					"here", c.GetConfigFileDir())
 				cmd, err := envs.Eval(section.GetValueWithDefault("command", ""))
 				if err != nil {
+					log.WithFields(log.Fields{
+						log.ErrorKey: err,
+						"program":    programName,
+					}).Error("get envs failed")
 					continue
 				}
 				section.Add("command", cmd)
 
 				procName, err := envs.Eval(originalProcName)
 				if err != nil {
+					log.WithFields(log.Fields{
+						log.ErrorKey: err,
+						"program":    programName,
+					}).Error("get envs failed")
 					continue
 				}
 
