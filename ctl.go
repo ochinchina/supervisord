@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
@@ -44,16 +45,28 @@ type SignalCommand struct {
 type LogtailCommand struct {
 }
 
+// A wrapper can be use to check whether
+// number of parameters is valid or not
+type CmdCheckWrapperCommand struct {
+	// Original cmd
+	cmd flags.Commander
+	// leastNumArgs indicates how many arguments
+	// this cmd should have at least
+	leastNumArgs int
+	// Print usage when arguments not valid
+	usage string
+}
+
 var ctlCommand CtlCommand
-var statusCommand StatusCommand
-var startCommand StartCommand
-var stopCommand StopCommand
-var restartCommand RestartCommand
-var shutdownCommand ShutdownCommand
-var reloadCommand ReloadCommand
-var pidCommand PidCommand
-var signalCommand SignalCommand
-var logtailCommand LogtailCommand
+var statusCommand = CmdCheckWrapperCommand{&StatusCommand{}, 0, ""}
+var startCommand = CmdCheckWrapperCommand{&StartCommand{}, 0, ""}
+var stopCommand = CmdCheckWrapperCommand{&StopCommand{}, 0, ""}
+var restartCommand = CmdCheckWrapperCommand{&RestartCommand{}, 0, ""}
+var shutdownCommand = CmdCheckWrapperCommand{&ShutdownCommand{}, 0, ""}
+var reloadCommand = CmdCheckWrapperCommand{&ReloadCommand{}, 0, ""}
+var pidCommand = CmdCheckWrapperCommand{&PidCommand{}, 1, "pid <program>"}
+var signalCommand = CmdCheckWrapperCommand{&SignalCommand{}, 2, "signal <signal_name> <program>[...]"}
+var logtailCommand = CmdCheckWrapperCommand{&LogtailCommand{}, 1, "logtail <program>"}
 
 func (x *CtlCommand) getServerUrl() string {
 	options.Configuration, _ = findSupervisordConf()
@@ -424,6 +437,15 @@ func (lc *LogtailCommand) tailLog(program string, dev string) error {
 	return nil
 }
 
+func (wc *CmdCheckWrapperCommand) Execute(args []string) error {
+	if len(args) < wc.leastNumArgs {
+		err := fmt.Errorf("Invalid arguments.\nUsage: supervisord ctl %v", wc.usage)
+		fmt.Printf("%v\n", err)
+		return err
+	}
+	return wc.cmd.Execute(args)
+}
+
 func init() {
 	ctlCmd, _ := parser.AddCommand("ctl",
 		"Control a running daemon",
@@ -461,7 +483,7 @@ func init() {
 		"get the pid of specified program",
 		"get the pid of specified program",
 		&pidCommand)
-	ctlCmd.AddCommand("fg",
+	ctlCmd.AddCommand("logtail",
 		"get the standard output&standard error of the program",
 		"get the standard output&standard error of the program",
 		&logtailCommand)
