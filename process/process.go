@@ -7,6 +7,7 @@ import (
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/logger"
 	"github.com/ochinchina/supervisord/signals"
+	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
@@ -33,6 +34,13 @@ const (
 	FATAL                 = 200
 	UNKNOWN               = 1000
 )
+
+var scheduler *cron.Cron = nil
+
+func init() {
+	scheduler = cron.New(cron.WithSeconds())
+	scheduler.Start()
+}
 
 func (p ProcessState) String() string {
 	switch p {
@@ -85,7 +93,24 @@ func NewProcess(supervisor_id string, config *config.ConfigEntry) *Process {
 		retryTimes: new(int32)}
 	proc.config = config
 	proc.cmd = nil
+	proc.addToCron()
 	return proc
+}
+
+// add this process to crontab
+func (p *Process) addToCron() {
+	s := p.config.GetString("cron", "")
+
+	if s != "" {
+		log.WithFields(log.Fields{"program": p.GetName()}).Info("try to create cron program with cron expression:", s)
+		scheduler.AddFunc(s, func() {
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("start cron program")
+			if !p.isRunning() {
+				p.Start(false)
+			}
+		})
+	}
+
 }
 
 // start the process

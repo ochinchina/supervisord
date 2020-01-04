@@ -45,6 +45,8 @@ github.com/ochinchina/supervisord v0.6.3 h1:zOuVV3/u7+uYXrVXUOdnOW7l7hZQJFuHjwg8
 github.com/ochinchina/supervisord v0.6.3/go.mod h1:csl1p3boUYQM+Yh8xkAhjoPD+1qaPx8TBwQ3i4B6toA=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
+github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
 github.com/rogpeppe/go-charset v0.0.0-20180617210344-2471d30d28b4 h1:BN/Nyn2nWMoqGRA7G7paDNDqTXE30mXGqzzybrfo05w=
 github.com/rogpeppe/go-charset v0.0.0-20180617210344-2471d30d28b4/go.mod h1:qgYeAmZ5ZIpBWTGllZSQnw97Dj+woV0toclVaRGI8pc=
 github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 h1:DE4LcMKyqAVa6a0CGmVxANbnVb7stzMmPkQiieyNmfQ=
