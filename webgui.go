@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/GeertJohan/go.rice"
-	"github.com/gorilla/mux"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 type SupervisorWebgui struct {
@@ -17,6 +17,6 @@ func NewSupervisorWebgui(supervisor *Supervisor) *SupervisorWebgui {
 }
 
 func (sw *SupervisorWebgui) CreateHandler() http.Handler {
-	sw.router.PathPrefix("/").Handler(http.FileServer(rice.MustFindBox("webgui").HTTPBox()))
+	sw.router.PathPrefix("/").Handler(http.FileServer(HTTP))
 	return sw.router
 }

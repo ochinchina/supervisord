@@ -1,8 +1,10 @@
 .idea
 supervisord
+supervisord.exe
 test.log*
 .tags*
 debug
 go-debug.json
 vendor
 supervisord_linux_amd64
+assets_release.go
