@@ -14,6 +14,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 // indirect
 	github.com/sirupsen/logrus v1.4.2
+	golang.org/x/net v0.0.0-20180921000356-2f5d2388922f
 )
 
 replace github.com/ochinchina/supervisord => ./
