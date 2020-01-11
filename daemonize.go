@@ -3,7 +3,7 @@
 package main
 
 import (
-	daemon "github.com/sevlyar/go-daemon"
+	daemon "github.com/ochinchina/go-daemon"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -12,7 +12,11 @@ func Deamonize(proc func()) {
 
 	child, err := context.Reborn()
 	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Unable to run")
+		context := daemon.Context{}
+		child, err = context.Reborn()
+		if err != nil {
+			log.WithFields(log.Fields{"err": err}).Fatal("Unable to run")
+		}
 	}
 	if child != nil {
 		return

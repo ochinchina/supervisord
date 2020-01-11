@@ -92,6 +92,8 @@ func (p *XmlRPC) startHttpServer(user string, password string, protocol string, 
 	mux.Handle("/program/", NewHttpBasicAuth(user, password, prog_rest_handler))
 	supervisor_rest_handler := NewSupervisorRestful(s).CreateSupervisorHandler()
 	mux.Handle("/supervisor/", NewHttpBasicAuth(user, password, supervisor_rest_handler))
+	logtail_handler := NewLogtail(s).CreateHandler()
+	mux.Handle("/logtail/", NewHttpBasicAuth(user, password, logtail_handler))
 	webgui_handler := NewSupervisorWebgui(s).CreateHandler()
 	mux.Handle("/", NewHttpBasicAuth(user, password, webgui_handler))
 	listener, err := net.Listen(protocol, listenAddr)

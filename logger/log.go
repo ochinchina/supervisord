@@ -6,10 +6,7 @@ import (
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/faults"
 	"io"
-	"io/ioutil"
 	"os"
-	"path"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -33,7 +30,6 @@ type FileLogger struct {
 	name            string
 	maxSize         int64
 	backups         int
-	curRotate       int
 	fileSize        int64
 	file            *os.File
 	logEventEmitter LogEventEmitter
@@ -53,7 +49,12 @@ type NullLogger struct {
 type NullLocker struct {
 }
 
+type ChanLogger struct {
+	channel chan []byte
+}
+
 type CompositeLogger struct {
+	lock    sync.Mutex
 	loggers []Logger
 }
 
@@ -61,62 +62,16 @@ func NewFileLogger(name string, maxSize int64, backups int, logEventEmitter LogE
 	logger := &FileLogger{name: name,
 		maxSize:         maxSize,
 		backups:         backups,
-		curRotate:       -1,
 		fileSize:        0,
 		file:            nil,
 		logEventEmitter: logEventEmitter,
 		locker:          locker}
-	logger.updateLatestLog()
+	logger.openFile(false)
 	return logger
 }
 
 func (l *FileLogger) SetPid(pid int) {
 	//NOTHING TO DO
-}
-
-// return the next log file name
-func (l *FileLogger) nextLogFile() {
-	l.curRotate++
-	if l.curRotate >= l.backups {
-		l.curRotate = 0
-	}
-}
-
-func (l *FileLogger) updateLatestLog() {
-	dir := path.Dir(l.name)
-	files, err := ioutil.ReadDir(dir)
-	baseName := path.Base(l.name)
-
-	if err != nil {
-		l.curRotate = 0
-	} else {
-		//find all the rotate files
-		var latestFile os.FileInfo
-		latestNum := -1
-		for _, fileInfo := range files {
-			if !fileInfo.IsDir() && strings.HasPrefix(fileInfo.Name(), baseName+".") {
-				n, err := strconv.Atoi(fileInfo.Name()[len(baseName)+1:])
-				if err == nil && n >= 0 && n < l.backups {
-					if latestFile == nil || latestFile.ModTime().Before(fileInfo.ModTime()) {
-						latestFile = fileInfo
-						latestNum = n
-					}
-				}
-			}
-		}
-		l.curRotate = latestNum
-		if latestFile != nil {
-			l.fileSize = latestFile.Size()
-		} else {
-			l.fileSize = int64(0)
-		}
-		if l.fileSize >= l.maxSize || latestFile == nil {
-			l.nextLogFile()
-			l.openFile(true)
-		} else {
-			l.openFile(false)
-		}
-	}
 }
 
 // open the file and truncate the file if trunc is true
@@ -125,29 +80,30 @@ func (l *FileLogger) openFile(trunc bool) error {
 		l.file.Close()
 	}
 	var err error
-	fileName := l.GetCurrentLogFile()
-	if trunc {
-		l.file, err = os.Create(fileName)
+	fileInfo, err := os.Stat(l.name)
+
+	if trunc || err != nil {
+		l.file, err = os.Create(l.name)
 	} else {
-		l.file, err = os.OpenFile(fileName, os.O_RDWR|os.O_APPEND, 0666)
+		l.fileSize = fileInfo.Size()
+		l.file, err = os.OpenFile(l.name, os.O_RDWR|os.O_APPEND, 0666)
+	}
+	if err != nil {
+		fmt.Printf("Fail to open log file --%s-- with error %v\n", l.name, err)
 	}
 	return err
 }
 
-// get the name of current log file
-func (l *FileLogger) GetCurrentLogFile() string {
-	return l.getLogFileName(l.curRotate)
-}
-
-// get the name of previous log file
-func (l *FileLogger) GetPrevLogFile() string {
-	i := (l.curRotate - 1 + l.backups) % l.backups
-
-	return l.getLogFileName(i)
-}
-
-func (l *FileLogger) getLogFileName(index int) string {
-	return fmt.Sprintf("%s.%d", l.name, index)
+func (l *FileLogger) backupFiles() {
+	for i := l.backups - 1; i > 0; i-- {
+		src := fmt.Sprintf("%s.%d", l.name, i)
+		dest := fmt.Sprintf("%s.%d", l.name, i+1)
+		if _, err := os.Stat(src); err == nil {
+			os.Rename(src, dest)
+		}
+	}
+	dest := fmt.Sprintf("%s.1", l.name)
+	os.Rename(l.name, dest)
 }
 
 // clear the current log file contents
@@ -162,14 +118,16 @@ func (l *FileLogger) ClearAllLogFile() error {
 	l.locker.Lock()
 	defer l.locker.Unlock()
 
-	for i := 0; i < l.backups && i <= l.curRotate; i++ {
-		logFile := l.getLogFileName(i)
-		err := os.Remove(logFile)
-		if err != nil {
-			return faults.NewFault(faults.FAILED, err.Error())
+	for i := l.backups; i > 0; i-- {
+		logFile := fmt.Sprintf("%s.%d", l.name, i)
+		_, err := os.Stat(logFile)
+		if err == nil {
+			err = os.Remove(logFile)
+			if err != nil {
+				return faults.NewFault(faults.FAILED, err.Error())
+			}
 		}
 	}
-	l.curRotate = 0
 	err := l.openFile(true)
 	if err != nil {
 		return faults.NewFault(faults.FAILED, err.Error())
@@ -187,7 +145,7 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 
 	l.locker.Lock()
 	defer l.locker.Unlock()
-	f, err := os.Open(l.GetCurrentLogFile())
+	f, err := os.Open(l.name)
 
 	if err != nil {
 		return "", faults.NewFault(faults.FAILED, "FAILED")
@@ -246,7 +204,7 @@ func (l *FileLogger) ReadTailLog(offset int64, length int64) (string, int64, boo
 	defer l.locker.Unlock()
 
 	//open the file
-	f, err := os.Open(l.GetCurrentLogFile())
+	f, err := os.Open(l.name)
 	if err != nil {
 		return "", 0, false, err
 	}
@@ -293,7 +251,7 @@ func (l *FileLogger) Write(p []byte) (int, error) {
 	l.logEventEmitter.emitLogEvent(string(p))
 	l.fileSize += int64(n)
 	if l.fileSize >= l.maxSize {
-		fileInfo, errStat := os.Stat(fmt.Sprintf("%s.%d", l.name, l.curRotate))
+		fileInfo, errStat := os.Stat(l.name)
 		if errStat == nil {
 			l.fileSize = fileInfo.Size()
 		} else {
@@ -301,7 +259,8 @@ func (l *FileLogger) Write(p []byte) (int, error) {
 		}
 	}
 	if l.fileSize >= l.maxSize {
-		l.nextLogFile()
+		l.Close()
+		l.backupFiles()
 		l.openFile(true)
 	}
 	return n, err
@@ -309,7 +268,9 @@ func (l *FileLogger) Write(p []byte) (int, error) {
 
 func (l *FileLogger) Close() error {
 	if l.file != nil {
-		return l.file.Close()
+		err := l.file.Close()
+		l.file = nil
+		return err
 	}
 	return nil
 }
@@ -358,6 +319,44 @@ func (l *NullLogger) ClearCurLogFile() error {
 }
 
 func (l *NullLogger) ClearAllLogFile() error {
+	return faults.NewFault(faults.NO_FILE, "NO_FILE")
+}
+
+func NewChanLogger(channel chan []byte) *ChanLogger {
+	return &ChanLogger{channel: channel}
+}
+
+func (l *ChanLogger) SetPid(pid int) {
+	//NOTHING TO DO
+}
+
+func (l *ChanLogger) Write(p []byte) (int, error) {
+	l.channel <- p
+	return len(p), nil
+}
+
+func (l *ChanLogger) Close() error {
+	defer func() {
+		if err := recover(); err != nil {
+		}
+	}()
+	close(l.channel)
+	return nil
+}
+
+func (l *ChanLogger) ReadLog(offset int64, length int64) (string, error) {
+	return "", faults.NewFault(faults.NO_FILE, "NO_FILE")
+}
+
+func (l *ChanLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
+	return "", 0, false, faults.NewFault(faults.NO_FILE, "NO_FILE")
+}
+
+func (l *ChanLogger) ClearCurLogFile() error {
+	return fmt.Errorf("No log")
+}
+
+func (l *ChanLogger) ClearAllLogFile() error {
 	return faults.NewFault(faults.NO_FILE, "NO_FILE")
 }
 
@@ -526,7 +525,27 @@ func NewCompositeLogger(loggers []Logger) *CompositeLogger {
 	return &CompositeLogger{loggers: loggers}
 }
 
+func (cl *CompositeLogger) AddLogger(logger Logger) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	cl.loggers = append(cl.loggers, logger)
+}
+
+func (cl *CompositeLogger) RemoveLogger(logger Logger) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	for i, t := range cl.loggers {
+		if t == logger {
+			cl.loggers = append(cl.loggers[:i], cl.loggers[i+1:]...)
+			break
+		}
+	}
+}
+
 func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+
 	for i, logger := range cl.loggers {
 		if i == 0 {
 			n, err = logger.Write(p)
@@ -538,6 +557,9 @@ func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
 }
 
 func (cl *CompositeLogger) Close() (err error) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+
 	for i, logger := range cl.loggers {
 		if i == 0 {
 			err = logger.Close()
@@ -549,6 +571,9 @@ func (cl *CompositeLogger) Close() (err error) {
 }
 
 func (cl *CompositeLogger) SetPid(pid int) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+
 	for _, logger := range cl.loggers {
 		logger.SetPid(pid)
 	}
@@ -584,11 +609,7 @@ func NewLogger(programName string, logFile string, locker sync.Locker, maxBytes 
 		}
 		loggers = append(loggers, lr)
 	}
-	if len(loggers) > 1 {
-		return NewCompositeLogger(loggers)
-	} else {
-		return loggers[0]
-	}
+	return NewCompositeLogger(loggers)
 }
 
 func splitLogFile(logFile string) []string {

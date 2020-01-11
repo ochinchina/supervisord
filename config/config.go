@@ -169,7 +169,29 @@ func (c *Config) parse(cfg *ini.Ini) []string {
 			entry.parse(section)
 		}
 	}
+	c.setProgramDefaultParams()
 	return loaded_programs
+}
+
+// set the default parameteres of programs
+func (c *Config) setProgramDefaultParams() {
+	defParams, ok := c.entries["program-default"]
+
+	if ok {
+		for _, entry := range c.entries {
+			if !entry.IsProgram() {
+				continue
+			}
+			for param, value := range defParams.keyValues {
+				v, exist := entry.keyValues[param]
+				if !exist || len(v) <= 0 {
+					entry.keyValues[param] = value
+				}
+			}
+
+		}
+	}
+
 }
 
 func (c *Config) GetConfigFileDir() string {
@@ -511,12 +533,20 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 					"here", c.GetConfigFileDir())
 				cmd, err := envs.Eval(section.GetValueWithDefault("command", ""))
 				if err != nil {
+					log.WithFields(log.Fields{
+						log.ErrorKey: err,
+						"program":    programName,
+					}).Error("get envs failed")
 					continue
 				}
 				section.Add("command", cmd)
 
 				procName, err := envs.Eval(originalProcName)
 				if err != nil {
+					log.WithFields(log.Fields{
+						log.ErrorKey: err,
+						"program":    programName,
+					}).Error("get envs failed")
 					continue
 				}
 

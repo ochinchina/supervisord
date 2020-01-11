@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -40,15 +42,31 @@ type PidCommand struct {
 type SignalCommand struct {
 }
 
+type LogtailCommand struct {
+}
+
+// A wrapper can be use to check whether
+// number of parameters is valid or not
+type CmdCheckWrapperCommand struct {
+	// Original cmd
+	cmd flags.Commander
+	// leastNumArgs indicates how many arguments
+	// this cmd should have at least
+	leastNumArgs int
+	// Print usage when arguments not valid
+	usage string
+}
+
 var ctlCommand CtlCommand
-var statusCommand StatusCommand
-var startCommand StartCommand
-var stopCommand StopCommand
-var restartCommand RestartCommand
-var shutdownCommand ShutdownCommand
-var reloadCommand ReloadCommand
-var pidCommand PidCommand
-var signalCommand SignalCommand
+var statusCommand = CmdCheckWrapperCommand{&StatusCommand{}, 0, ""}
+var startCommand = CmdCheckWrapperCommand{&StartCommand{}, 0, ""}
+var stopCommand = CmdCheckWrapperCommand{&StopCommand{}, 0, ""}
+var restartCommand = CmdCheckWrapperCommand{&RestartCommand{}, 0, ""}
+var shutdownCommand = CmdCheckWrapperCommand{&ShutdownCommand{}, 0, ""}
+var reloadCommand = CmdCheckWrapperCommand{&ReloadCommand{}, 0, ""}
+var pidCommand = CmdCheckWrapperCommand{&PidCommand{}, 1, "pid <program>"}
+var signalCommand = CmdCheckWrapperCommand{&SignalCommand{}, 2, "signal <signal_name> <program>[...]"}
+var logtailCommand = CmdCheckWrapperCommand{&LogtailCommand{}, 1, "logtail <program>"}
 
 func (x *CtlCommand) getServerUrl() string {
 	options.Configuration, _ = findSupervisordConf()
@@ -272,6 +290,10 @@ func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XmlRPCClient, process string) {
 	}
 }
 
+func (x *CtlCommand) getProcessInfo(rpcc *xmlrpcclient.XmlRPCClient, process string) (types.ProcessInfo, error) {
+	return rpcc.GetProcessInfo(process)
+}
+
 // check if group name should be displayed
 func (x *CtlCommand) showGroupName() bool {
 	val, ok := os.LookupEnv("SUPERVISOR_GROUP_DISPLAY")
@@ -375,6 +397,55 @@ func (pc *PidCommand) Execute(args []string) error {
 	return nil
 }
 
+func (lc *LogtailCommand) Execute(args []string) error {
+	program := args[0]
+	go func() {
+		lc.tailLog(program, "stderr")
+	}()
+	return lc.tailLog(program, "stdout")
+}
+
+func (lc *LogtailCommand) tailLog(program string, dev string) error {
+	_, err := ctlCommand.getProcessInfo(ctlCommand.createRpcClient(), program)
+	if err != nil {
+		fmt.Printf("Not exist program %s\n", program)
+		return err
+	}
+	url := fmt.Sprintf("%s/logtail/%s/%s", ctlCommand.getServerUrl(), program, dev)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(ctlCommand.getUser(), ctlCommand.getPassword())
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 10240)
+	for {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			return err
+		}
+		if dev == "stdout" {
+			os.Stdout.Write(buf[0:n])
+		} else {
+			os.Stderr.Write(buf[0:n])
+		}
+	}
+	return nil
+}
+
+func (wc *CmdCheckWrapperCommand) Execute(args []string) error {
+	if len(args) < wc.leastNumArgs {
+		err := fmt.Errorf("Invalid arguments.\nUsage: supervisord ctl %v", wc.usage)
+		fmt.Printf("%v\n", err)
+		return err
+	}
+	return wc.cmd.Execute(args)
+}
+
 func init() {
 	ctlCmd, _ := parser.AddCommand("ctl",
 		"Control a running daemon",
@@ -412,5 +483,9 @@ func init() {
 		"get the pid of specified program",
 		"get the pid of specified program",
 		&pidCommand)
+	ctlCmd.AddCommand("logtail",
+		"get the standard output&standard error of the program",
+		"get the standard output&standard error of the program",
+		&logtailCommand)
 
 }

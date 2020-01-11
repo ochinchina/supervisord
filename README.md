@@ -54,6 +54,7 @@ $ supervisord ctl reload
 $ supervisord ctl signal <signal_name> <process_name> <process_name> ...
 $ supervisord ctl signal all
 $ supervisord ctl pid <process_name>
+$ supervisord ctl fg <process_name>
 ```
 
 the URL of supervisord in the "supervisor ctl" subcommand is dected in following order:
@@ -119,7 +120,7 @@ the following features is supported in the "program:x" section:
 
 Following new keys are supported by the [program:xxx] section:
 
-- depends_on: define program depends information. If program A depends on program B, C, the program B, C will be started before program A. Example:
+- **depends_on**: define program depends information. If program A depends on program B, C, the program B, C will be started before program A. Example:
 
 ```ini
 [program:A]
@@ -131,7 +132,7 @@ depends_on = B, C
 ...
 ```
 
-- user: user in the section "program:xxx" now is extended to support group with format "user[:group]". So "user" can be configured as:
+- **user**: user in the section "program:xxx" now is extended to support group with format "user[:group]". So "user" can be configured as:
 
 ```ini
 [program:xxx]
@@ -144,8 +145,44 @@ or
 user = user_name:group_name
 ...
 ```
-- stopsignal list
+- **stopsignal** list
 one or more stop signal can be configured. If more than one stopsignal is configured, when stoping the program, the supervisor will send the signals to the program one by one with interval "stopwaitsecs". If the program does not exit after all the signals sent to the program, the supervisor will kill the program
+
+- **restart_when_binary_changed**: a bool flag to control if the program should be restarted when the executable binary is changed
+
+- **restart_directory_monitor**: a path to be monitored for restarting purpose
+- **restart_file_pattern**: if a file is changed under restart_directory_monitor and the filename matches this pattern, the program will be restarted.
+
+## Set default parameters for program
+
+A section "program-default" is added and the default parameters for programs can be set in this section. This can reduce some parameters for programs. For example both test1 and test2 program have exactly same environment variables VAR1 and VAR2, the environment variable is decalred like:
+
+```ini
+[program:test1]
+...
+environment=VAR1="value1",VAR2="value2"
+
+[program:test2]
+...
+environment=VAR1="value1",VAR2="value2"
+```
+
+the VAR1 and VAR2 environment variable can be moved to "program-default" section like:
+
+```ini
+
+[program-default]
+environment=VAR1="value1",VAR2="value2"
+
+[program:test1]
+...
+
+[program:test2]
+...
+
+```
+
+
 
 ## Group
 the "group" section is supported and you can set "programs" item
