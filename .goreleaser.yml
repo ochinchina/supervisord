@@ -31,8 +31,8 @@ builds:
   goarm:
   - "6"
   - "7"
-  #hooks:
-  #  post: ./upx.sh
+  hooks:
+    post: ./upx.sh
 archive:
   name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
   format: tar.gz

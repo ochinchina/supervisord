@@ -1,12 +1,12 @@
 language: go
 sudo: true
 go:
-- 1.12.x
+- 1.13.x
 
 env:
   global:
     - GO111MODULE=on
-    - GORELEASER_VERSION=0.93.2
+    - GORELEASER_VERSION=0.123.3
     - UPXVER="3.94"
 
 before_install:
