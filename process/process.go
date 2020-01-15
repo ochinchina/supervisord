@@ -361,11 +361,12 @@ func (p *Process) getExitCodes() []int {
 // check if the process is running or not
 //
 func (p *Process) isRunning() bool {
-	if p.cmd != nil && p.cmd.ProcessState != nil {
+	if p.cmd != nil && p.cmd.Process != nil {
 		if runtime.GOOS == "windows" {
 			proc, err := os.FindProcess(p.cmd.Process.Pid)
 			return proc != nil && err == nil
 		} else {
+			fmt.Printf("send signal 0 to process\n")
 			return p.cmd.Process.Signal(syscall.Signal(0)) == nil
 		}
 	}
@@ -790,6 +791,7 @@ func (p *Process) Stop(wait bool) {
 	isRunning := p.isRunning()
 	p.lock.Unlock()
 	if !isRunning {
+		log.WithFields(log.Fields{"program": p.GetName()}).Info("program is not running")
 		return
 	}
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
