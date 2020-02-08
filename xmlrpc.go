@@ -14,26 +14,30 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type XmlRPC struct {
+//XMLRPC is struct to hold XMLRPC processing
+type XMLRPC struct {
 	listeners map[string]net.Listener
 	// true if RPC is started
 	started bool
 }
 
-type httpBasicAuth struct {
+//HTTPBasicAuth struct holds user auth data and handler
+type HTTPBasicAuth struct {
 	user     string
 	password string
 	handler  http.Handler
 }
 
-func NewHttpBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
+//NewHTTPBasicAuth returns new HTTPBasicAuth object
+func NewHTTPBasicAuth(user string, password string, handler http.Handler) *HTTPBasicAuth {
 	if user != "" && password != "" {
 		log.Debug("require authentication")
 	}
-	return &httpBasicAuth{user: user, password: password, handler: handler}
+	return &HTTPBasicAuth{user: user, password: password, handler: handler}
 }
 
-func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+//ServeHTTP serves HTTP
+func (h *HTTPBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.user == "" || h.password == "" {
 		log.Debug("no auth required")
 		h.handler.ServeHTTP(w, r)
@@ -59,12 +63,13 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(401)
 }
 
-func NewXmlRPC() *XmlRPC {
-	return &XmlRPC{listeners: make(map[string]net.Listener), started: false}
+//NewXMLRPC returns new XML RPC obj
+func NewXMLRPC() *XMLRPC {
+	return &XMLRPC{listeners: make(map[string]net.Listener), started: false}
 }
 
-// stop network listening
-func (p *XmlRPC) Stop() {
+// Stop stop network listening
+func (p *XMLRPC) Stop() {
 	log.Info("stop listening")
 	for _, listener := range p.listeners {
 		listener.Close()
@@ -72,30 +77,32 @@ func (p *XmlRPC) Stop() {
 	p.started = false
 }
 
-func (p *XmlRPC) StartUnixHttpServer(user string, password string, listenAddr string, s *Supervisor) {
+//StartUnixHTTPServer starts Unix HTTP Server
+func (p *XMLRPC) StartUnixHTTPServer(user string, password string, listenAddr string, s *Supervisor) {
 	os.Remove(listenAddr)
-	p.startHttpServer(user, password, "unix", listenAddr, s)
+	p.startHTTPServer(user, password, "unix", listenAddr, s)
 }
 
-func (p *XmlRPC) StartInetHttpServer(user string, password string, listenAddr string, s *Supervisor) {
-	p.startHttpServer(user, password, "tcp", listenAddr, s)
+//StartInetHTTPServer starts INET HTTP Server
+func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr string, s *Supervisor) {
+	p.startHTTPServer(user, password, "tcp", listenAddr, s)
 }
 
-func (p *XmlRPC) startHttpServer(user string, password string, protocol string, listenAddr string, s *Supervisor) {
+func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, listenAddr string, s *Supervisor) {
 	if p.started {
 		return
 	}
 	p.started = true
 	mux := http.NewServeMux()
-	mux.Handle("/RPC2", NewHttpBasicAuth(user, password, p.createRPCServer(s)))
-	prog_rest_handler := NewSupervisorRestful(s).CreateProgramHandler()
-	mux.Handle("/program/", NewHttpBasicAuth(user, password, prog_rest_handler))
-	supervisor_rest_handler := NewSupervisorRestful(s).CreateSupervisorHandler()
-	mux.Handle("/supervisor/", NewHttpBasicAuth(user, password, supervisor_rest_handler))
-	logtail_handler := NewLogtail(s).CreateHandler()
-	mux.Handle("/logtail/", NewHttpBasicAuth(user, password, logtail_handler))
-	webgui_handler := NewSupervisorWebgui(s).CreateHandler()
-	mux.Handle("/", NewHttpBasicAuth(user, password, webgui_handler))
+	mux.Handle("/RPC2", NewHTTPBasicAuth(user, password, p.createRPCServer(s)))
+	progRESTHandler := NewSupervisorRestful(s).CreateProgramHandler()
+	mux.Handle("/program/", NewHTTPBasicAuth(user, password, progRESTHandler))
+	supervisorRESTHandler := NewSupervisorRestful(s).CreateSupervisorHandler()
+	mux.Handle("/supervisor/", NewHTTPBasicAuth(user, password, supervisorRESTHandler))
+	logtailHandler := NewLogtail(s).CreateHandler()
+	mux.Handle("/logtail/", NewHTTPBasicAuth(user, password, logtailHandler))
+	webGUIHandler := NewSupervisorWebgui(s).CreateHandler()
+	mux.Handle("/", NewHTTPBasicAuth(user, password, webGUIHandler))
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Info("success to listen on address")
@@ -106,7 +113,7 @@ func (p *XmlRPC) startHttpServer(user string, password string, protocol string, 
 	}
 
 }
-func (p *XmlRPC) createRPCServer(s *Supervisor) *rpc.Server {
+func (p *XMLRPC) createRPCServer(s *Supervisor) *rpc.Server {
 	RPC := rpc.NewServer()
 	xmlrpcCodec := xml.NewCodec()
 	RPC.RegisterCodec(xmlrpcCodec, "text/xml")

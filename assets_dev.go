@@ -7,4 +7,5 @@ import (
 	"net/http"
 )
 
+// HTTP is link to webgui directory
 var HTTP http.FileSystem = http.Dir("./webgui")

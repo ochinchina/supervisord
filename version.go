@@ -4,15 +4,18 @@ import (
 	"fmt"
 )
 
-const VERSION = "v0.6"
+//Version is minor version of supervisord
+const Version = "v0.6"
 
+//VersionCommand is interface to receive version read request
 type VersionCommand struct {
 }
 
 var versionCommand VersionCommand
 
+// Execute executes the get-version command
 func (v VersionCommand) Execute(args []string) error {
-	fmt.Println(VERSION)
+	fmt.Println(Version)
 	return nil
 }
 

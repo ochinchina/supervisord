@@ -2,50 +2,61 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
-	"net/http"
-	"os"
-	"strings"
 )
 
+//CtlCommand is control commands for supervisord
 type CtlCommand struct {
-	ServerUrl string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening"`
+	ServerURL string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening"`
 	User      string `short:"u" long:"user" description:"the user name"`
 	Password  string `short:"P" long:"password" description:"the password"`
 	Verbose   bool   `short:"v" long:"verbose" description:"Show verbose debug information"`
 }
 
+//StatusCommand is interface to status-command
 type StatusCommand struct {
 }
 
+//StartCommand is interface to start-command
 type StartCommand struct {
 }
 
+//StopCommand is interface to stop-command
 type StopCommand struct {
 }
 
+//RestartCommand is interface to restart-command
 type RestartCommand struct {
 }
 
+//ShutdownCommand is interface to shutdown-command
 type ShutdownCommand struct {
 }
 
+//ReloadCommand is interface to reload-command
 type ReloadCommand struct {
 }
 
+//PidCommand is interface to Pid-command
 type PidCommand struct {
 }
 
+//SignalCommand is interface to signal-command
 type SignalCommand struct {
 }
 
+//LogtailCommand is interface to Logtail-command
 type LogtailCommand struct {
 }
 
-// A wrapper can be use to check whether
+// CmdCheckWrapperCommand A wrapper can be use to check whether
 // number of parameters is valid or not
 type CmdCheckWrapperCommand struct {
 	// Original cmd
@@ -68,11 +79,11 @@ var pidCommand = CmdCheckWrapperCommand{&PidCommand{}, 1, "pid <program>"}
 var signalCommand = CmdCheckWrapperCommand{&SignalCommand{}, 2, "signal <signal_name> <program>[...]"}
 var logtailCommand = CmdCheckWrapperCommand{&LogtailCommand{}, 1, "logtail <program>"}
 
-func (x *CtlCommand) getServerUrl() string {
+func (x *CtlCommand) getServerURL() string {
 	options.Configuration, _ = findSupervisordConf()
 
-	if x.ServerUrl != "" {
-		return x.ServerUrl
+	if x.ServerURL != "" {
+		return x.ServerURL
 	} else if _, err := os.Stat(options.Configuration); err == nil {
 		config := config.NewConfig(options.Configuration)
 		config.Load()
@@ -118,19 +129,20 @@ func (x *CtlCommand) getPassword() string {
 	return ""
 }
 
-func (x *CtlCommand) createRpcClient() *xmlrpcclient.XmlRPCClient {
-	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerUrl(), x.Verbose)
+func (x *CtlCommand) createRPCClient() *xmlrpcclient.XmlRPCClient {
+	rpcc := xmlrpcclient.NewXmlRPCClient(x.getServerURL(), x.Verbose)
 	rpcc.SetUser(x.getUser())
 	rpcc.SetPassword(x.getPassword())
 	return rpcc
 }
 
+//Execute executes control commands
 func (x *CtlCommand) Execute(args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
 
-	rpcc := x.createRpcClient()
+	rpcc := x.createRPCClient()
 	verb := args[0]
 
 	switch verb {
@@ -155,8 +167,8 @@ func (x *CtlCommand) Execute(args []string) error {
 	case "reload":
 		x.reload(rpcc)
 	case "signal":
-		sig_name, processes := args[1], args[2:]
-		x.signal(rpcc, sig_name, processes)
+		sigName, processes := args[1], args[2:]
+		x.signal(rpcc, sigName, processes)
 	case "pid":
 		x.getPid(rpcc, args[1])
 	default:
@@ -257,22 +269,22 @@ func (x *CtlCommand) reload(rpcc *xmlrpcclient.XmlRPCClient) {
 }
 
 // send signal to one or more processes
-func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sig_name string, processes []string) {
+func (x *CtlCommand) signal(rpcc *xmlrpcclient.XmlRPCClient, sigName string, processes []string) {
 	for _, process := range processes {
 		if process == "all" {
 			reply, err := rpcc.SignalAll(process)
 			if err == nil {
 				x.showProcessInfo(&reply, make(map[string]bool))
 			} else {
-				fmt.Printf("Fail to send signal %s to all process", sig_name)
+				fmt.Printf("Fail to send signal %s to all process", sigName)
 				os.Exit(1)
 			}
 		} else {
-			reply, err := rpcc.SignalProcess(sig_name, process)
+			reply, err := rpcc.SignalProcess(sigName, process)
 			if err == nil && reply.Success {
-				fmt.Printf("Succeed to send signal %s to process %s\n", sig_name, process)
+				fmt.Printf("Succeed to send signal %s to process %s\n", sigName, process)
 			} else {
-				fmt.Printf("Fail to send signal %s to process %s\n", sig_name, process)
+				fmt.Printf("Fail to send signal %s to process %s\n", sigName, process)
 				os.Exit(1)
 			}
 		}
@@ -325,7 +337,7 @@ func (x *CtlCommand) inProcessMap(procInfo *types.ProcessInfo, processesMap map[
 	if len(processesMap) <= 0 {
 		return true
 	}
-	for procName, _ := range processesMap {
+	for procName := range processesMap {
 		if procName == procInfo.Name || procName == procInfo.GetFullName() {
 			return true
 		}
@@ -356,47 +368,56 @@ func (x *CtlCommand) getANSIColor(statename string) string {
 	}
 }
 
+//Execute executes status related control command
 func (sc *StatusCommand) Execute(args []string) error {
-	ctlCommand.status(ctlCommand.createRpcClient(), args)
+	ctlCommand.status(ctlCommand.createRPCClient(), args)
 	return nil
 }
 
+//Execute executes start related control command
 func (sc *StartCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRpcClient(), "start", args)
+	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "start", args)
 	return nil
 }
 
+//Execute executes stop related control command
 func (sc *StopCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRpcClient(), "stop", args)
+	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "stop", args)
 	return nil
 }
 
+//Execute executes restart related control command
 func (rc *RestartCommand) Execute(args []string) error {
-	ctlCommand.restartProcesses(ctlCommand.createRpcClient(), args)
+	ctlCommand.restartProcesses(ctlCommand.createRPCClient(), args)
 	return nil
 }
 
+//Execute executes shutdown related control command
 func (sc *ShutdownCommand) Execute(args []string) error {
-	ctlCommand.shutdown(ctlCommand.createRpcClient())
+	ctlCommand.shutdown(ctlCommand.createRPCClient())
 	return nil
 }
 
+//Execute executes reload related control command
 func (rc *ReloadCommand) Execute(args []string) error {
-	ctlCommand.reload(ctlCommand.createRpcClient())
+	ctlCommand.reload(ctlCommand.createRPCClient())
 	return nil
 }
 
+//Execute executes signal related control command
 func (rc *SignalCommand) Execute(args []string) error {
-	sig_name, processes := args[0], args[1:]
-	ctlCommand.signal(ctlCommand.createRpcClient(), sig_name, processes)
+	sigName, processes := args[0], args[1:]
+	ctlCommand.signal(ctlCommand.createRPCClient(), sigName, processes)
 	return nil
 }
 
+//Execute executes pid related control command
 func (pc *PidCommand) Execute(args []string) error {
-	ctlCommand.getPid(ctlCommand.createRpcClient(), args[0])
+	ctlCommand.getPid(ctlCommand.createRPCClient(), args[0])
 	return nil
 }
 
+//Execute executes logtail related control command
 func (lc *LogtailCommand) Execute(args []string) error {
 	program := args[0]
 	go func() {
@@ -406,12 +427,12 @@ func (lc *LogtailCommand) Execute(args []string) error {
 }
 
 func (lc *LogtailCommand) tailLog(program string, dev string) error {
-	_, err := ctlCommand.getProcessInfo(ctlCommand.createRpcClient(), program)
+	_, err := ctlCommand.getProcessInfo(ctlCommand.createRPCClient(), program)
 	if err != nil {
 		fmt.Printf("Not exist program %s\n", program)
 		return err
 	}
-	url := fmt.Sprintf("%s/logtail/%s/%s", ctlCommand.getServerUrl(), program, dev)
+	url := fmt.Sprintf("%s/logtail/%s/%s", ctlCommand.getServerURL(), program, dev)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -437,6 +458,7 @@ func (lc *LogtailCommand) tailLog(program string, dev string) error {
 	return nil
 }
 
+//Execute wraps execute commands for control commands
 func (wc *CmdCheckWrapperCommand) Execute(args []string) error {
 	if len(args) < wc.leastNumArgs {
 		err := fmt.Errorf("Invalid arguments.\nUsage: supervisord ctl %v", wc.usage)

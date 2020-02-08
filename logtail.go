@@ -1,20 +1,24 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/gorilla/mux"
 	logger "github.com/ochinchina/supervisord/logger"
-	"net/http"
 )
 
+// Logtail is interface for Logtail
 type Logtail struct {
 	router     *mux.Router
 	supervisor *Supervisor
 }
 
+//NewLogtail returns new Logtail object
 func NewLogtail(supervisor *Supervisor) *Logtail {
 	return &Logtail{router: mux.NewRouter(), supervisor: supervisor}
 }
 
+//CreateHandler creates HTTP get handler to support stdout and stderr logs
 func (lt *Logtail) CreateHandler() http.Handler {
 	lt.router.HandleFunc("/logtail/{program}/stdout", lt.getStdoutLog).Methods("GET")
 	lt.router.HandleFunc("/logtail/{program}/stderr", lt.getStderrLog).Methods("GET")

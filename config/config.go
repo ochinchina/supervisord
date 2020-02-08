@@ -159,7 +159,7 @@ func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
 
 func (c *Config) parse(cfg *ini.Ini) []string {
 	c.parseGroup(cfg)
-	loaded_programs := c.parseProgram(cfg)
+	loadedProgram := c.parseProgram(cfg)
 
 	//parse non-group,non-program and non-eventlistener sections
 	for _, section := range cfg.Sections() {
@@ -170,7 +170,7 @@ func (c *Config) parse(cfg *ini.Ini) []string {
 		}
 	}
 	c.setProgramDefaultParams()
-	return loaded_programs
+	return loadedProgram
 }
 
 // set the default parameteres of programs
@@ -499,7 +499,7 @@ func (c *Config) isProgramOrEventListener(section *ini.Section) (bool, string) {
 //
 // Return all the parsed program names in the ini
 func (c *Config) parseProgram(cfg *ini.Ini) []string {
-	loaded_programs := make([]string, 0)
+	loadedProgram := make([]string, 0)
 	for _, section := range cfg.Sections() {
 
 		program_or_event_listener, prefix := c.isProgramOrEventListener(section)
@@ -558,11 +558,11 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 				entry.Name = prefix + procName
 				group := c.ProgramGroup.GetGroup(programName, programName)
 				entry.Group = group
-				loaded_programs = append(loaded_programs, procName)
+				loadedProgram = append(loadedProgram, procName)
 			}
 		}
 	}
-	return loaded_programs
+	return loadedProgram
 
 }
 

@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/jessevdk/go-flags"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -12,8 +10,12 @@ import (
 	"strings"
 	"syscall"
 	"unicode"
+
+	"github.com/jessevdk/go-flags"
+	log "github.com/sirupsen/logrus"
 )
 
+//Options options for main program
 type Options struct {
 	Configuration string `short:"c" long:"configuration" description:"the configuration file"`
 	Daemon        bool   `short:"d" long:"daemon" description:"run as daemon"`
@@ -45,6 +47,7 @@ func initSignals(s *Supervisor) {
 var options Options
 var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 
+// LoadEnvFile loads environs
 func LoadEnvFile() {
 	if len(options.EnvFile) <= 0 {
 		return
@@ -104,18 +107,18 @@ func findSupervisordConf() (string, error) {
 
 	for _, file := range possibleSupervisordConf {
 		if _, err := os.Stat(file); err == nil {
-			abs_file, err := filepath.Abs(file)
+			absFile, err := filepath.Abs(file)
 			if err == nil {
-				return abs_file, nil
-			} else {
-				return file, nil
+				return absFile, nil
 			}
+			return file, nil
 		}
 	}
 
 	return "", fmt.Errorf("fail to find supervisord.conf")
 }
 
+//RunServer makes the ball rolling...
 func RunServer() {
 	// infinite loop for handling Restart ('reload' command)
 	LoadEnvFile()
