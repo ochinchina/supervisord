@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gorilla/rpc"
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
@@ -18,7 +19,7 @@ import (
 type XMLRPC struct {
 	listeners map[string]net.Listener
 	// true if RPC is started
-	started bool
+	started *uint32
 }
 
 //HTTPBasicAuth struct holds user auth data and handler
@@ -65,7 +66,9 @@ func (h *HTTPBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 //NewXMLRPC returns new XML RPC obj
 func NewXMLRPC() *XMLRPC {
-	return &XMLRPC{listeners: make(map[string]net.Listener), started: false}
+	p := XMLRPC{listeners: make(map[string]net.Listener)}
+	atomic.AddUint32(p.started, 0)
+	return &p
 }
 
 // Stop stop network listening
@@ -74,7 +77,7 @@ func (p *XMLRPC) Stop() {
 	for _, listener := range p.listeners {
 		listener.Close()
 	}
-	p.started = false
+	atomic.AddUint32(p.started, 0)
 }
 
 //StartUnixHTTPServer starts Unix HTTP Server
@@ -89,10 +92,9 @@ func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr st
 }
 
 func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, listenAddr string, s *Supervisor) {
-	if p.started {
+	if atomic.CompareAndSwapUint32(p.started, 0, 1) == false /* swapped = false */ {
 		return
 	}
-	p.started = true
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", NewHTTPBasicAuth(user, password, p.createRPCServer(s)))
 	progRESTHandler := NewSupervisorRestful(s).CreateProgramHandler()
