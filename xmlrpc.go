@@ -67,7 +67,7 @@ func (h *HTTPBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //NewXMLRPC returns new XML RPC obj
 func NewXMLRPC() *XMLRPC {
 	p := XMLRPC{listeners: make(map[string]net.Listener)}
-	atomic.AddUint32(p.started, 0)
+	atomic.StoreUint32(p.started, 0)
 	return &p
 }
 
@@ -77,7 +77,7 @@ func (p *XMLRPC) Stop() {
 	for _, listener := range p.listeners {
 		listener.Close()
 	}
-	atomic.AddUint32(p.started, 0)
+	atomic.StoreUint32(p.started, 0)
 }
 
 //StartUnixHTTPServer starts Unix HTTP Server
