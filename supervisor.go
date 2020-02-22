@@ -468,7 +468,17 @@ func (s *Supervisor) startHttpServer() {
 	if ok {
 		addr := httpServerConfig.GetString("port", "")
 		if addr != "" {
-			go s.xmlRPC.StartInetHttpServer(httpServerConfig.GetString("username", ""), httpServerConfig.GetString("password", ""), addr, s)
+			cond := sync.NewCond(&sync.Mutex{})
+			cond.L.Lock()
+			defer cond.L.Unlock()
+			go s.xmlRPC.StartInetHttpServer(httpServerConfig.GetString("username", ""),
+				httpServerConfig.GetString("password", ""),
+				addr,
+				s,
+				func() {
+					cond.Signal()
+				})
+			cond.Wait()
 		}
 	}
 
@@ -477,7 +487,17 @@ func (s *Supervisor) startHttpServer() {
 		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
 		sockFile, err := env.Eval(httpServerConfig.GetString("file", "/tmp/supervisord.sock"))
 		if err == nil {
-			go s.xmlRPC.StartUnixHttpServer(httpServerConfig.GetString("username", ""), httpServerConfig.GetString("password", ""), sockFile, s)
+			cond := sync.NewCond(&sync.Mutex{})
+			cond.L.Lock()
+			defer cond.L.Unlock()
+			go s.xmlRPC.StartUnixHttpServer(httpServerConfig.GetString("username", ""),
+				httpServerConfig.GetString("password", ""),
+				sockFile,
+				s,
+				func() {
+					cond.Signal()
+				})
+			cond.Wait()
 		}
 	}
 

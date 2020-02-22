@@ -462,7 +462,7 @@ func (c *ConfigEntry) GetBytes(key string, defValue int) int {
 func (c *ConfigEntry) parse(section *ini.Section) {
 	c.Name = section.Name
 	for _, key := range section.Keys() {
-		c.keyValues[key.Name()] = key.ValueWithDefault("")
+		c.keyValues[key.Name()] = strings.TrimSpace(key.ValueWithDefault(""))
 	}
 }
 

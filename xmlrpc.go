@@ -72,16 +72,16 @@ func (p *XmlRPC) Stop() {
 	p.started = false
 }
 
-func (p *XmlRPC) StartUnixHttpServer(user string, password string, listenAddr string, s *Supervisor) {
+func (p *XmlRPC) StartUnixHttpServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
 	os.Remove(listenAddr)
-	p.startHttpServer(user, password, "unix", listenAddr, s)
+	p.startHttpServer(user, password, "unix", listenAddr, s, startedCb)
 }
 
-func (p *XmlRPC) StartInetHttpServer(user string, password string, listenAddr string, s *Supervisor) {
-	p.startHttpServer(user, password, "tcp", listenAddr, s)
+func (p *XmlRPC) StartInetHttpServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
+	p.startHttpServer(user, password, "tcp", listenAddr, s, startedCb)
 }
 
-func (p *XmlRPC) startHttpServer(user string, password string, protocol string, listenAddr string, s *Supervisor) {
+func (p *XmlRPC) startHttpServer(user string, password string, protocol string, listenAddr string, s *Supervisor, startedCb func()) {
 	if p.started {
 		return
 	}
@@ -100,6 +100,7 @@ func (p *XmlRPC) startHttpServer(user string, password string, protocol string, 
 	if err == nil {
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Info("success to listen on address")
 		p.listeners[protocol] = listener
+		startedCb()
 		http.Serve(listener, mux)
 	} else {
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Fatal("fail to listen on address")
