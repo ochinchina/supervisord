@@ -16,8 +16,6 @@ import (
 
 type XmlRPC struct {
 	listeners map[string]net.Listener
-	// true if RPC is started
-	started bool
 }
 
 type httpBasicAuth struct {
@@ -60,7 +58,7 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewXmlRPC() *XmlRPC {
-	return &XmlRPC{listeners: make(map[string]net.Listener), started: false}
+	return &XmlRPC{listeners: make(map[string]net.Listener)}
 }
 
 // stop network listening
@@ -69,7 +67,7 @@ func (p *XmlRPC) Stop() {
 	for _, listener := range p.listeners {
 		listener.Close()
 	}
-	p.started = false
+	p.listeners = make(map[string]net.Listener)
 }
 
 func (p *XmlRPC) StartUnixHttpServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
@@ -81,11 +79,16 @@ func (p *XmlRPC) StartInetHttpServer(user string, password string, listenAddr st
 	p.startHttpServer(user, password, "tcp", listenAddr, s, startedCb)
 }
 
+func (p *XmlRPC) isHttpServerStartedOnProtocol(protocol string) bool {
+	_, ok := p.listeners[protocol]
+	return ok
+}
+
 func (p *XmlRPC) startHttpServer(user string, password string, protocol string, listenAddr string, s *Supervisor, startedCb func()) {
-	if p.started {
+	if p.isHttpServerStartedOnProtocol(protocol) {
+		startedCb()
 		return
 	}
-	p.started = true
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", NewHttpBasicAuth(user, password, p.createRPCServer(s)))
 	prog_rest_handler := NewSupervisorRestful(s).CreateProgramHandler()
@@ -103,6 +106,7 @@ func (p *XmlRPC) startHttpServer(user string, password string, protocol string, 
 		startedCb()
 		http.Serve(listener, mux)
 	} else {
+		startedCb()
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Fatal("fail to listen on address")
 	}
 
