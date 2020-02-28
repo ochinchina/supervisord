@@ -5,26 +5,28 @@ import (
 	"path/filepath"
 )
 
-func path_split(path string) []string {
+func pathSplit(path string) []string {
 	r := make([]string, 0)
-	cur_path := path
+	curPath := path
 	for {
-		dir, file := filepath.Split(cur_path)
+		dir, file := filepath.Split(curPath)
 		if len(file) > 0 {
 			r = append(r, file)
 		}
 		if len(dir) <= 0 {
 			break
 		}
-		cur_path = dir[0 : len(dir)-1]
+		curPath = dir[0 : len(dir)-1]
 	}
 	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
 		r[i], r[j] = r[j], r[i]
 	}
 	return r
 }
-func Path_expand(path string) (string, error) {
-	pathList := path_split(path)
+
+// PathExpand replace the ~ with user home directory
+func PathExpand(path string) (string, error) {
+	pathList := pathSplit(path)
 
 	if len(pathList) > 0 && len(pathList[0]) > 0 && pathList[0][0] == '~' {
 		var usr *user.User

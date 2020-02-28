@@ -5,26 +5,60 @@ import (
 )
 
 const (
-	UNKNOWN_METHOD        = 1
-	INCORRECT_PARAMETERS  = 2
-	BAD_ARGUMENTS         = 3
-	SIGNATURE_UNSUPPORTED = 4
-	SHUTDOWN_STATE        = 6
-	BAD_NAME              = 10
-	BAD_SIGNAL            = 11
-	NO_FILE               = 20
-	NOT_EXECUTABLE        = 21
-	FAILED                = 30
-	ABNORMAL_TERMINATION  = 40
-	SPAWN_ERROR           = 50
-	ALREADY_STARTED       = 60
-	NOT_RUNNING           = 70
-	SUCCESS               = 80
-	ALREADY_ADDED         = 90
-	STILL_RUNNING         = 91
-	CANT_REREAD           = 92
+	// UnknownMethod unknown xml rpc method
+	UnknownMethod = 1
+	// IncorrectParameters  incorrect parameters result code
+	IncorrectParameters = 2
+
+	// BadArguments Bad argument result code for xml rpc
+	BadArguments = 3
+
+	// SignatureUnsupported signature unsupported result code for xml rpc
+	SignatureUnsupported = 4
+
+	// ShutdownState shutdown state result code
+	ShutdownState = 6
+
+	// BadName bad name result code
+	BadName = 10
+
+	// BadSignal bad signal result code
+	BadSignal = 11
+	// NoFile no such file result code
+	NoFile = 20
+
+	// NotExecutable not executable result code
+	NotExecutable = 21
+
+	// Failed failed result code
+	Failed = 30
+
+	// AbnormalTermination abnormal termination result code
+	AbnormalTermination = 40
+
+	// SpawnError spawn error result code
+	SpawnError = 50
+
+	// AlreadyStated already stated result code
+	AlreadyStated = 60
+
+	// NotRunning not running result code
+	NotRunning = 70
+
+	// Success sucess result code
+	Success = 80
+
+	// AlreadyAdded already added result code
+	AlreadyAdded = 90
+
+	// StillRunning still running result code
+	StillRunning = 91
+
+	// CantReRead can't re-read result code
+	CantReRead = 92
 )
 
+// NewFault create a Fault object as xml rpc result
 func NewFault(code int, desc string) error {
 	return &xmlrpc.Fault{Code: code, String: desc}
 }

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// create a local syslog
+// NewSysLogger create a local syslog
 func NewSysLogger(name string, logEventEmitter LogEventEmitter) *SysLogger {
 	writer, err := syslog.New(syslog.LOG_DEBUG, name)
 	logger := &SysLogger{logEventEmitter: logEventEmitter}
@@ -20,6 +20,7 @@ func NewSysLogger(name string, logEventEmitter LogEventEmitter) *SysLogger {
 	return logger
 }
 
+// BackendSysLogWriter a syslog writer to write the log to syslog in background
 type BackendSysLogWriter struct {
 	network    string
 	raddr      string
@@ -28,7 +29,7 @@ type BackendSysLogWriter struct {
 	logChannel chan []byte
 }
 
-// create a backgroud running syslog writer
+// NewBackendSysLogWriter create a backgroud running syslog writer
 func NewBackendSysLogWriter(network, raddr string, priority syslog.Priority, tag string) *BackendSysLogWriter {
 	bs := &BackendSysLogWriter{network: network, raddr: raddr, priority: priority, tag: tag, logChannel: make(chan []byte)}
 	bs.start()
@@ -59,12 +60,13 @@ func (bs *BackendSysLogWriter) start() {
 	}()
 }
 
-//write data to the backend syslog writer
+// Write write data to the backend syslog writer
 func (bs *BackendSysLogWriter) Write(b []byte) (int, error) {
 	bs.logChannel <- b
 	return len(b), nil
 }
 
+// Close close the backgroup write channel
 func (bs *BackendSysLogWriter) Close() error {
 	close(bs.logChannel)
 	return nil
@@ -120,7 +122,7 @@ func parseSysLogConfig(config string) (protocol string, host string, port int, e
 
 }
 
-// create a network syslog
+// NewRemoteSysLogger create a network syslog
 func NewRemoteSysLogger(name string, config string, logEventEmitter LogEventEmitter) *SysLogger {
 	if len(config) <= 0 {
 		return NewSysLogger(name, logEventEmitter)

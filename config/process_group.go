@@ -2,28 +2,31 @@ package config
 
 import (
 	"bytes"
-	"strings"
 	"github.com/ochinchina/supervisord/util"
+	"strings"
 )
 
+// ProcessGroup manage the program and its group mapping
 type ProcessGroup struct {
 	//mapping between the program and its group
 	processGroup map[string]string
 }
 
+// NewProcessGroup create a ProcessGroup object
 func NewProcessGroup() *ProcessGroup {
 	return &ProcessGroup{processGroup: make(map[string]string)}
 }
 
-// clone the process group
+// Clone clone the process group
 func (pg *ProcessGroup) Clone() *ProcessGroup {
-	new_pg := NewProcessGroup()
+	newPg := NewProcessGroup()
 	for k, v := range pg.processGroup {
-		new_pg.processGroup[k] = v
+		newPg.processGroup[k] = v
 	}
-	return new_pg
+	return newPg
 }
 
+// Sub remove all the programs in other ProcessGroup from this ProcessGroup
 func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []string, removed []string) {
 	thisGroup := pg.GetAllGroup()
 	otherGroup := other.GetAllGroup()
@@ -32,26 +35,26 @@ func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []stri
 	removed = util.Sub(otherGroup, thisGroup)
 
 	for _, group := range thisGroup {
-		proc_1 := pg.GetAllProcess(group)
-		proc_2 := other.GetAllProcess(group)
-		if len(proc_2) > 0 && !util.IsSameStringArray(proc_1, proc_2) {
+		proc1 := pg.GetAllProcess(group)
+		proc2 := other.GetAllProcess(group)
+		if len(proc2) > 0 && !util.IsSameStringArray(proc1, proc2) {
 			changed = append(changed, group)
 		}
 	}
 	return
 }
 
-//add a process to a group
+//Add add a process to a group
 func (pg *ProcessGroup) Add(group string, procName string) {
 	pg.processGroup[procName] = group
 }
 
-//remove a process
+//Remove remove a process
 func (pg *ProcessGroup) Remove(procName string) {
 	delete(pg.processGroup, procName)
 }
 
-//get all the groups
+//GetAllGroup get all the groups
 func (pg *ProcessGroup) GetAllGroup() []string {
 	groups := make(map[string]bool)
 	for _, group := range pg.processGroup {
@@ -65,7 +68,7 @@ func (pg *ProcessGroup) GetAllGroup() []string {
 	return result
 }
 
-// get all the processes in a group
+// GetAllProcess get all the processes in a group
 func (pg *ProcessGroup) GetAllProcess(group string) []string {
 	result := make([]string, 0)
 	for procName, groupName := range pg.processGroup {
@@ -76,7 +79,7 @@ func (pg *ProcessGroup) GetAllProcess(group string) []string {
 	return result
 }
 
-// check if a process belongs to a group or not
+// InGroup check if a process belongs to a group or not
 func (pg *ProcessGroup) InGroup(procName string, group string) bool {
 	groupName, ok := pg.processGroup[procName]
 	if ok && group == groupName {
@@ -85,12 +88,15 @@ func (pg *ProcessGroup) InGroup(procName string, group string) bool {
 	return false
 }
 
+// ForEachProcess iterate all the processes and process it with procFunc
 func (pg *ProcessGroup) ForEachProcess(procFunc func(group string, procName string)) {
 	for procName, groupName := range pg.processGroup {
 		procFunc(groupName, procName)
 	}
 }
 
+// GetGroup get the group name of process. If fail to find the group by
+// procName, set its group to defGroup and return this defGroup
 func (pg *ProcessGroup) GetGroup(procName string, defGroup string) string {
 	group, ok := pg.processGroup[procName]
 
@@ -101,6 +107,7 @@ func (pg *ProcessGroup) GetGroup(procName string, defGroup string) string {
 	return defGroup
 }
 
+// String convert the process and its group mapping to human readable string
 func (pg *ProcessGroup) String() string {
 	buf := bytes.NewBuffer(make([]byte, 0))
 	for _, group := range pg.GetAllGroup() {

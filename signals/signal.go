@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-//convert a signal name to signal
+// ToSignal convert a signal name to signal
 func ToSignal(signalName string) (os.Signal, error) {
 	if signalName == "HUP" {
 		return syscall.SIGHUP, nil
@@ -28,7 +28,7 @@ func ToSignal(signalName string) (os.Signal, error) {
 
 }
 
-// send signal to the process
+// Kill send signal to the process
 //
 // Args:
 //    process - the process which the signal should be sent to

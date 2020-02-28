@@ -6,82 +6,101 @@ import (
 	"strings"
 )
 
-type XmlPath struct {
+// XMLPath represent the XML path in array
+type XMLPath struct {
 	ElemNames []string
 }
 
-func NewXmlPath() *XmlPath {
-	return &XmlPath{ElemNames: make([]string, 0)}
+// NewXMLPath create a new XMLPath object
+func NewXMLPath() *XMLPath {
+	return &XMLPath{ElemNames: make([]string, 0)}
 }
 
-func (xp *XmlPath) AddChildren(names ...string) {
+// AddChildren append paths to the XMLPath
+func (xp *XMLPath) AddChildren(names ...string) {
 	for _, name := range names {
 		xp.ElemNames = append(xp.ElemNames, name)
 	}
 }
-func (xp *XmlPath) AddChild(elemName string) {
+
+// AddChild add a child to the path
+func (xp *XMLPath) AddChild(elemName string) {
 	xp.ElemNames = append(xp.ElemNames, elemName)
 }
 
-func (xp *XmlPath) RemoveLast() {
+// RemoveLast remove the last element from path
+func (xp *XMLPath) RemoveLast() {
 	if len(xp.ElemNames) > 0 {
 		xp.ElemNames = xp.ElemNames[0 : len(xp.ElemNames)-1]
 	}
 }
 
-func (xp *XmlPath) Equals(other *XmlPath) bool {
+// Equals check if this XMLPath object equals other XMLPath object
+func (xp *XMLPath) Equals(other *XMLPath) bool {
 	if len(xp.ElemNames) != len(other.ElemNames) {
 		return false
 	}
 
-	for i := len(xp.ElemNames) - 1; i >= 0; i -= 1 {
+	for i := len(xp.ElemNames) - 1; i >= 0; i-- {
 		if xp.ElemNames[i] != other.ElemNames[i] {
 			return false
 		}
 	}
 	return true
 }
-func (xp *XmlPath) String() string {
+
+// String convert the XMLPath to string
+func (xp *XMLPath) String() string {
 	return strings.Join(xp.ElemNames, "/")
 }
 
-type XmlLeafProcessor func(value string)
-type XmlNonLeafProcessor func()
+// XMLLeafProcessor the XML leaf element process function
+type XMLLeafProcessor func(value string)
 
-type XmlProcessorManager struct {
-	leafProcessors    map[string]XmlLeafProcessor
-	nonLeafProcessors map[string]XmlNonLeafProcessor
+// XMLNonLeafProcessor the non-leaf element process function
+type XMLNonLeafProcessor func()
+
+// XMLProcessorManager the xml processor based on the XMLPath
+type XMLProcessorManager struct {
+	leafProcessors    map[string]XMLLeafProcessor
+	nonLeafProcessors map[string]XMLNonLeafProcessor
 }
 
-func NewXmlProcessorManager() *XmlProcessorManager {
-	return &XmlProcessorManager{leafProcessors: make(map[string]XmlLeafProcessor),
-		nonLeafProcessors: make(map[string]XmlNonLeafProcessor)}
+// NewXMLProcessorManager create a new XMLProcessorManager object
+func NewXMLProcessorManager() *XMLProcessorManager {
+	return &XMLProcessorManager{leafProcessors: make(map[string]XMLLeafProcessor),
+		nonLeafProcessors: make(map[string]XMLNonLeafProcessor)}
 }
 
-func (xpm *XmlProcessorManager) AddLeafProcessor(path string, processor XmlLeafProcessor) {
+// AddLeafProcessor add a leaf processor for the xml path
+func (xpm *XMLProcessorManager) AddLeafProcessor(path string, processor XMLLeafProcessor) {
 	xpm.leafProcessors[path] = processor
 }
 
-func (xpm *XmlProcessorManager) AddNonLeafProcessor(path string, processor XmlNonLeafProcessor) {
+// AddNonLeafProcessor add a non-leaf processor for the xml path
+func (xpm *XMLProcessorManager) AddNonLeafProcessor(path string, processor XMLNonLeafProcessor) {
 	xpm.nonLeafProcessors[path] = processor
 }
 
-func (xpm *XmlProcessorManager) ProcessLeafNode(path string, data string) {
+// ProcessLeafNode process the leaf element with xml path and its value
+func (xpm *XMLProcessorManager) ProcessLeafNode(path string, data string) {
 	if processor, ok := xpm.leafProcessors[path]; ok {
 		processor(data)
 	}
 }
 
-func (xpm *XmlProcessorManager) ProcessNonLeafNode(path string) {
+// ProcessNonLeafNode process the non-leaf element based on the xml path
+func (xpm *XMLProcessorManager) ProcessNonLeafNode(path string) {
 	if processor, ok := xpm.nonLeafProcessors[path]; ok {
 		processor()
 	}
 }
 
-func (xpm *XmlProcessorManager) ProcessXml(reader io.Reader) {
+// ProcessXML read the xml from reader and process it
+func (xpm *XMLProcessorManager) ProcessXML(reader io.Reader) {
 	decoder := xml.NewDecoder(reader)
 	var curData xml.CharData
-	curPath := NewXmlPath()
+	curPath := NewXMLPath()
 
 	for {
 		tk, err := decoder.Token()

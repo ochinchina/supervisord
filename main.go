@@ -14,6 +14,7 @@ import (
 	"unicode"
 )
 
+// Options the command line options
 type Options struct {
 	Configuration string `short:"c" long:"configuration" description:"the configuration file"`
 	Daemon        bool   `short:"d" long:"daemon" description:"run as daemon"`
@@ -45,7 +46,7 @@ func initSignals(s *Supervisor) {
 var options Options
 var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 
-func LoadEnvFile() {
+func loadEnvFile() {
 	if len(options.EnvFile) <= 0 {
 		return
 	}
@@ -104,21 +105,20 @@ func findSupervisordConf() (string, error) {
 
 	for _, file := range possibleSupervisordConf {
 		if _, err := os.Stat(file); err == nil {
-			abs_file, err := filepath.Abs(file)
+			absFile, err := filepath.Abs(file)
 			if err == nil {
-				return abs_file, nil
-			} else {
-				return file, nil
+				return absFile, nil
 			}
+			return file, nil
 		}
 	}
 
 	return "", fmt.Errorf("fail to find supervisord.conf")
 }
 
-func RunServer() {
+func runServer() {
 	// infinite loop for handling Restart ('reload' command)
-	LoadEnvFile()
+	loadEnvFile()
 	for true {
 		options.Configuration, _ = findSupervisordConf()
 		s := NewSupervisor(options.Configuration)
@@ -142,9 +142,9 @@ func main() {
 				os.Exit(0)
 			case flags.ErrCommandRequired:
 				if options.Daemon {
-					Deamonize(RunServer)
+					Deamonize(runServer)
 				} else {
-					RunServer()
+					runServer()
 				}
 			default:
 				fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)

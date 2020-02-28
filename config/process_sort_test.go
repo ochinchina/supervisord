@@ -6,27 +6,27 @@ import (
 )
 
 //
-// check if program_1 is before the program_2 in the ConfigEntry
+// check if program1 is before the program2 in the ConfigEntry
 //
-func isProgramBefore(entries []*ConfigEntry, program_1 string, program_2 string) bool {
+func isProgramBefore(entries []*ConfigEntry, program1 string, program2 string) bool {
 	order := 0
-	program_1_order := -1
-	program_2_order := -1
+	program1Order := -1
+	progam2Order := -1
 
 	for _, entry := range entries {
 		if entry.IsProgram() {
-			if entry.GetProgramName() == program_1 {
-				program_1_order = order
-			} else if entry.GetProgramName() == program_2 {
-				program_2_order = order
+			if entry.GetProgramName() == program1 {
+				program1Order = order
+			} else if entry.GetProgramName() == program2 {
+				progam2Order = order
 			}
 			order++
 		}
 	}
 
-	fmt.Printf("program_1_order=%d, program_2_order=%d\n", program_1_order, program_2_order)
+	fmt.Printf("program1Order=%d, progam2Order=%d\n", program1Order, progam2Order)
 
-	return program_1_order >= 0 && program_1_order < program_2_order
+	return program1Order >= 0 && program1Order < progam2Order
 }
 func TestSortProgram(t *testing.T) {
 	entries := make([]*ConfigEntry, 0)

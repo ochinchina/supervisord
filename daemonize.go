@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Deamonize run this process in daemon mode
 func Deamonize(proc func()) {
 	context := daemon.Context{LogFileName: "/dev/stdout"}
 
