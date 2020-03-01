@@ -123,7 +123,7 @@ func runServer() {
 		options.Configuration, _ = findSupervisordConf()
 		s := NewSupervisor(options.Configuration)
 		initSignals(s)
-		if sErr, _, _, _ := s.Reload(); sErr != nil {
+		if _, _, _, sErr := s.Reload(); sErr != nil {
 			panic(sErr)
 		}
 		s.WaitForExit()
