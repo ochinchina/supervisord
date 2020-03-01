@@ -84,7 +84,16 @@ If both "inet_http_server" and "unix_http_server" is not configured in the confi
 
 ## supervisord information
 
-The log & pid of supervisord process is supported by section "supervisord" setting.
+Following parameters are supported in "supervisord" section:
+
+- logfile
+- logfile_maxbytes
+- logfile_backups
+- loglevel
+- pidfile
+- minfds
+- minprocs
+- identifier
 
 ## program
 
