@@ -11,7 +11,7 @@ import (
 
 func installSignalAndForward(pidfile string, exitIfDaemonStopped bool) {
 	c := make(chan os.Signal, 1)
-	install_signal(c)
+	installSignal(c)
 
 	timer := time.After(5 * time.Second)
 	for {
