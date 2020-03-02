@@ -7,6 +7,6 @@ import (
 	"syscall"
 )
 
-func set_deathsig(sysProcAttr *syscall.SysProcAttr) {
+func setDeathsig(sysProcAttr *syscall.SysProcAttr) {
 	sysProcAttr.Setpgid = true
 }
