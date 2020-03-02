@@ -45,7 +45,7 @@ func TestTcpCheckOk(t *testing.T) {
 			}
 		}
 	}()
-	checker := NewTcpChecker("127.0.0.1", 8999, []string{"Hello", "world"}, 10)
+	checker := NewTCPChecker("127.0.0.1", 8999, []string{"Hello", "world"}, 10)
 	if !checker.Check() {
 		t.Fail()
 	}
@@ -64,7 +64,7 @@ func TestTcpCheckFail(t *testing.T) {
 			listener.Close()
 		}
 	}()
-	checker := NewTcpChecker("127.0.0.1", 8989, []string{"Hello", "world"}, 2)
+	checker := NewTCPChecker("127.0.0.1", 8989, []string{"Hello", "world"}, 2)
 	if checker.Check() {
 		t.Fail()
 	}
@@ -83,7 +83,7 @@ func TestHttpCheckOk(t *testing.T) {
 
 		}
 	}()
-	checker := NewHttpChecker("http://127.0.0.1:8999", 2)
+	checker := NewHTTPChecker("http://127.0.0.1:8999", 2)
 	if !checker.Check() {
 		t.Fail()
 	}
@@ -101,7 +101,7 @@ func TestHttpCheckFail(t *testing.T) {
 
 		}
 	}()
-	checker := NewHttpChecker("http://127.0.0.1:8999", 2)
+	checker := NewHTTPChecker("http://127.0.0.1:8999", 2)
 	if checker.Check() {
 		t.Fail()
 	}

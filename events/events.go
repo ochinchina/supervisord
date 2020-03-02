@@ -687,7 +687,7 @@ func CreateProcessUnknownEvent(process string,
 
 // GetBody get the body of process state event
 func (pse *ProcessStateEvent) GetBody() string {
-	body := fmt.Sprintf("processname:%s groupname:%s fromState:%s", pse.processName, pse.groupName, pse.fromState)
+	body := fmt.Sprintf("processname:%s groupname:%s from_state:%s", pse.processName, pse.groupName, pse.fromState)
 	if pse.tries >= 0 {
 		body = fmt.Sprintf("%s tries:%d", body, pse.tries)
 	}

@@ -6,9 +6,9 @@ import (
 )
 
 //
-// check if program1 is before the program2 in the ConfigEntry
+// check if program1 is before the program2 in the Entry
 //
-func isProgramBefore(entries []*ConfigEntry, program1 string, program2 string) bool {
+func isProgramBefore(entries []*Entry, program1 string, program2 string) bool {
 	order := 0
 	program1Order := -1
 	progam2Order := -1
@@ -24,53 +24,53 @@ func isProgramBefore(entries []*ConfigEntry, program1 string, program2 string) b
 		}
 	}
 
-	fmt.Printf("program1Order=%d, progam2Order=%d\n", program1Order, progam2Order)
+	fmt.Printf("%s Order=%d, %s Order=%d\n", program1, program1Order, program2, progam2Order)
 
 	return program1Order >= 0 && program1Order < progam2Order
 }
 func TestSortProgram(t *testing.T) {
-	entries := make([]*ConfigEntry, 0)
-	entry := NewConfigEntry(".")
+	entries := make([]*Entry, 0)
+	entry := NewEntry(".")
 	entry.Group = "group:group-1"
 	entry.Name = "program:prog-1"
 	entry.keyValues["depends_on"] = "prog-3"
 
 	entries = append(entries, entry)
 
-	entry = NewConfigEntry(".")
+	entry = NewEntry(".")
 	entry.Group = "group:group-1"
 	entry.Name = "program:prog-2"
 	entry.keyValues["depends_on"] = "prog-1"
 
 	entries = append(entries, entry)
 
-	entry = NewConfigEntry(".")
+	entry = NewEntry(".")
 	entry.Group = "group:group-1"
 	entry.Name = "program:prog-3"
 	entry.keyValues["depends_on"] = "prog-4,prog-5"
 
 	entries = append(entries, entry)
 
-	entry = NewConfigEntry(".")
+	entry = NewEntry(".")
 	entry.Group = "group:group-1"
 	entry.Name = "program:prog-5"
 
 	entries = append(entries, entry)
 
-	entry = NewConfigEntry(".")
+	entry = NewEntry(".")
 	entry.Group = "group:group-1"
 	entry.Name = "program:prog-4"
 
 	entries = append(entries, entry)
 
-	entry = NewConfigEntry(".")
+	entry = NewEntry(".")
 	entry.Group = "group:group-1"
 	entry.Name = "program:prog-6"
 	entry.keyValues["priority"] = "100"
 
 	entries = append(entries, entry)
 
-	entry = NewConfigEntry(".")
+	entry = NewEntry(".")
 	entry.Group = "group:group-1"
 	entry.Name = "program:prog-7"
 	entry.keyValues["priority"] = "99"
