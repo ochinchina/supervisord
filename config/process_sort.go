@@ -38,8 +38,8 @@ func NewProcessSorter() *ProcessSorter {
 func (p *ProcessSorter) initDepends(programConfigs []*Entry) {
 	//sort by dependsOn
 	for _, config := range programConfigs {
-		if config.IsProgram() && config.HasParameter("dependsOn") {
-			dependsOn := config.GetString("dependsOn", "")
+		if config.IsProgram() && config.HasParameter("depends_on") {
+			dependsOn := config.GetString("depends_on", "")
 			progName := config.GetProgramName()
 			for _, dependsOnProg := range strings.Split(dependsOn, ",") {
 				dependsOnProg = strings.TrimSpace(dependsOnProg)
