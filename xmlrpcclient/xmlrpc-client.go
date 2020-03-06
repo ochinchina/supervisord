@@ -111,6 +111,7 @@ func (r *XMLRPCClient) processResponse(resp *http.Response, processBody func(io.
 func (r *XMLRPCClient) postInetHTTP(method string, url string, data interface{}, processBody func(io.ReadCloser, error)) {
 	req, err := r.createHTTPRequest(method, url, data)
 	if err != nil {
+		processBody(emptyReader, err)
 		return
 	}
 
@@ -122,9 +123,7 @@ func (r *XMLRPCClient) postInetHTTP(method string, url string, data interface{},
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		if r.verbose {
-			fmt.Println("Fail to send request to supervisord:", err)
-		}
+		processBody(emptyReader, fmt.Errorf("Fail to send http request to supervisord: %s", err))
 		return
 	}
 	r.processResponse(resp, processBody)
@@ -140,35 +139,31 @@ func (r *XMLRPCClient) postUnixHTTP(method string, path string, data interface{}
 		conn, err = net.Dial("unix", path)
 	}
 	if err != nil {
-		if r.verbose {
-			fmt.Printf("Fail to connect unix socket path: %s\n", r.serverurl)
-		}
+		processBody(emptyReader, fmt.Errorf("Fail to connect unix socket path: %s. %s", r.serverurl, err))
 		return
 	}
 	defer conn.Close()
 
 	if r.timeout > 0 {
 		if err := conn.SetDeadline(time.Now().Add(r.timeout)); err != nil {
+			processBody(emptyReader, err)
 			return
 		}
 	}
 	req, err := r.createHTTPRequest(method, "/RPC2", data)
 
 	if err != nil {
+		processBody(emptyReader, fmt.Errorf("Fail to create http request. %s", err))
 		return
 	}
 	err = req.Write(conn)
 	if err != nil {
-		if r.verbose {
-			fmt.Printf("Fail to write to unix socket %s\n", r.serverurl)
-		}
+		processBody(emptyReader, fmt.Errorf("Fail to write to unix socket %s", r.serverurl))
 		return
 	}
 	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
 	if err != nil {
-		if r.verbose {
-			fmt.Printf("Fail to read response %s\n", err)
-		}
+		processBody(emptyReader, fmt.Errorf("Fail to read response %s", err))
 		return
 	}
 	r.processResponse(resp, processBody)
