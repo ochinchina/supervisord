@@ -875,6 +875,9 @@ func (p *Process) Stop(wait bool) {
 
 // GetStatus get the status of program in string
 func (p *Process) GetStatus() string {
+	if p.cmd.ProcessState == nil {
+		return "<nil>"
+	}
 	if p.cmd.ProcessState.Exited() {
 		return p.cmd.ProcessState.String()
 	}
