@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+    "path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -431,7 +432,11 @@ func (p *Process) createProgramCommand() error {
 
 func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 	if p.config.GetBool("restart_when_binary_changed", false) {
-		AddProgramChangeMonitor(programPath, func(path string, mode filechangemonitor.FileChangeMode) {
+        absPath, err := filepath.Abs( programPath )
+        if err != nil {
+            absPath = programPath
+        }
+		AddProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is changed, resatrt it")
 			p.Stop(true)
 			p.Start(true)
