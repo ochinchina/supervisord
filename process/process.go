@@ -445,7 +445,11 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 	dirMonitor := p.config.GetString("restart_directory_monitor", "")
 	filePattern := p.config.GetString("restart_filePattern", "*")
 	if dirMonitor != "" {
-		AddConfigChangeMonitor(dirMonitor, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
+        absDir, err := filepath.Abs( dirMonitor )
+        if err != nil {
+            absDir = dirMonitor
+        }
+		AddConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
 			//fmt.Printf( "filePattern=%s, base=%s\n", filePattern, filepath.Base( path ) )
 			//if matched, err := filepath.Match( filePattern, filepath.Base( path ) ); matched && err == nil {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("configure file for program is changed, resatrt it")
