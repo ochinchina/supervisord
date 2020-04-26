@@ -13,7 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-    "path/filepath"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -397,7 +397,6 @@ func (p *Process) isRunning() bool {
 			proc, err := os.FindProcess(p.cmd.Process.Pid)
 			return proc != nil && err == nil
 		}
-		fmt.Printf("send signal 0 to process\n")
 		return p.cmd.Process.Signal(syscall.Signal(0)) == nil
 	}
 	return false
@@ -432,10 +431,10 @@ func (p *Process) createProgramCommand() error {
 
 func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 	if p.config.GetBool("restart_when_binary_changed", false) {
-        absPath, err := filepath.Abs( programPath )
-        if err != nil {
-            absPath = programPath
-        }
+		absPath, err := filepath.Abs(programPath)
+		if err != nil {
+			absPath = programPath
+		}
 		AddProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is changed, resatrt it")
 			p.Stop(true)
@@ -445,10 +444,10 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 	dirMonitor := p.config.GetString("restart_directory_monitor", "")
 	filePattern := p.config.GetString("restart_filePattern", "*")
 	if dirMonitor != "" {
-        absDir, err := filepath.Abs( dirMonitor )
-        if err != nil {
-            absDir = dirMonitor
-        }
+		absDir, err := filepath.Abs(dirMonitor)
+		if err != nil {
+			absDir = dirMonitor
+		}
 		AddConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
 			//fmt.Printf( "filePattern=%s, base=%s\n", filePattern, filepath.Base( path ) )
 			//if matched, err := filepath.Match( filePattern, filepath.Base( path ) ); matched && err == nil {
@@ -463,10 +462,8 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 
 // wait for the started program exit
 func (p *Process) waitForExit(startSecs int64) {
-	err := p.cmd.Wait()
-	if err != nil {
-		log.WithFields(log.Fields{"program": p.GetName()}).Info("fail to wait for program exit")
-	} else if p.cmd.ProcessState != nil {
+	p.cmd.Wait()
+	if p.cmd.ProcessState != nil {
 		log.WithFields(log.Fields{"program": p.GetName()}).Infof("program stopped with status:%v", p.cmd.ProcessState)
 	} else {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("program stopped")
@@ -841,9 +838,9 @@ func (p *Process) Stop(wait bool) {
 		log.WithFields(log.Fields{"program": p.GetName()}).Error("Cannot set stopasgroup=true and killasgroup=false")
 	}
 
+	var stopped int32 = 0
 	go func() {
-		stopped := false
-		for i := 0; i < len(sigs) && !stopped; i++ {
+		for i := 0; i < len(sigs) && atomic.LoadInt32(&stopped) == 0; i++ {
 			// send signal to process
 			sig, err := signals.ToSignal(sigs[i])
 			if err != nil {
@@ -856,26 +853,19 @@ func (p *Process) Stop(wait bool) {
 			for endTime.After(time.Now()) {
 				//if it already exits
 				if p.state != Starting && p.state != Running && p.state != Stopping {
-					stopped = true
+					atomic.StoreInt32(&stopped, 1)
 					break
 				}
-				time.Sleep(1 * time.Second)
+				time.Sleep(10 * time.Millisecond)
 			}
 		}
-		if !stopped {
+		if atomic.LoadInt32(&stopped) == 0 {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
 			p.Signal(syscall.SIGKILL, killasgroup)
 		}
 	}()
 	if wait {
-		for {
-			// if the program exits
-			p.lock.RLock()
-			if p.state != Starting && p.state != Running && p.state != Stopping {
-				p.lock.RUnlock()
-				break
-			}
-			p.lock.RUnlock()
+		for atomic.LoadInt32(&stopped) == 0 {
 			time.Sleep(1 * time.Second)
 		}
 	}
