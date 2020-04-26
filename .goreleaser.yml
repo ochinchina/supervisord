@@ -8,11 +8,8 @@ builds:
   - CGO_ENABLED=1
   binary: supervisord_static
   goos:
-  - windows
-  - darwin
   - linux
   goarch:
-  - "386"
   - amd64
   ldflags:
   - "-linkmode external -extldflags -static"
