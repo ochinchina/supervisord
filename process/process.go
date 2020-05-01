@@ -862,6 +862,7 @@ func (p *Process) Stop(wait bool) {
 		if atomic.LoadInt32(&stopped) == 0 {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
 			p.Signal(syscall.SIGKILL, killasgroup)
+			atomic.StoreInt32(&stopped, 1)
 		}
 	}()
 	if wait {
