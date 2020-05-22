@@ -5,13 +5,14 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -135,34 +136,35 @@ func (el *EventListener) removeFirstEvent() {
 
 func (el *EventListener) start() {
 	go func() {
+		log := zap.L().With(zap.String("eventListener", el.pool))
 		for {
 			//read if it is ready
 			err := el.waitForReady()
 			if err != nil {
-				log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to read from event listener, the event listener may exit")
+				log.Warn("fail to read from event listener, the event listener may exit")
 				break
 			}
 			for {
 				if b, ok := el.getFirstEvent(); ok {
 					_, err := el.stdout.Write(b)
 					if err != nil {
-						log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to send event")
+						log.Warn("fail to send event")
 						break
 					}
 					result, err := el.readResult()
 					if err != nil {
-						log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to read result")
+						log.Warn("fail to read result")
 						break
 					}
 					if result == "OK" { //remove the event if succeed
-						log.WithFields(log.Fields{"eventListener": el.pool}).Info("succeed to send the event")
+						log.Info("succeed to send the event")
 						el.removeFirstEvent()
 						break
 					} else if result == "FAIL" {
-						log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to send the event")
+						log.Warn("fail to send the event")
 						break
 					} else {
-						log.WithFields(log.Fields{"eventListener": el.pool, "result": result}).Warn("unknown result from listener")
+						log.Warn("unknown result from listener", zap.String("result", result))
 					}
 				}
 			}
@@ -171,14 +173,15 @@ func (el *EventListener) start() {
 }
 
 func (el *EventListener) waitForReady() error {
-	log.Debug("start to check if event listener program is ready")
+	zap.L().Debug("start to check if event listener program is ready")
+	log := zap.L().With(zap.String("eventListener", el.pool))
 	for {
 		line, err := el.stdin.ReadString('\n')
 		if err != nil {
 			return err
 		}
 		if line == "READY\n" {
-			log.WithFields(log.Fields{"eventListener": el.pool}).Debug("the event listener is ready")
+			log.Debug("the event listener is ready")
 			return nil
 		}
 	}
@@ -223,7 +226,7 @@ func (el *EventListener) HandleEvent(event Event) {
 		el.events.PushBack(encodedEvent)
 		el.cond.Signal()
 	} else {
-		log.WithFields(log.Fields{"eventListener": el.pool}).Error("events reaches the bufferSize, discard the events")
+		zap.L().Error("events reaches the bufferSize, discard the events", zap.String("eventListener", el.pool))
 	}
 }
 
@@ -330,7 +333,7 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 		}
 	}
 	for event := range allEvents {
-		log.WithFields(log.Fields{"eventListener": eventListenerName, "event": event}).Info("register event listener")
+		zap.L().Info("register event listener", zap.String("eventListener", eventListenerName), zap.String("event", event))
 		if _, ok := em.eventListeners[event]; !ok {
 			em.eventListeners[event] = make(map[*EventListener]bool)
 		}
@@ -349,9 +352,10 @@ func (em *EventListenerManager) unregisterEventListener(eventListenerName string
 	listener, ok := em.namedListeners[eventListenerName]
 	if ok {
 		delete(em.namedListeners, eventListenerName)
+		log := zap.L().With(zap.String("eventListener", eventListenerName))
 		for event, listeners := range em.eventListeners {
 			if _, ok = listeners[listener]; ok {
-				log.WithFields(log.Fields{"eventListener": eventListenerName, "event": event}).Info("unregister event listener")
+				log.Info("unregister event listener", zap.String("event", event))
 			}
 
 			delete(listeners, listener)
@@ -370,9 +374,10 @@ func UnregisterEventListener(eventListenerName string) *EventListener {
 func (em *EventListenerManager) EmitEvent(event Event) {
 	listeners, ok := em.eventListeners[event.GetType()]
 	if ok {
-		log.WithFields(log.Fields{"event": event.GetType()}).Info("process event")
+		log := zap.L().With(zap.String("event", event.GetType()))
+		log.Info("process event")
 		for listener := range listeners {
-			log.WithFields(log.Fields{"eventListener": listener.pool, "event": event.GetType()}).Info("receive event on listener")
+			log.Info("receive event on listener", zap.String("eventListener", listener.pool))
 			listener.HandleEvent(event)
 		}
 	}
@@ -539,7 +544,7 @@ func (pec *ProcCommEventCapture) findEndStr() int {
 	endPos := strings.Index(pec.eventBuffer, ProcCommonEndStr)
 	if endPos == -1 {
 		if len(pec.eventBuffer) > pec.captureMaxBytes {
-			log.WithFields(log.Fields{"program": pec.procName}).Warn("The capture buffer is overflow, discard the content")
+			zap.L().Warn("The capture buffer is overflow, discard the content", zap.String("program", pec.procName))
 			pec.eventBeginPos = -1
 			pec.eventBuffer = ""
 		}

@@ -2,8 +2,9 @@ package config
 
 import (
 	"bytes"
-	"github.com/ochinchina/supervisord/util"
 	"strings"
+
+	"github.com/ochinchina/supervisord/util"
 )
 
 // ProcessGroup manage the program and its group mapping

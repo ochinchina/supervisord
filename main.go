@@ -3,15 +3,17 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/jessevdk/go-flags"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"unicode"
+
+	"supervisord/internal/zap/encoder"
+
+	"github.com/jessevdk/go-flags"
+	"go.uber.org/zap"
 )
 
 // Options the command line options
@@ -22,13 +24,15 @@ type Options struct {
 }
 
 func init() {
-	log.SetOutput(os.Stdout)
-	if runtime.GOOS == "windows" {
-		log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
-	} else {
-		log.SetFormatter(&log.TextFormatter{DisableColors: false, FullTimestamp: true})
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Encoding = "term-color"
+	cfg.EncoderConfig = encoder.NewDevelopmentEncoderConfig()
+	cfg.EncoderConfig.CallerKey = ""
+	log, err := cfg.Build()
+	if err != nil {
+		panic(err)
 	}
-	log.SetLevel(log.DebugLevel)
+	zap.ReplaceGlobals(log)
 }
 
 func initSignals(s *Supervisor) {
@@ -36,7 +40,7 @@ func initSignals(s *Supervisor) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		log.WithFields(log.Fields{"signal": sig}).Info("receive a signal to stop all process & exit")
+		zap.L().Info("receive a signal to stop all process & exit", zap.Stringer("signal", sig))
 		s.procMgr.StopAllProcesses()
 		os.Exit(-1)
 	}()
@@ -53,7 +57,7 @@ func loadEnvFile() {
 	//try to open the environment file
 	f, err := os.Open(options.EnvFile)
 	if err != nil {
-		log.WithFields(log.Fields{"file": options.EnvFile}).Error("Fail to open environment file")
+		zap.L().Error("Fail to open environment file", zap.String("file", options.EnvFile))
 		return
 	}
 	defer f.Close()

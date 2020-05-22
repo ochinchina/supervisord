@@ -11,7 +11,7 @@ import (
 
 	"github.com/gorilla/rpc"
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // XMLRPC mange the XML RPC servers
@@ -30,21 +30,21 @@ type httpBasicAuth struct {
 // create a new HttpBasicAuth oject with user name, password and the http request handler
 func newHTTPBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
 	if user != "" && password != "" {
-		log.Debug("require authentication")
+		zap.L().Debug("require authentication")
 	}
 	return &httpBasicAuth{user: user, password: password, handler: handler}
 }
 
 func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.user == "" || h.password == "" {
-		log.Debug("no auth required")
+		zap.L().Debug("no auth required")
 		h.handler.ServeHTTP(w, r)
 		return
 	}
 	username, password, ok := r.BasicAuth()
 	if ok && username == h.user {
 		if strings.HasPrefix(h.password, "{SHA}") {
-			log.Debug("auth with SHA")
+			zap.L().Debug("auth with SHA")
 			hash := sha1.New()
 			io.WriteString(hash, password)
 			if hex.EncodeToString(hash.Sum(nil)) == h.password[5:] {
@@ -52,7 +52,7 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else if password == h.password {
-			log.Debug("Auth with normal password")
+			zap.L().Debug("Auth with normal password")
 			h.handler.ServeHTTP(w, r)
 			return
 		}
@@ -68,7 +68,7 @@ func NewXMLRPC() *XMLRPC {
 
 // Stop stop network listening
 func (p *XMLRPC) Stop() {
-	log.Info("stop listening")
+	zap.L().Info("stop listening")
 	for _, listener := range p.listeners {
 		listener.Close()
 	}
@@ -110,13 +110,13 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	mux.Handle("/", newHTTPBasicAuth(user, password, webguiHandler))
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
-		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Info("success to listen on address")
+		zap.L().Info("success to listen on address", zap.String("addr", listenAddr), zap.String("protocol", protocol))
 		p.listeners[protocol] = listener
 		startedCb()
 		http.Serve(listener, mux)
 	} else {
 		startedCb()
-		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Fatal("fail to listen on address")
+		zap.L().Fatal("fail to listen on address", zap.String("addr", listenAddr), zap.String("protocol", protocol))
 	}
 
 }

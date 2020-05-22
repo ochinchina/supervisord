@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
-	"net/http"
-	"os"
-	"strings"
 )
 
 // CtlCommand the entry of ctl command

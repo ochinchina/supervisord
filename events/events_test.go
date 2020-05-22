@@ -126,7 +126,7 @@ func TestProcessStartingEvent(t *testing.T) {
 	if event.GetType() != "PROCESS_STATE_STARTING" {
 		t.Error("Fail to creating the process starting event")
 	}
-	fmt.Printf( "%s\n", event.GetBody() )
+	fmt.Printf("%s\n", event.GetBody())
 	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:STOPPED tries:0" {
 		t.Error("Fail to encode the process starting event")
 	}

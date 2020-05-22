@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/ochinchina/supervisord/util"
 	"testing"
+
+	"github.com/ochinchina/supervisord/util"
 )
 
 func createTestGroup() *ProcessGroup {

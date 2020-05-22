@@ -3,8 +3,8 @@
 package main
 
 import (
-	daemon "github.com/ochinchina/go-daemon"
-	log "github.com/sirupsen/logrus"
+	"github.com/ochinchina/go-daemon"
+	"go.uber.org/zap"
 )
 
 // Deamonize run this process in daemon mode
@@ -16,7 +16,7 @@ func Deamonize(proc func()) {
 		context := daemon.Context{}
 		child, err = context.Reborn()
 		if err != nil {
-			log.WithFields(log.Fields{"err": err}).Fatal("Unable to run")
+			zap.L().Fatal("Unable to run", zap.Error(err))
 		}
 	}
 	if child != nil {
