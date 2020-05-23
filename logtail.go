@@ -3,8 +3,9 @@ package main
 import (
 	"net/http"
 
+	logger "supervisord/logger"
+
 	"github.com/gorilla/mux"
-	logger "github.com/ochinchina/supervisord/logger"
 )
 
 // Logtail tail the process log through http interface

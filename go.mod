@@ -17,6 +17,7 @@ require (
 	github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 // indirect
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/zap v1.15.0
+	golang.org/x/tools v0.0.0-20200522201501-cb1345f3a375 // indirect
 )
 
 replace github.com/ochinchina/supervisord => ./

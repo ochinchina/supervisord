@@ -1,12 +1,13 @@
 package config
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func createTmpFile() (string, error) {
@@ -51,79 +52,32 @@ func TestProgramConfig(t *testing.T) {
 		return
 	}
 
-	progs := config.GetPrograms()
+	progs := config.Programs()
 
 	if len(progs) != 1 || config.GetProgram("test") == nil || config.GetProgram("app") != nil {
 		t.Error("Fail to parse the test program")
 	}
 }
 
-func TestGetBoolValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\na=true\nb=false\n"))
-	entry := config.GetProgram("test")
-	if entry.GetBool("a", false) == false || entry.GetBool("b", true) == true || entry.GetBool("c", false) != false {
-		t.Error("Fail to get boolean value")
-	}
+func TestUnixHttpServer(t *testing.T) {
+	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[unix_http_server]\nfile=/foo.bar"))
+
+	entry := config.UnixHTTPServer
+	assert.NotNil(t, entry)
+	assert.Equal(t, "/foo.bar", entry.File)
 }
 
-func TestGetIntValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\na=1\nb=2\n"))
-	entry := config.GetProgram("test")
-	if entry.GetInt("a", 0) == 0 || entry.GetInt("b", 0) == 0 || entry.GetInt("c", 9) != 9 {
-		t.Error("Fail to get integer value")
-	}
-}
+func TestInetHttpServer(t *testing.T) {
+	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[inet_http_server]\nport=9898"))
 
-func TestGetStringValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\na=test\nb=hello\n"))
-	entry := config.GetProgram("test")
-	if entry.GetString("a", "") != "test" || entry.GetString("b", "") != "hello" || entry.GetString("c", "") != "" {
-		t.Error("Fail to get string value")
-	}
-}
-
-func TestGetEnvValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\na=A=\"env1\",B=env2"))
-	entry := config.GetProgram("test")
-	envs := entry.GetEnv("a")
-	if len(envs) != 2 || envs[0] != "A=env1" || envs[1] != "B=env2" {
-		t.Error("Fail to get env value")
-	}
-
-	config, _ = parse([]byte("[program.test]\na=A=env1,B=\"env2\""))
-	entry = config.GetProgram("test")
-	envs = entry.GetEnv("a")
-	if len(envs) != 2 || envs[0] != "A=env1" || envs[1] != "B=env2" {
-		t.Error("Fail to get env value")
-	}
-}
-
-func TestGetBytesFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test"))
-	entry := config.GetProgram("test")
-
-	if entry.GetBytes("A", 0) != 1024 || entry.GetBytes("B", 0) != 2048 || entry.GetBytes("C", 0) != 3*1024*1024 || entry.GetBytes("D", 0) != 4*1024*1024*1024 || entry.GetBytes("E", 0) != 0 || entry.GetBytes("F", -1) != -1 {
-		t.Error("Fail to get bytes")
-	}
-}
-
-func TestGetUnitHttpServer(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[unix_http_server]\n"))
-
-	entry, ok := config.GetUnixHTTPServer()
-
-	if !ok || entry == nil {
-		t.Error("Fail to get the unix_http_server")
-	}
-
-	if entry.GetProgramName() != "" {
-		t.Error("there should be no program name in unix_http_server")
-	}
+	entry := config.InetHTTPServer
+	assert.NotNil(t, entry)
+	assert.Equal(t, "9898", entry.Port)
 }
 
 func TestProgramInGroup(t *testing.T) {
 	config, _ := parse([]byte("[program.test1]\nA=123\n[group.test]\nprograms=test1,test2\n[program.test2]\nB=hello\n[program.test3]\nC=tt"))
-	if config.GetProgram("test1").Group != "test" { //|| config.GetProgram( "test2" ).Group != "test" || config.GetProgram( "test3" ).Group == "test" {
+	if config.GetProgram("test1").Group != "test" {
 		t.Error("fail to test the program in a group")
 	}
 }
@@ -164,7 +118,6 @@ func TestConfigWithInclude(t *testing.T) {
 	ioutil.WriteFile(filepath.Join(dir, "file1"), []byte("[program.cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
 	ioutil.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program.ls]\ncommand=ls\n"), os.ModePerm)
 
-	fmt.Println(filepath.Join(dir, "file1"))
 	config := NewConfig(filepath.Join(dir, "file1"))
 	config.Load()
 
@@ -178,19 +131,9 @@ func TestConfigWithInclude(t *testing.T) {
 }
 
 func TestDefaultParams(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\nautorestart=true\ntest=1\n[program-default]\ncommand=/usr/bin/ls\nrestart=true\nautorestart=false"))
+	config, _ := parse([]byte("[program.test]\nautorestart=true\ntest=1\n[program]\ncommand=/usr/bin/ls\nstartretries=10\nautorestart=false"))
 	entry := config.GetProgram("test")
-	if entry.GetString("command", "") != "/usr/bin/ls" {
-		t.Error("fail to get command of program")
-	}
-	if entry.GetString("restart", "") != "true" {
-		t.Error("Fail to get restart value")
-	}
-
-	if entry.GetInt("test", 0) != 1 {
-		t.Error("Fail to get test value")
-	}
-	if entry.GetString("autorestart", "") != "true" {
-		t.Error("autorestart value should be true")
-	}
+	assert.Equal(t, []string{"/usr/bin/ls"}, entry.Command)
+	assert.True(t, entry.AutoStart)
+	assert.Equal(t, entry.StartRetries, 10)
 }

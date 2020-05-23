@@ -1,24 +1,27 @@
 package model
 
 type Program struct {
-	ProcessNumber            int      `yaml:"-"`
-	ProcessName              string   `yaml:"-"`
-	Name                     string   `yaml:"name" ini:"-"`
+	ProcessNumber int    `yaml:"-"`
+	ProcessName   string `yaml:"-"`
+	Name          string `yaml:"-" ini:"-"`
+	Group         string `yaml:"-" ini:"-"`
+
 	Directory                string   `yaml:"directory" ini:"directory"`
 	Command                  []string `yaml:"command" ini:"command" delim:"\n"`
+	Environment              []string `yaml:"environment" ini:"environment" delim:"\n"`
 	User                     string   `yaml:"user" ini:"user"`
 	ExitCodes                []int    `yaml:"exit_codes" ini:"exitcodes" delim:"," default:"[0,2]"`
 	Priority                 int      `yaml:"priority" ini:"priority" default:"999"`
-	RestartPause             int      `yaml:"restart_pause" ini:"restartpause"`
+	RestartPause             Duration `yaml:"restart_pause" ini:"restartpause"`
 	StartRetries             int      `yaml:"start_retries" ini:"startretries" default:"3"`
-	StartSeconds             int      `yaml:"start_seconds" ini:"startsecs" default:"1"`
+	StartSeconds             Duration `yaml:"start_seconds" ini:"startsecs" default:"1000000000"`
 	Cron                     string   `yaml:"cron" ini:"cron"`
 	AutoStart                bool     `yaml:"auto_start" ini:"autostart" default:"true"`
 	AutoRestart              *bool    `yaml:"auto_restart" ini:"autorestart"`
 	RestartDirectoryMonitor  string   `yaml:"restart_directory_monitor" ini:"restart_directory_monitor"`
 	RestartFilePattern       string   `yaml:"restart_file_pattern" ini:"restart_filePattern" default:"*"`
 	RestartWhenBinaryChanged bool     `yaml:"restart_when_binary_changed" ini:"restart_when_binary_changed"`
-	StopSignals              []string `yaml:"stop_signals" ini:"stopsignals" delim:" "`
+	StopSignals              []string `yaml:"stop_signals" ini:"stopsignal" delim:" "`
 	StopWaitSeconds          Duration `yaml:"stop_wait_seconds" ini:"stopwaitsecs" default:"10000000000"`
 	StopAsGroup              bool     `yaml:"stop_as_group" ini:"stopasgroup"`
 	KillAsGroup              bool     `yaml:"kill_as_group" ini:"killasgroup"`
@@ -30,7 +33,6 @@ type Program struct {
 	StderrLogfileBackups     int      `yaml:"stderr_logfile_backups" ini:"stderr_logfile_backups" default:"10"`
 	StderrLogFileMaxBytes    int      `yaml:"stderr_logfile_max_bytes" ini:"stderr_logfile_maxbytes" default:"52428800"`
 	DependsOn                []string `yaml:"depends_on" ini:"depends_on" delim:","`
-	Environment              []string `yaml:"environment" ini:"environment"`
 }
 
 func (p *Program) IsProgram() bool {
@@ -39,7 +41,7 @@ func (p *Program) IsProgram() bool {
 
 type Programs []*Program
 
-func (p Programs) GetPrograms() []*Program {
+func (p Programs) Sorted() Programs {
 	var res ProgramByPriority
 	for _, p := range p {
 		if p.IsProgram() {
@@ -49,8 +51,8 @@ func (p Programs) GetPrograms() []*Program {
 	return NewProcessSorter().SortProgram(res)
 }
 
-func (p Programs) GetNames() []string {
-	programs := p.GetPrograms()
+func (p Programs) Names() []string {
+	programs := p.Sorted()
 	names := make([]string, len(p))
 	for i, program := range programs {
 		names[i] = program.Name
@@ -59,10 +61,5 @@ func (p Programs) GetNames() []string {
 }
 
 func (p Programs) GetProgramNames() []string {
-	programs := p.GetPrograms()
-	names := make([]string, len(p))
-	for i, program := range programs {
-		names[i] = program.ProcessName
-	}
-	return names
+	return p.Names()
 }

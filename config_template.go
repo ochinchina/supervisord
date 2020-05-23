@@ -50,7 +50,6 @@ priority=999
 serverurl = unix:///tmp/supervisor.sock
 username = chris
 password = 123
-#prompt = not support
 `
 
 // InitTemplateCommand implemnts flags.Commander interface

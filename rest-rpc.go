@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"supervisord/types"
 
 	"github.com/gorilla/mux"
-	"github.com/ochinchina/supervisord/types"
 )
 
 // SupervisorRestful the restful interface to control the programs defined in configuration file

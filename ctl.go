@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"supervisord/config"
+	"supervisord/types"
+	"supervisord/xmlrpcclient"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/types"
-	"github.com/ochinchina/supervisord/xmlrpcclient"
 )
 
 // CtlCommand the entry of ctl command
@@ -89,11 +89,8 @@ func (x *CtlCommand) getServerURL() string {
 	} else if _, err := os.Stat(options.Configuration); err == nil {
 		config := config.NewConfig(options.Configuration)
 		config.Load()
-		if entry, ok := config.GetSupervisorctl(); ok {
-			serverurl := entry.GetString("serverurl", "")
-			if serverurl != "" {
-				return serverurl
-			}
+		if config.SupervisorCtl != nil && config.SupervisorCtl.ServerURL != "" {
+			return config.SupervisorCtl.ServerURL
 		}
 	}
 	return "http://localhost:9001"
@@ -107,9 +104,8 @@ func (x *CtlCommand) getUser() string {
 	} else if _, err := os.Stat(options.Configuration); err == nil {
 		config := config.NewConfig(options.Configuration)
 		config.Load()
-		if entry, ok := config.GetSupervisorctl(); ok {
-			user := entry.GetString("username", "")
-			return user
+		if config.SupervisorCtl != nil {
+			return config.SupervisorCtl.Username
 		}
 	}
 	return ""
@@ -123,9 +119,8 @@ func (x *CtlCommand) getPassword() string {
 	} else if _, err := os.Stat(options.Configuration); err == nil {
 		config := config.NewConfig(options.Configuration)
 		config.Load()
-		if entry, ok := config.GetSupervisorctl(); ok {
-			password := entry.GetString("password", "")
-			return password
+		if config.SupervisorCtl != nil {
+			return config.SupervisorCtl.Password
 		}
 	}
 	return ""

@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"supervisord/model"
 
 	"github.com/creasty/defaults"
@@ -78,21 +77,33 @@ func (ii *Ini) getIncludeFiles(cfg *ini.File) []string {
 }
 
 func (ii *Ini) parseGroup(cfg *ini.File, c *Config) {
-	sections := cfg.Section("group")
-	if sections == nil {
-		return
-	}
-
-	for _, section := range sections.ChildSections() {
-		entry := c.createEntry(section.Name(), ii.GetConfigFileDir())
-		obj := new(model.Group)
-		_ = defaults.Set(obj)
-		ii.parseEntry(section, entry, obj)
-		obj.Name = entry.Name[len("group."):]
+	for _, section := range cfg.ChildSections("group") {
+		groupName := section.Name()[len("group."):]
+		obj := c.createGroup(groupName)
+		_ = section.MapTo(obj)
 		for _, program := range obj.Programs {
 			c.ProgramGroup.Add(obj.Name, program)
 		}
 	}
+}
+
+// parse the sections starts with "program." prefix.
+//
+// Return all the parsed program names in the ini
+func (ii *Ini) parsePrograms(cfg *ini.File, c *Config) []string {
+	sections := cfg.ChildSections("program")
+	loadedPrograms := make([]string, 0, len(sections))
+	for _, section := range sections {
+		programName := section.Name()[len("program."):]
+		obj := c.createProgram(programName)
+		_ = section.MapTo(obj)
+		obj.Command = stripEmpty(obj.Command)
+		obj.Environment = stripEmpty(obj.Environment)
+		group := c.ProgramGroup.GetGroup(programName, programName)
+		obj.Group = group
+		loadedPrograms = append(loadedPrograms, programName)
+	}
+	return loadedPrograms
 }
 
 func (ii *Ini) parseUnixHttpServer(cfg *ini.File, c *Config) {
@@ -100,10 +111,13 @@ func (ii *Ini) parseUnixHttpServer(cfg *ini.File, c *Config) {
 	if err != nil {
 		return
 	}
-	entry := c.createEntry("unix_http_server", ii.GetConfigFileDir())
-	obj := new(model.UnixHTTPServer)
+	obj := c.UnixHTTPServer
+	if obj == nil {
+		obj = new(model.UnixHTTPServer)
+	}
 	_ = defaults.Set(obj)
-	ii.parseEntry(section, entry, obj)
+	_ = section.MapTo(obj)
+	c.UnixHTTPServer = obj
 }
 
 func (ii *Ini) parseInetHttpServer(cfg *ini.File, c *Config) {
@@ -111,10 +125,13 @@ func (ii *Ini) parseInetHttpServer(cfg *ini.File, c *Config) {
 	if err != nil {
 		return
 	}
-	entry := c.createEntry("inet_http_server", ii.GetConfigFileDir())
-	obj := new(model.InetHTTPServer)
+	obj := c.InetHTTPServer
+	if obj == nil {
+		obj = new(model.InetHTTPServer)
+	}
 	_ = defaults.Set(obj)
-	ii.parseEntry(section, entry, obj)
+	_ = section.MapTo(obj)
+	c.InetHTTPServer = obj
 }
 
 func (ii *Ini) parseSupervisorCtl(cfg *ini.File, c *Config) {
@@ -122,36 +139,13 @@ func (ii *Ini) parseSupervisorCtl(cfg *ini.File, c *Config) {
 	if err != nil {
 		return
 	}
-	entry := c.createEntry("supervisorctl", ii.GetConfigFileDir())
-	obj := new(model.SupervisorCtl)
+	obj := c.SupervisorCtl
+	if obj == nil {
+		obj = new(model.SupervisorCtl)
+	}
 	_ = defaults.Set(obj)
-	ii.parseEntry(section, entry, obj)
-}
-
-// parse the sections starts with "program." prefix.
-//
-// Return all the parsed program names in the ini
-func (ii *Ini) parsePrograms(cfg *ini.File, c *Config) []string {
-	section, err := cfg.GetSection("program")
-	if err != nil {
-		return nil
-	}
-
-	sections := section.ChildSections()
-	loadedPrograms := make([]string, 0, len(sections))
-	for _, section := range sections {
-		programName := section.Name()[len("program."):]
-		entry := c.createEntry(programName, ii.GetConfigFileDir())
-		obj := new(model.Program)
-		_ = defaults.Set(obj)
-		ii.parseEntry(section, entry, obj)
-		obj.Name = programName
-		obj.Command = stripEmpty(obj.Command)
-		group := c.ProgramGroup.GetGroup(programName, programName)
-		entry.Group = group
-		loadedPrograms = append(loadedPrograms, programName)
-	}
-	return loadedPrograms
+	_ = section.MapTo(obj)
+	c.SupervisorCtl = obj
 }
 
 func stripEmpty(strings []string) []string {
@@ -172,20 +166,6 @@ func stripEmpty(strings []string) []string {
 		}
 	}
 	return res
-}
-
-func (ii *Ini) parseEntry(section *ini.Section, c *Entry, v interface{}) {
-	c.Name = section.Name()
-	for _, key := range section.Keys() {
-		c.keyValues[key.Name()] = strings.TrimSpace(key.MustString(""))
-	}
-	for _, key := range section.ParentKeys() {
-		c.keyValues[key.Name()] = strings.TrimSpace(key.MustString(""))
-	}
-	if v != nil {
-		_ = section.MapTo(v)
-		c.Object = v
-	}
 }
 
 // GetConfigFileDir get the directory of supervisor configuration file

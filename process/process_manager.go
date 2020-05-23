@@ -3,9 +3,9 @@ package process
 import (
 	"fmt"
 	"strings"
+	"supervisord/model"
 	"sync"
 
-	"github.com/ochinchina/supervisord/config"
 	"go.uber.org/zap"
 )
 
@@ -23,35 +23,28 @@ func NewManager() *Manager {
 }
 
 // CreateProcess create a process and adds to the manager
-func (pm *Manager) CreateProcess(supervisorID string, config *config.Entry) *Process {
+func (pm *Manager) CreateProcess(supervisorID string, program *model.Program) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
-	if config.IsProgram() {
-		return pm.createProgram(supervisorID, config)
-	} else {
-		return nil
-	}
+	return pm.createProgram(supervisorID, program)
 }
 
 // StartAutoStartPrograms start all the program if its autostart is true
 func (pm *Manager) StartAutoStartPrograms() {
 	pm.ForEachProcess(func(proc *Process) {
-		if proc.isAutoStart() {
+		if proc.program.AutoStart {
 			proc.Start(false)
 		}
 	})
 }
 
-func (pm *Manager) createProgram(supervisorID string, config *config.Entry) *Process {
-	procName := config.GetProgramName()
-
-	proc, ok := pm.procs[procName]
-
+func (pm *Manager) createProgram(supervisorID string, program *model.Program) *Process {
+	proc, ok := pm.procs[program.Name]
 	if !ok {
-		proc = NewProcess(supervisorID, config)
-		pm.procs[procName] = proc
+		proc = NewProcess(supervisorID, program)
+		pm.procs[program.Name] = proc
 	}
-	zap.L().Info("create process", zap.String("program", procName))
+	zap.L().Info("create process", zap.String("program", program.Name))
 	return proc
 }
 
@@ -185,18 +178,16 @@ func (pm *Manager) StopAllProcesses() {
 }
 
 func sortProcess(procs []*Process) []*Process {
-	progConfigs := make([]*config.Entry, 0)
+	progConfigs := make([]*model.Program, 0)
 	for _, proc := range procs {
-		if proc.config.IsProgram() {
-			progConfigs = append(progConfigs, proc.config)
-		}
+		progConfigs = append(progConfigs, proc.program)
 	}
 
 	result := make([]*Process, 0)
-	p := config.NewProcessSorter()
-	for _, config := range p.SortProgram(progConfigs) {
+	p := model.NewProcessSorter()
+	for _, program := range p.SortProgram(progConfigs) {
 		for _, proc := range procs {
-			if proc.config == config {
+			if proc.program == program {
 				result = append(result, proc)
 			}
 		}

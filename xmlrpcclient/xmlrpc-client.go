@@ -10,9 +10,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"supervisord/types"
 	"time"
-
-	"github.com/ochinchina/supervisord/types"
 
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
 )

@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"supervisord/config"
+	"supervisord/faults"
+	"supervisord/logger"
+	"supervisord/process"
+	"supervisord/signals"
+	"supervisord/types"
+	"supervisord/util"
 	"sync"
 	"time"
 
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/faults"
-	"github.com/ochinchina/supervisord/logger"
-	"github.com/ochinchina/supervisord/process"
-	"github.com/ochinchina/supervisord/signals"
-	"github.com/ochinchina/supervisord/types"
-	"github.com/ochinchina/supervisord/util"
 	"go.uber.org/zap"
 )
 
@@ -123,13 +123,6 @@ func (s *Supervisor) GetState(r *http.Request, args *struct{}, reply *struct{ St
 	reply.StateInfo.Statecode = 1
 	reply.StateInfo.Statename = "RUNNING"
 	return nil
-}
-
-// GetPrograms Get all the name of prorams
-//
-// Return the name of all the programs
-func (s *Supervisor) GetPrograms() []string {
-	return s.config.GetProgramNames()
 }
 
 // GetPID get the pid of supervisor
@@ -412,7 +405,7 @@ func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply
 //
 func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, err error) {
 	// get the previous loaded programs
-	prevPrograms := s.config.GetProgramNames()
+	prevPrograms := s.config.ProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
 
 	loadedPrograms, err := s.config.Load()
@@ -448,9 +441,9 @@ func (s *Supervisor) WaitForExit() {
 }
 
 func (s *Supervisor) createPrograms(prevPrograms []string) {
-	programs := s.config.GetProgramNames()
-	for _, entry := range s.config.GetPrograms() {
-		s.procMgr.CreateProcess(s.GetSupervisorID(), entry)
+	programs := s.config.ProgramNames()
+	for _, program := range s.config.Programs() {
+		s.procMgr.CreateProcess(s.GetSupervisorID(), program)
 	}
 	removedPrograms := util.Sub(prevPrograms, programs)
 	for _, p := range removedPrograms {
@@ -463,42 +456,31 @@ func (s *Supervisor) startAutoStartPrograms() {
 }
 
 func (s *Supervisor) startHTTPServer() {
-	httpServerConfig, ok := s.config.GetInetHTTPServer()
 	s.xmlRPC.Stop()
-	if ok {
-		addr := httpServerConfig.GetString("port", "")
+
+	if cfg := s.config.InetHTTPServer; cfg != nil {
+		addr := cfg.Port
 		if addr != "" {
 			cond := sync.NewCond(&sync.Mutex{})
 			cond.L.Lock()
 			defer cond.L.Unlock()
-			go s.xmlRPC.StartInetHTTPServer(httpServerConfig.GetString("username", ""),
-				httpServerConfig.GetString("password", ""),
-				addr,
-				s,
-				func() {
-					cond.Signal()
-				})
+			go s.xmlRPC.StartInetHTTPServer(cfg.Username, cfg.Password, addr, s, func() { cond.Signal() })
 			cond.Wait()
 		}
 	}
 
-	httpServerConfig, ok = s.config.GetUnixHTTPServer()
-	if ok {
-		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
-		sockFile, err := env.Eval(httpServerConfig.GetString("file", "/tmp/supervisord.sock"))
-		if err == nil {
-			cond := sync.NewCond(&sync.Mutex{})
-			cond.L.Lock()
-			defer cond.L.Unlock()
-			go s.xmlRPC.StartUnixHTTPServer(httpServerConfig.GetString("username", ""),
-				httpServerConfig.GetString("password", ""),
-				sockFile,
-				s,
-				func() {
-					cond.Signal()
-				})
-			cond.Wait()
-		}
+	if cfg := s.config.UnixHTTPServer; cfg != nil {
+		cond := sync.NewCond(&sync.Mutex{})
+		cond.L.Lock()
+		defer cond.L.Unlock()
+		go s.xmlRPC.StartUnixHTTPServer(cfg.Username,
+			cfg.Password,
+			cfg.File,
+			s,
+			func() {
+				cond.Signal()
+			})
+		cond.Wait()
 	}
 }
 

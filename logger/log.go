@@ -6,9 +6,8 @@ import (
 	"io"
 	"os"
 	"strings"
+	"supervisord/faults"
 	"sync"
-
-	"github.com/ochinchina/supervisord/faults"
 )
 
 // Logger the log interface to log program stdout/stderr logs to file
