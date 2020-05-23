@@ -68,8 +68,10 @@ type XMLProcessorManager struct {
 
 // NewXMLProcessorManager create a new XMLProcessorManager object
 func NewXMLProcessorManager() *XMLProcessorManager {
-	return &XMLProcessorManager{leafProcessors: make(map[string]XMLLeafProcessor),
-		nonLeafProcessors: make(map[string]XMLNonLeafProcessor)}
+	return &XMLProcessorManager{
+		leafProcessors:    make(map[string]XMLLeafProcessor),
+		nonLeafProcessors: make(map[string]XMLNonLeafProcessor),
+	}
 }
 
 // AddLeafProcessor add a leaf processor for the xml path
@@ -83,7 +85,7 @@ func (xpm *XMLProcessorManager) AddNonLeafProcessor(path string, processor XMLNo
 }
 
 // ProcessLeafNode process the leaf element with xml path and its value
-func (xpm *XMLProcessorManager) ProcessLeafNode(path string, data string) {
+func (xpm *XMLProcessorManager) ProcessLeafNode(path, data string) {
 	if processor, ok := xpm.leafProcessors[path]; ok {
 		processor(data)
 	}

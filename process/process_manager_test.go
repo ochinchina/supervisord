@@ -9,7 +9,7 @@ import (
 var procs *Manager = NewManager()
 
 func TestProcessMgrAdd(t *testing.T) {
-	entry := &config.Entry{ConfigDir: ".", Group: "test", Name: "program:test1"}
+	entry := &config.Entry{ConfigDir: ".", Group: "test", Name: "program.test1"}
 	procs.Clear()
 	procs.Add("test1", NewProcess("supervisord", entry))
 

@@ -1,49 +1,45 @@
-package config
+package model
 
 import (
 	"sort"
 	"strings"
 )
 
-// ProgramByPriority sort program by its priority
-type ProgramByPriority []*Entry
+type ProgramByPriority []*Program
 
-// Len number of programs
 func (p ProgramByPriority) Len() int {
 	return len(p)
 }
 
-// Swap swap program i and program j
 func (p ProgramByPriority) Swap(i, j int) {
 	p[i], p[j] = p[j], p[i]
 }
 
-// Less return true if the priority ith program is less than the priority of jth program
 func (p ProgramByPriority) Less(i, j int) bool {
-	return p[i].GetInt("priority", 999) < p[j].GetInt("priority", 999)
+	return p[i].Priority < p[j].Priority
 }
 
 // ProcessSorter sort the program by its priority
 type ProcessSorter struct {
 	dependsOnGraph       map[string][]string
-	procsWithooutDepends []*Entry
+	procsWithooutDepends []*Program
 }
 
 // NewProcessSorter create a sorter
 func NewProcessSorter() *ProcessSorter {
 	return &ProcessSorter{
 		dependsOnGraph:       make(map[string][]string),
-		procsWithooutDepends: make([]*Entry, 0),
+		procsWithooutDepends: make([]*Program, 0),
 	}
 }
 
-func (p *ProcessSorter) initDepends(programConfigs []*Entry) {
+func (p *ProcessSorter) initDepends(programs []*Program) {
 	// sort by dependsOn
-	for _, config := range programConfigs {
-		if config.IsProgram() && config.HasParameter("depends_on") {
-			dependsOn := config.GetString("depends_on", "")
-			progName := config.GetProgramName()
-			for _, dependsOnProg := range strings.Split(dependsOn, ",") {
+	for _, program := range programs {
+		if program.IsProgram() && len(program.DependsOn) > 0 {
+			dependsOn := program.DependsOn
+			progName := program.Name
+			for _, dependsOnProg := range dependsOn {
 				dependsOnProg = strings.TrimSpace(dependsOnProg)
 				if dependsOnProg != "" {
 					if _, ok := p.dependsOnGraph[progName]; !ok {
@@ -57,11 +53,11 @@ func (p *ProcessSorter) initDepends(programConfigs []*Entry) {
 	}
 }
 
-func (p *ProcessSorter) initProgramWithoutDepends(programConfigs []*Entry) {
+func (p *ProcessSorter) initProgramWithoutDepends(programConfigs []*Program) {
 	dependsOnPrograms := p.getDependsOnInfo()
 	for _, config := range programConfigs {
 		if config.IsProgram() {
-			if _, ok := dependsOnPrograms[config.GetProgramName()]; !ok {
+			if _, ok := dependsOnPrograms[config.Name]; !ok {
 				p.procsWithooutDepends = append(p.procsWithooutDepends, config)
 			}
 		}
@@ -117,35 +113,15 @@ func (p *ProcessSorter) inFinishedPrograms(programName string, finishedPrograms 
 	return true
 }
 
-/*func (p *ProcessSorter) SortProcess(procs []*Process) []*Process {
-	prog_configs := make([]*Entry, 0)
-	for _, proc := range procs {
-		if proc.config.IsProgram() {
-			prog_configs = append(prog_configs, proc.config)
-		}
-	}
-
-	result := make([]*Process, 0)
-	for _, config := range p.SortProgram(prog_configs) {
-		for _, proc := range procs {
-			if proc.config == config {
-				result = append(result, proc)
-			}
-		}
-	}
-
-	return result
-}*/
-
 // SortProgram sort the program  and return the result
-func (p *ProcessSorter) SortProgram(programConfigs []*Entry) []*Entry {
-	p.initDepends(programConfigs)
-	p.initProgramWithoutDepends(programConfigs)
-	result := make([]*Entry, 0)
+func (p *ProcessSorter) SortProgram(programs []*Program) []*Program {
+	p.initDepends(programs)
+	p.initProgramWithoutDepends(programs)
+	result := make([]*Program, 0)
 
 	for _, prog := range p.sortDepends() {
-		for _, config := range programConfigs {
-			if config.IsProgram() && config.GetProgramName() == prog {
+		for _, config := range programs {
+			if config.IsProgram() && config.Name == prog {
 				result = append(result, config)
 			}
 		}
@@ -156,12 +132,4 @@ func (p *ProcessSorter) SortProgram(programConfigs []*Entry) []*Entry {
 		result = append(result, p)
 	}
 	return result
-}
-
-/*func sortProcess(procs []*Process) []*Process {
-	return NewProcessSorter().SortProcess(procs)
-}*/
-
-func sortProgram(configs []*Entry) []*Entry {
-	return NewProcessSorter().SortProgram(configs)
 }

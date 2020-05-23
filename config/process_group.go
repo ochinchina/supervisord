@@ -9,7 +9,7 @@ import (
 
 // ProcessGroup manage the program and its group mapping
 type ProcessGroup struct {
-	//mapping between the program and its group
+	// mapping between the program and its group
 	processGroup map[string]string
 }
 
@@ -28,7 +28,7 @@ func (pg *ProcessGroup) Clone() *ProcessGroup {
 }
 
 // Sub remove all the programs in other ProcessGroup from this ProcessGroup
-func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []string, removed []string) {
+func (pg *ProcessGroup) Sub(other *ProcessGroup) (added, changed, removed []string) {
 	thisGroup := pg.GetAllGroup()
 	otherGroup := other.GetAllGroup()
 	added = util.Sub(thisGroup, otherGroup)
@@ -45,17 +45,17 @@ func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []stri
 	return
 }
 
-//Add add a process to a group
-func (pg *ProcessGroup) Add(group string, procName string) {
+// Add add a process to a group
+func (pg *ProcessGroup) Add(group, procName string) {
 	pg.processGroup[procName] = group
 }
 
-//Remove remove a process
+// Remove remove a process
 func (pg *ProcessGroup) Remove(procName string) {
 	delete(pg.processGroup, procName)
 }
 
-//GetAllGroup get all the groups
+// GetAllGroup get all the groups
 func (pg *ProcessGroup) GetAllGroup() []string {
 	groups := make(map[string]bool)
 	for _, group := range pg.processGroup {
@@ -81,7 +81,7 @@ func (pg *ProcessGroup) GetAllProcess(group string) []string {
 }
 
 // InGroup check if a process belongs to a group or not
-func (pg *ProcessGroup) InGroup(procName string, group string) bool {
+func (pg *ProcessGroup) InGroup(procName, group string) bool {
 	groupName, ok := pg.processGroup[procName]
 	if ok && group == groupName {
 		return true
@@ -90,7 +90,7 @@ func (pg *ProcessGroup) InGroup(procName string, group string) bool {
 }
 
 // ForEachProcess iterate all the processes and process it with procFunc
-func (pg *ProcessGroup) ForEachProcess(procFunc func(group string, procName string)) {
+func (pg *ProcessGroup) ForEachProcess(procFunc func(group, procName string)) {
 	for procName, groupName := range pg.processGroup {
 		procFunc(groupName, procName)
 	}
@@ -98,7 +98,7 @@ func (pg *ProcessGroup) ForEachProcess(procFunc func(group string, procName stri
 
 // GetGroup get the group name of process. If fail to find the group by
 // procName, set its group to defGroup and return this defGroup
-func (pg *ProcessGroup) GetGroup(procName string, defGroup string) string {
+func (pg *ProcessGroup) GetGroup(procName, defGroup string) string {
 	group, ok := pg.processGroup[procName]
 
 	if ok {

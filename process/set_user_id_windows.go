@@ -6,6 +6,5 @@ import (
 	"syscall"
 )
 
-func setUserID(_ *syscall.SysProcAttr, _ uint32, _ uint32) {
-
+func setUserID(_ *syscall.SysProcAttr, _, _ uint32) {
 }

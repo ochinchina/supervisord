@@ -70,5 +70,4 @@ func (lt *Logtail) getLog(logType string, w http.ResponseWriter, req *http.Reque
 			chanLogger.Close()
 		}
 	}
-
 }

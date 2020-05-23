@@ -28,7 +28,7 @@ type httpBasicAuth struct {
 }
 
 // create a new HttpBasicAuth oject with user name, password and the http request handler
-func newHTTPBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
+func newHTTPBasicAuth(user, password string, handler http.Handler) *httpBasicAuth {
 	if user != "" && password != "" {
 		zap.L().Debug("require authentication")
 	}
@@ -77,14 +77,14 @@ func (p *XMLRPC) Stop() {
 
 // StartUnixHTTPServer start http server on unix domain socket with path listenAddr. If both user and password are not empty, the user
 // must provide user and password for basic authentication when making a XML RPC request.
-func (p *XMLRPC) StartUnixHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
+func (p *XMLRPC) StartUnixHTTPServer(user, password, listenAddr string, s *Supervisor, startedCb func()) {
 	os.Remove(listenAddr)
 	p.startHTTPServer(user, password, "unix", listenAddr, s, startedCb)
 }
 
 // StartInetHTTPServer start http server on tcp with path listenAddr. If both user and password are not empty, the user
 // must provide user and password for basic authentication when making a XML RPC request.
-func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
+func (p *XMLRPC) StartInetHTTPServer(user, password, listenAddr string, s *Supervisor, startedCb func()) {
 	p.startHTTPServer(user, password, "tcp", listenAddr, s, startedCb)
 }
 
@@ -93,7 +93,7 @@ func (p *XMLRPC) isHTTPServerStartedOnProtocol(protocol string) bool {
 	return ok
 }
 
-func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, listenAddr string, s *Supervisor, startedCb func()) {
+func (p *XMLRPC) startHTTPServer(user, password, protocol, listenAddr string, s *Supervisor, startedCb func()) {
 	if p.isHTTPServerStartedOnProtocol(protocol) {
 		startedCb()
 		return
@@ -118,8 +118,8 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 		startedCb()
 		zap.L().Fatal("fail to listen on address", zap.String("addr", listenAddr), zap.String("protocol", protocol))
 	}
-
 }
+
 func (p *XMLRPC) createRPCServer(s *Supervisor) *rpc.Server {
 	RPC := rpc.NewServer()
 	xmlrpcCodec := xml.NewCodec()
@@ -148,7 +148,6 @@ func (p *XMLRPC) createRPCServer(s *Supervisor) *rpc.Server {
 	xmlrpcCodec.RegisterAlias("supervisor.signalProcessGroup", "Supervisor.SignalProcessGroup")
 	xmlrpcCodec.RegisterAlias("supervisor.signalAllProcesses", "Supervisor.SignalAllProcesses")
 	xmlrpcCodec.RegisterAlias("supervisor.sendProcessStdin", "Supervisor.SendProcessStdin")
-	xmlrpcCodec.RegisterAlias("supervisor.sendRemoteCommEvent", "Supervisor.SendRemoteCommEvent")
 	xmlrpcCodec.RegisterAlias("supervisor.reloadConfig", "Supervisor.ReloadConfig")
 	xmlrpcCodec.RegisterAlias("supervisor.addProcessGroup", "Supervisor.AddProcessGroup")
 	xmlrpcCodec.RegisterAlias("supervisor.removeProcessGroup", "Supervisor.RemoveProcessGroup")

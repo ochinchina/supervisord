@@ -130,7 +130,6 @@ func (sr *SupervisorRestful) StopPrograms(w http.ResponseWriter, req *http.Reque
 		}
 		w.Write([]byte("Success to stop the programs"))
 	}
-
 }
 
 // ReadStdoutLog read the stdout of given program

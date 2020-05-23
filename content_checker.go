@@ -18,17 +18,19 @@ type ContentChecker interface {
 type BaseChecker struct {
 	data     string
 	includes []string
-	//timeout in second
+	// timeout in second
 	timeoutTime   time.Time
 	notifyChannel chan string
 }
 
 // NewBaseChecker create a BaseChecker object
 func NewBaseChecker(includes []string, timeout int) *BaseChecker {
-	return &BaseChecker{data: "",
+	return &BaseChecker{
+		data:          "",
 		includes:      includes,
 		timeoutTime:   time.Now().Add(time.Duration(timeout) * time.Second),
-		notifyChannel: make(chan string, 1)}
+		notifyChannel: make(chan string, 1),
+	}
 }
 
 // Write write the data to the checker
@@ -100,9 +102,11 @@ type TCPChecker struct {
 
 // NewTCPChecker create a TCPChecker object
 func NewTCPChecker(host string, port int, includes []string, timeout int) *TCPChecker {
-	checker := &TCPChecker{host: host,
+	checker := &TCPChecker{
+		host:        host,
 		port:        port,
-		baseChecker: NewBaseChecker(includes, timeout)}
+		baseChecker: NewBaseChecker(includes, timeout),
+	}
 	checker.start()
 	return checker
 }
@@ -147,8 +151,10 @@ type HTTPChecker struct {
 
 // NewHTTPChecker create a HTTPChecker object
 func NewHTTPChecker(url string, timeout int) *HTTPChecker {
-	return &HTTPChecker{url: url,
-		timeoutTime: time.Now().Add(time.Duration(timeout) * time.Second)}
+	return &HTTPChecker{
+		url:         url,
+		timeoutTime: time.Now().Add(time.Duration(timeout) * time.Second),
+	}
 }
 
 // Check check the content of HTTP response

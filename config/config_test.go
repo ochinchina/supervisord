@@ -20,7 +20,6 @@ func createTmpFile() (string, error) {
 
 func saveToTmpFile(b []byte) (string, error) {
 	f, err := createTmpFile()
-
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +45,7 @@ func parse(b []byte) (*Config, error) {
 }
 
 func TestProgramConfig(t *testing.T) {
-	config, err := parse([]byte("[program:test]\ncommand=/bin/ls"))
+	config, err := parse([]byte("[program.test]\ncommand=/bin/ls"))
 	if err != nil {
 		t.Error("Fail to parse program")
 		return
@@ -60,7 +59,7 @@ func TestProgramConfig(t *testing.T) {
 }
 
 func TestGetBoolValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program:test]\na=true\nb=false\n"))
+	config, _ := parse([]byte("[program.test]\na=true\nb=false\n"))
 	entry := config.GetProgram("test")
 	if entry.GetBool("a", false) == false || entry.GetBool("b", true) == true || entry.GetBool("c", false) != false {
 		t.Error("Fail to get boolean value")
@@ -68,7 +67,7 @@ func TestGetBoolValueFromConfig(t *testing.T) {
 }
 
 func TestGetIntValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program:test]\na=1\nb=2\n"))
+	config, _ := parse([]byte("[program.test]\na=1\nb=2\n"))
 	entry := config.GetProgram("test")
 	if entry.GetInt("a", 0) == 0 || entry.GetInt("b", 0) == 0 || entry.GetInt("c", 9) != 9 {
 		t.Error("Fail to get integer value")
@@ -76,7 +75,7 @@ func TestGetIntValueFromConfig(t *testing.T) {
 }
 
 func TestGetStringValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program:test]\na=test\nb=hello\n"))
+	config, _ := parse([]byte("[program.test]\na=test\nb=hello\n"))
 	entry := config.GetProgram("test")
 	if entry.GetString("a", "") != "test" || entry.GetString("b", "") != "hello" || entry.GetString("c", "") != "" {
 		t.Error("Fail to get string value")
@@ -84,34 +83,32 @@ func TestGetStringValueFromConfig(t *testing.T) {
 }
 
 func TestGetEnvValueFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program:test]\na=A=\"env1\",B=env2"))
+	config, _ := parse([]byte("[program.test]\na=A=\"env1\",B=env2"))
 	entry := config.GetProgram("test")
 	envs := entry.GetEnv("a")
 	if len(envs) != 2 || envs[0] != "A=env1" || envs[1] != "B=env2" {
 		t.Error("Fail to get env value")
 	}
 
-	config, _ = parse([]byte("[program:test]\na=A=env1,B=\"env2\""))
+	config, _ = parse([]byte("[program.test]\na=A=env1,B=\"env2\""))
 	entry = config.GetProgram("test")
 	envs = entry.GetEnv("a")
 	if len(envs) != 2 || envs[0] != "A=env1" || envs[1] != "B=env2" {
 		t.Error("Fail to get env value")
 	}
-
 }
 
 func TestGetBytesFromConfig(t *testing.T) {
-	config, _ := parse([]byte("[program:test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test"))
+	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test"))
 	entry := config.GetProgram("test")
 
 	if entry.GetBytes("A", 0) != 1024 || entry.GetBytes("B", 0) != 2048 || entry.GetBytes("C", 0) != 3*1024*1024 || entry.GetBytes("D", 0) != 4*1024*1024*1024 || entry.GetBytes("E", 0) != 0 || entry.GetBytes("F", -1) != -1 {
 		t.Error("Fail to get bytes")
 	}
-
 }
 
 func TestGetUnitHttpServer(t *testing.T) {
-	config, _ := parse([]byte("[program:test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[unix_http_server]\n"))
+	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[unix_http_server]\n"))
 
 	entry, ok := config.GetUnixHTTPServer()
 
@@ -125,7 +122,7 @@ func TestGetUnitHttpServer(t *testing.T) {
 }
 
 func TestProgramInGroup(t *testing.T) {
-	config, _ := parse([]byte("[program:test1]\nA=123\n[group:test]\nprograms=test1,test2\n[program:test2]\nB=hello\n[program:test3]\nC=tt"))
+	config, _ := parse([]byte("[program.test1]\nA=123\n[group.test]\nprograms=test1,test2\n[program.test2]\nB=hello\n[program.test3]\nC=tt"))
 	if config.GetProgram("test1").Group != "test" { //|| config.GetProgram( "test2" ).Group != "test" || config.GetProgram( "test3" ).Group == "test" {
 		t.Error("fail to test the program in a group")
 	}
@@ -159,14 +156,13 @@ func TestToRegex(t *testing.T) {
 	if matched && err == nil {
 		t.Error("fail to match the file")
 	}
-
 }
 
 func TestConfigWithInclude(t *testing.T) {
 	dir, _ := ioutil.TempDir("", "tmp")
 
-	ioutil.WriteFile(filepath.Join(dir, "file1"), []byte("[program:cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
-	ioutil.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program:ls]\ncommand=ls\n"), os.ModePerm)
+	ioutil.WriteFile(filepath.Join(dir, "file1"), []byte("[program.cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
+	ioutil.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program.ls]\ncommand=ls\n"), os.ModePerm)
 
 	fmt.Println(filepath.Join(dir, "file1"))
 	config := NewConfig(filepath.Join(dir, "file1"))
@@ -179,11 +175,10 @@ func TestConfigWithInclude(t *testing.T) {
 	if entry == nil {
 		t.Error("fail to include section test")
 	}
-
 }
 
 func TestDefaultParams(t *testing.T) {
-	config, _ := parse([]byte("[program:test]\nautorestart=true\ntest=1\n[program-default]\ncommand=/usr/bin/ls\nrestart=true\nautorestart=false"))
+	config, _ := parse([]byte("[program.test]\nautorestart=true\ntest=1\n[program-default]\ncommand=/usr/bin/ls\nrestart=true\nautorestart=false"))
 	entry := config.GetProgram("test")
 	if entry.GetString("command", "") != "/usr/bin/ls" {
 		t.Error("fail to get command of program")
@@ -198,5 +193,4 @@ func TestDefaultParams(t *testing.T) {
 	if entry.GetString("autorestart", "") != "true" {
 		t.Error("autorestart value should be true")
 	}
-
 }

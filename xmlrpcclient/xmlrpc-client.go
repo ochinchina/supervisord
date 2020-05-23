@@ -76,7 +76,7 @@ func (r *XMLRPCClient) URL() string {
 	return fmt.Sprintf("%s/RPC2", r.serverurl)
 }
 
-func (r *XMLRPCClient) createHTTPRequest(method string, url string, data interface{}) (*http.Request, error) {
+func (r *XMLRPCClient) createHTTPRequest(method, url string, data interface{}) (*http.Request, error) {
 	buf, _ := xml.EncodeClientRequest(method, data)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(buf))
 	if err != nil {
@@ -108,7 +108,7 @@ func (r *XMLRPCClient) processResponse(resp *http.Response, processBody func(io.
 	}
 }
 
-func (r *XMLRPCClient) postInetHTTP(method string, url string, data interface{}, processBody func(io.ReadCloser, error)) {
+func (r *XMLRPCClient) postInetHTTP(method, url string, data interface{}, processBody func(io.ReadCloser, error)) {
 	req, err := r.createHTTPRequest(method, url, data)
 	if err != nil {
 		return
@@ -128,10 +128,9 @@ func (r *XMLRPCClient) postInetHTTP(method string, url string, data interface{},
 		return
 	}
 	r.processResponse(resp, processBody)
-
 }
 
-func (r *XMLRPCClient) postUnixHTTP(method string, path string, data interface{}, processBody func(io.ReadCloser, error)) {
+func (r *XMLRPCClient) postUnixHTTP(method, path string, data interface{}, processBody func(io.ReadCloser, error)) {
 	var conn net.Conn
 	var err error
 	if r.timeout > 0 {
@@ -153,7 +152,6 @@ func (r *XMLRPCClient) postUnixHTTP(method string, path string, data interface{}
 		}
 	}
 	req, err := r.createHTTPRequest(method, "/RPC2", data)
-
 	if err != nil {
 		return
 	}
@@ -172,8 +170,8 @@ func (r *XMLRPCClient) postUnixHTTP(method string, path string, data interface{}
 		return
 	}
 	r.processResponse(resp, processBody)
-
 }
+
 func (r *XMLRPCClient) post(method string, data interface{}, processBody func(io.ReadCloser, error)) {
 	url, err := url.Parse(r.serverurl)
 	if err != nil {
@@ -187,7 +185,6 @@ func (r *XMLRPCClient) post(method string, data interface{}, processBody func(io
 	} else {
 		fmt.Printf("Unsupported URL scheme:%s\n", url.Scheme)
 	}
-
 }
 
 // GetVersion send get the supervisor http version request
@@ -216,7 +213,7 @@ func (r *XMLRPCClient) GetAllProcessInfo() (reply AllProcessInfoReply, err error
 }
 
 // ChangeProcessState change the proccess state
-func (r *XMLRPCClient) ChangeProcessState(change string, processName string) (reply StartStopReply, err error) {
+func (r *XMLRPCClient) ChangeProcessState(change, processName string) (reply StartStopReply, err error) {
 	if !(change == "start" || change == "stop") {
 		err = fmt.Errorf("Incorrect required state")
 		return
@@ -257,7 +254,6 @@ func (r *XMLRPCClient) Shutdown() (reply ShutdownReply, err error) {
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &reply)
 		}
-
 	})
 
 	return
@@ -302,7 +298,7 @@ func (r *XMLRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 }
 
 // SignalProcess send signal to program
-func (r *XMLRPCClient) SignalProcess(signal string, name string) (reply types.BooleanReply, err error) {
+func (r *XMLRPCClient) SignalProcess(signal, name string) (reply types.BooleanReply, err error) {
 	ins := types.ProcessSignal{Name: name, Signal: signal}
 	r.post("supervisor.signalProcess", &ins, func(body io.ReadCloser, procError error) {
 		err = procError

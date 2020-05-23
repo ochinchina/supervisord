@@ -147,7 +147,7 @@ func (c *consoleEncoder) EncodeEntry(ent zapcore.Entry, fields []zapcore.Field) 
 	// Add the message itself.
 	if c.MessageKey != "" {
 		c.colorReset(final.buf)
-		//c.colorBright(&final)
+		// c.colorBright(&final)
 		final.safeAddString(ent.Message, false)
 		// ensure a minimum of 2 spaces between the message and the fields,
 		// to improve readability

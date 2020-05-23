@@ -11,26 +11,23 @@ import (
 
 // Manager manage all the process in the supervisor
 type Manager struct {
-	procs          map[string]*Process
-	eventListeners map[string]*Process
-	lock           sync.Mutex
+	procs map[string]*Process
+	lock  sync.Mutex
 }
 
 // NewManager create a new Manager object
 func NewManager() *Manager {
-	return &Manager{procs: make(map[string]*Process),
-		eventListeners: make(map[string]*Process),
+	return &Manager{
+		procs: make(map[string]*Process),
 	}
 }
 
-// CreateProcess create a process (program or event listener) and add to this manager
+// CreateProcess create a process and adds to the manager
 func (pm *Manager) CreateProcess(supervisorID string, config *config.Entry) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	if config.IsProgram() {
 		return pm.createProgram(supervisorID, config)
-	} else if config.IsEventListener() {
-		return pm.createEventListener(supervisorID, config)
 	} else {
 		return nil
 	}
@@ -56,19 +53,6 @@ func (pm *Manager) createProgram(supervisorID string, config *config.Entry) *Pro
 	}
 	zap.L().Info("create process", zap.String("program", procName))
 	return proc
-}
-
-func (pm *Manager) createEventListener(supervisorID string, config *config.Entry) *Process {
-	eventListenerName := config.GetEventListenerName()
-
-	evtListener, ok := pm.eventListeners[eventListenerName]
-
-	if !ok {
-		evtListener = NewProcess(supervisorID, config)
-		pm.eventListeners[eventListenerName] = evtListener
-	}
-	zap.L().Info("create event listener", zap.String("eventListener", eventListenerName))
-	return evtListener
 }
 
 // Add add the process to this process manager
@@ -98,7 +82,7 @@ func (pm *Manager) Remove(name string) *Process {
 func (pm *Manager) Find(name string) *Process {
 	procs := pm.FindMatch(name)
 	if len(procs) == 1 {
-		if procs[0].GetName() == name || name == fmt.Sprintf("%s:%s", procs[0].GetGroup(), procs[0].GetName()) {
+		if procs[0].Name() == name || name == fmt.Sprintf("%s:%s", procs[0].Group(), procs[0].Name()) {
 			return procs[0]
 		}
 	}
@@ -106,17 +90,17 @@ func (pm *Manager) Find(name string) *Process {
 }
 
 // FindMatch find the program with one of following format:
-// - group:program
-// - group:*
+// - group.program
+// - group.*
 // - program
 func (pm *Manager) FindMatch(name string) []*Process {
 	result := make([]*Process, 0)
-	if pos := strings.Index(name, ":"); pos != -1 {
+	if pos := strings.Index(name, "."); pos != -1 {
 		groupName := name[0:pos]
 		programName := name[pos+1:]
 		pm.ForEachProcess(func(p *Process) {
-			if p.GetGroup() == groupName {
-				if programName == "*" || programName == p.GetName() {
+			if p.Group() == groupName {
+				if programName == "*" || programName == p.Name() {
 					result = append(result, p)
 				}
 			}

@@ -1,17 +1,14 @@
 package config
 
 import (
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
 	"strings"
-
 	"supervisord/model"
 
 	"github.com/creasty/defaults"
 	"github.com/go-ini/ini"
-	"go.uber.org/zap"
 )
 
 type Ini struct {
@@ -38,44 +35,13 @@ func (ii *Ini) Load(c *Config) ([]string, error) {
 }
 
 func (ii *Ini) parse(cfg *ini.File, c *Config) []string {
-	ii.parseProgramDefault(cfg, c)
-
 	ii.parseGroup(cfg, c)
-	loadedPrograms := ii.parseProgram(cfg, c)
+	loadedPrograms := ii.parsePrograms(cfg, c)
+	ii.parseUnixHttpServer(cfg, c)
+	ii.parseInetHttpServer(cfg, c)
+	ii.parseSupervisorCtl(cfg, c)
 
-	//parse non-group,non-program and non-eventlistener sections
-	for _, section := range cfg.Sections() {
-		switch section.Name() {
-		case "program-default":
-		case "unix_http_server":
-		case "inet_http_server":
-		case "supervisord":
-		case "supervisorctl":
-		default:
-			// unrecognized section
-		}
-		if !strings.HasPrefix(section.Name(), "group:") && !strings.HasPrefix(section.Name(), "program:") && !strings.HasPrefix(section.Name(), "eventlistener:") {
-			entry := c.createEntry(section.Name(), ii.GetConfigFileDir())
-			c.entries[section.Name()] = entry
-			ii.parseEntry(section, entry, nil)
-		}
-	}
 	return loadedPrograms
-}
-
-func (ii *Ini) parseProgramDefault(cfg *ini.File, c *Config) {
-	var p model.Program
-	_ = defaults.Set(&p)
-
-	section := cfg.Section("program-default")
-	if section == nil {
-		return
-	}
-
-	entry := c.createEntry("program-default", ii.GetConfigFileDir())
-	ii.parseEntry(section, entry, nil)
-	_ = section.MapTo(&p)
-	entry.Object = &p
 }
 
 func (ii *Ini) getIncludeFiles(cfg *ini.File) []string {
@@ -109,107 +75,103 @@ func (ii *Ini) getIncludeFiles(cfg *ini.File) []string {
 		}
 	}
 	return result
-
 }
 
 func (ii *Ini) parseGroup(cfg *ini.File, c *Config) {
-	//parse the group at first
-	for _, section := range cfg.Sections() {
-		if strings.HasPrefix(section.Name(), "group:") {
-			entry := c.createEntry(section.Name(), ii.GetConfigFileDir())
-			ii.parseEntry(section, entry, nil)
-			groupName := entry.GetGroupName()
-			programs := entry.GetPrograms()
-			for _, program := range programs {
-				c.ProgramGroup.Add(groupName, program)
-			}
+	sections := cfg.Section("group")
+	if sections == nil {
+		return
+	}
+
+	for _, section := range sections.ChildSections() {
+		entry := c.createEntry(section.Name(), ii.GetConfigFileDir())
+		obj := new(model.Group)
+		_ = defaults.Set(obj)
+		ii.parseEntry(section, entry, obj)
+		obj.Name = entry.Name[len("group."):]
+		for _, program := range obj.Programs {
+			c.ProgramGroup.Add(obj.Name, program)
 		}
 	}
 }
 
-func (ii *Ini) isProgramOrEventListener(section *ini.Section) (bool, string) {
-	//check if it is a program or event listener section
-	isProgram := strings.HasPrefix(section.Name(), "program:")
-	isEventListener := strings.HasPrefix(section.Name(), "eventlistener:")
-	prefix := ""
-	if isProgram {
-		prefix = "program:"
-	} else if isEventListener {
-		prefix = "eventlistener:"
+func (ii *Ini) parseUnixHttpServer(cfg *ini.File, c *Config) {
+	section, err := cfg.GetSection("unix_http_server")
+	if err != nil {
+		return
 	}
-	return isProgram || isEventListener, prefix
+	entry := c.createEntry("unix_http_server", ii.GetConfigFileDir())
+	obj := new(model.UnixHTTPServer)
+	_ = defaults.Set(obj)
+	ii.parseEntry(section, entry, obj)
 }
 
-// parse the sections starts with "program:" prefix.
+func (ii *Ini) parseInetHttpServer(cfg *ini.File, c *Config) {
+	section, err := cfg.GetSection("inet_http_server")
+	if err != nil {
+		return
+	}
+	entry := c.createEntry("inet_http_server", ii.GetConfigFileDir())
+	obj := new(model.InetHTTPServer)
+	_ = defaults.Set(obj)
+	ii.parseEntry(section, entry, obj)
+}
+
+func (ii *Ini) parseSupervisorCtl(cfg *ini.File, c *Config) {
+	section, err := cfg.GetSection("supervisorctl")
+	if err != nil {
+		return
+	}
+	entry := c.createEntry("supervisorctl", ii.GetConfigFileDir())
+	obj := new(model.SupervisorCtl)
+	_ = defaults.Set(obj)
+	ii.parseEntry(section, entry, obj)
+}
+
+// parse the sections starts with "program." prefix.
 //
 // Return all the parsed program names in the ini
-func (ii *Ini) parseProgram(cfg *ini.File, c *Config) []string {
-	loadedPrograms := make([]string, 0)
-	for _, section := range cfg.Sections() {
+func (ii *Ini) parsePrograms(cfg *ini.File, c *Config) []string {
+	section, err := cfg.GetSection("program")
+	if err != nil {
+		return nil
+	}
 
-		programOrEventListener, prefix := ii.isProgramOrEventListener(section)
-
-		//if it is program or event listener
-		if programOrEventListener {
-			//get the number of processes
-			programName := section.Name()[len(prefix):]
-			numProcs := 1
-			if numProcsKey, err := section.GetKey("numprocs"); err == nil {
-				numProcs = numProcsKey.MustInt(1)
-			}
-
-			var procName string
-			procNameKey, err := section.GetKey("process_name")
-			if procNameKey != nil {
-				procName = procNameKey.MustString("")
-			}
-			if numProcs > 1 {
-				if err != nil || strings.Index(procName, "%(process_num)") == -1 {
-					zap.L().Error("no process_num in process name", zap.Int("numprocs", numProcs), zap.String("process_name", procName))
-				}
-			}
-			originalProcName := programName
-			if err == nil {
-				originalProcName = procName
-			}
-
-			for i := 1; i <= numProcs; i++ {
-				envs := NewStringExpression("program_name", programName,
-					"process_num", fmt.Sprintf("%d", i),
-					"group_name", c.ProgramGroup.GetGroup(programName, programName),
-					"here", ii.GetConfigFileDir())
-				var cmd string
-				if cmdKey, err := section.GetKey("command"); err == nil {
-					cmd = cmdKey.MustString("")
-				}
-				cmd, err := envs.Eval(cmd)
-				if err != nil {
-					zap.L().Error("get envs failed", zap.Error(err), zap.String("program", programName))
-					continue
-				}
-				section.DeleteKey("command")
-				_, _ = section.NewKey("command", cmd)
-
-				procName, err := envs.Eval(originalProcName)
-				if err != nil {
-					zap.L().Error("get envs failed", zap.Error(err), zap.String("program", "programName"))
-					continue
-				}
-
-				section.DeleteKey("process_name")
-				_, _ = section.NewKey("process_name", procName)
-				section.DeleteKey("process_num")
-				_, _ = section.NewKey("process_num", fmt.Sprintf("%d", i))
-				entry := c.createEntry(procName, ii.GetConfigFileDir())
-				ii.parseEntry(section, entry, nil)
-				entry.Name = prefix + procName
-				group := c.ProgramGroup.GetGroup(programName, programName)
-				entry.Group = group
-				loadedPrograms = append(loadedPrograms, procName)
-			}
-		}
+	sections := section.ChildSections()
+	loadedPrograms := make([]string, 0, len(sections))
+	for _, section := range sections {
+		programName := section.Name()[len("program."):]
+		entry := c.createEntry(programName, ii.GetConfigFileDir())
+		obj := new(model.Program)
+		_ = defaults.Set(obj)
+		ii.parseEntry(section, entry, obj)
+		obj.Name = programName
+		obj.Command = stripEmpty(obj.Command)
+		group := c.ProgramGroup.GetGroup(programName, programName)
+		entry.Group = group
+		loadedPrograms = append(loadedPrograms, programName)
 	}
 	return loadedPrograms
+}
+
+func stripEmpty(strings []string) []string {
+	emptyCount := 0
+	for _, s := range strings {
+		if len(s) == 0 {
+			emptyCount++
+		}
+	}
+	if emptyCount == 0 {
+		return strings
+	}
+
+	res := make([]string, 0, len(strings)-emptyCount)
+	for _, s := range strings {
+		if len(s) > 0 {
+			res = append(res, s)
+		}
+	}
+	return res
 }
 
 func (ii *Ini) parseEntry(section *ini.Section, c *Entry, v interface{}) {
@@ -217,8 +179,12 @@ func (ii *Ini) parseEntry(section *ini.Section, c *Entry, v interface{}) {
 	for _, key := range section.Keys() {
 		c.keyValues[key.Name()] = strings.TrimSpace(key.MustString(""))
 	}
+	for _, key := range section.ParentKeys() {
+		c.keyValues[key.Name()] = strings.TrimSpace(key.MustString(""))
+	}
 	if v != nil {
 		_ = section.MapTo(v)
+		c.Object = v
 	}
 }
 

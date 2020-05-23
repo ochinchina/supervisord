@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/faults"
 	"github.com/ochinchina/supervisord/logger"
 	"github.com/ochinchina/supervisord/process"
@@ -17,7 +15,6 @@ import (
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/util"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -41,16 +38,10 @@ type StartProcessArgs struct {
 	Wait bool   `default:"true"` // Wait the program starting finished
 }
 
-//ProcessStdin  process stdin from client
+// ProcessStdin  process stdin from client
 type ProcessStdin struct {
 	Name  string // program name
 	Chars string // inputs from client
-}
-
-// RemoteCommEvent remove communication event from client side
-type RemoteCommEvent struct {
-	Type string // the event type
-	Data string // the data of event
 }
 
 // StateInfo describe the state of supervisor
@@ -89,10 +80,12 @@ type ProcessTailLog struct {
 
 // NewSupervisor create a Supervisor object with supervisor configuration file
 func NewSupervisor(configFile string) *Supervisor {
-	return &Supervisor{config: config.NewConfig(configFile),
+	return &Supervisor{
+		config:     config.NewConfig(configFile),
 		procMgr:    process.NewManager(),
 		xmlRPC:     NewXMLRPC(),
-		restarting: false}
+		restarting: false,
+	}
 }
 
 // GetVersion get the version of supervisor
@@ -115,11 +108,7 @@ func (s *Supervisor) GetIdentification(r *http.Request, args *struct{}, reply *s
 
 // GetSupervisorID get the supervisor identifier from configuration file
 func (s *Supervisor) GetSupervisorID() string {
-	entry, ok := s.config.GetSupervisord()
-	if !ok {
-		return "supervisor"
-	}
-	return entry.GetString("identifier", "supervisor")
+	return "supervisor"
 }
 
 // GetState get the state of supervisor
@@ -189,21 +178,22 @@ func (s *Supervisor) IsRestarting() bool {
 }
 
 func getProcessInfo(proc *process.Process) *types.ProcessInfo {
-	return &types.ProcessInfo{Name: proc.GetName(),
-		Group:         proc.GetGroup(),
-		Description:   proc.GetDescription(),
-		Start:         int(proc.GetStartTime().Unix()),
-		Stop:          int(proc.GetStopTime().Unix()),
+	return &types.ProcessInfo{
+		Name:          proc.Name(),
+		Group:         proc.Group(),
+		Description:   proc.Description(),
+		Start:         int(proc.StartTime().Unix()),
+		Stop:          int(proc.StopTime().Unix()),
 		Now:           int(time.Now().Unix()),
-		State:         int(proc.GetState()),
-		Statename:     proc.GetState().String(),
+		State:         int(proc.State()),
+		Statename:     proc.State().String(),
 		Spawnerr:      "",
-		Exitstatus:    proc.GetExitstatus(),
-		Logfile:       proc.GetStdoutLogfile(),
-		StdoutLogfile: proc.GetStdoutLogfile(),
-		StderrLogfile: proc.GetStderrLogfile(),
-		Pid:           proc.GetPid()}
-
+		Exitstatus:    proc.ExitStatus(),
+		Logfile:       proc.StdoutLogfile(),
+		StdoutLogfile: proc.StdoutLogfile(),
+		StderrLogfile: proc.StderrLogfile(),
+		Pid:           proc.Pid(),
+	}
 }
 
 // GetAllProcessInfo get all the program informations managed by supervisor
@@ -247,7 +237,6 @@ func (s *Supervisor) StartProcess(r *http.Request, args *StartProcessArgs, reply
 func (s *Supervisor) StartAllProcesses(r *http.Request, args *struct {
 	Wait bool `default:"true"`
 }, reply *struct{ RPCTaskResults []RPCTaskResult }) error {
-
 	finishedProcCh := make(chan *process.Process)
 
 	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
@@ -275,14 +264,14 @@ func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, 
 	finishedProcCh := make(chan *process.Process)
 
 	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
-		if proc.GetGroup() == args.Name {
+		if proc.Group() == args.Name {
 			proc.Start(args.Wait)
 		}
 	}, finishedProcCh)
 
 	for i := 0; i < n; i++ {
 		proc, ok := <-finishedProcCh
-		if ok && proc.GetGroup() == args.Name {
+		if ok && proc.Group() == args.Name {
 			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
 		}
 	}
@@ -309,14 +298,14 @@ func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, r
 	zap.L().Info("stop process group", zap.String("group", args.Name))
 	finishedProcCh := make(chan *process.Process)
 	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
-		if proc.GetGroup() == args.Name {
+		if proc.Group() == args.Name {
 			proc.Stop(args.Wait)
 		}
 	}, finishedProcCh)
 
 	for i := 0; i < n; i++ {
 		proc, ok := <-finishedProcCh
-		if ok && proc.GetGroup() == args.Name {
+		if ok && proc.Group() == args.Name {
 			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
 		}
 	}
@@ -368,7 +357,7 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, r
 // SignalProcessGroup send signal to all processes in one group
 func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		if proc.GetGroup() == args.Name {
+		if proc.Group() == args.Name {
 			sig, err := signals.ToSignal(args.Signal)
 			if err == nil {
 				proc.Signal(sig, false)
@@ -377,7 +366,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSign
 	})
 
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		if proc.GetGroup() == args.Name {
+		if proc.Group() == args.Name {
 			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
 		}
 	})
@@ -405,7 +394,7 @@ func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply
 		zap.L().Error("program does not exist", zap.String("program", args.Name))
 		return fmt.Errorf("NOT_RUNNING")
 	}
-	if proc.GetState() != process.Running {
+	if proc.State() != process.Running {
 		zap.L().Error("program does not run", zap.String("program", args.Name))
 		return fmt.Errorf("NOT_RUNNING")
 	}
@@ -418,30 +407,17 @@ func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply
 	return err
 }
 
-// SendRemoteCommEvent emit a remote communication event
-func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent, reply *struct{ Success bool }) error {
-	events.EmitEvent(events.NewRemoteCommunicationEvent(args.Type, args.Data))
-	reply.Success = true
-	return nil
-}
-
 // Reload reload the supervisor configuration
 //return err, addedGroup, changedGroup, removedGroup
 //
-func (s *Supervisor) Reload() (addedGroup []string, changedGroup []string, removedGroup []string, err error) {
-	//get the previous loaded programs
+func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, err error) {
+	// get the previous loaded programs
 	prevPrograms := s.config.GetProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
 
 	loadedPrograms, err := s.config.Load()
 
-	if checkErr := s.checkRequiredResources(); checkErr != nil {
-		zap.L().Error("Check required resources", zap.Error(checkErr))
-		os.Exit(1)
-	}
 	if err == nil {
-		s.setSupervisordInfo()
-		s.startEventListeners()
 		s.createPrograms(prevPrograms)
 		s.startHTTPServer()
 		s.startAutoStartPrograms()
@@ -458,7 +434,6 @@ func (s *Supervisor) Reload() (addedGroup []string, changedGroup []string, remov
 	}
 	addedGroup, changedGroup, removedGroup = s.config.ProgramGroup.Sub(prevProgGroup)
 	return addedGroup, changedGroup, removedGroup, err
-
 }
 
 // WaitForExit wait the superisor to exit
@@ -473,7 +448,6 @@ func (s *Supervisor) WaitForExit() {
 }
 
 func (s *Supervisor) createPrograms(prevPrograms []string) {
-
 	programs := s.config.GetProgramNames()
 	for _, entry := range s.config.GetPrograms() {
 		s.procMgr.CreateProcess(s.GetSupervisorID(), entry)
@@ -486,18 +460,6 @@ func (s *Supervisor) createPrograms(prevPrograms []string) {
 
 func (s *Supervisor) startAutoStartPrograms() {
 	s.procMgr.StartAutoStartPrograms()
-}
-
-func (s *Supervisor) startEventListeners() {
-	eventListeners := s.config.GetEventListeners()
-	for _, entry := range eventListeners {
-		proc := s.procMgr.CreateProcess(s.GetSupervisorID(), entry)
-		proc.Start(false)
-	}
-
-	if len(eventListeners) > 0 {
-		time.Sleep(1 * time.Second)
-	}
 }
 
 func (s *Supervisor) startHTTPServer() {
@@ -537,59 +499,6 @@ func (s *Supervisor) startHTTPServer() {
 				})
 			cond.Wait()
 		}
-	}
-
-}
-
-func (s *Supervisor) setSupervisordInfo() {
-	supervisordConf, ok := s.config.GetSupervisord()
-	if ok {
-		//set supervisord log
-
-		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
-		logFile, err := env.Eval(supervisordConf.GetString("logfile", "supervisord.log"))
-		if err != nil {
-			logFile, err = process.PathExpand(logFile)
-		}
-		if logFile == "/dev/stdout" {
-			return
-		}
-		logEventEmitter := logger.NewNullLogEventEmitter()
-		s.logger = logger.NewNullLogger(logEventEmitter)
-		if err == nil {
-			logfileMaxbytes := int64(supervisordConf.GetBytes("logfileMaxbytes", 50*1024*1024))
-			logfileBackups := supervisordConf.GetInt("logfileBackups", 10)
-			loglevel := supervisordConf.GetString("loglevel", "info")
-			s.logger = logger.NewLogger("supervisord", logFile, &sync.Mutex{}, logfileMaxbytes, logfileBackups, logEventEmitter)
-
-			cfg := zap.NewProductionEncoderConfig()
-			core := zapcore.NewCore(zapcore.NewJSONEncoder(cfg), zapcore.AddSync(s.logger), toLogLevel(loglevel))
-			zap.ReplaceGlobals(zap.New(core))
-		}
-		//set the pid
-		pidfile, err := env.Eval(supervisordConf.GetString("pidfile", "supervisord.pid"))
-		if err == nil {
-			f, err := os.Create(pidfile)
-			if err == nil {
-				fmt.Fprintf(f, "%d", os.Getpid())
-				f.Close()
-			}
-		}
-	}
-}
-
-func toLogLevel(level string) zapcore.Level {
-	switch strings.ToLower(level) {
-	case "critical":
-		return zapcore.FatalLevel
-	case "error":
-		return zapcore.ErrorLevel
-	case "warn":
-		return zapcore.WarnLevel
-	case "info":
-		return zapcore.InfoLevel
-	default:
-		return zapcore.DebugLevel
 	}
 }
 
@@ -687,7 +596,6 @@ func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string
 
 // ClearAllProcessLogs clear the logs of all programs
 func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply *struct{ RPCTaskResults []RPCTaskResult }) error {
-
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		proc.StdoutLog.ClearAllLogFile()
 		proc.StderrLog.ClearAllLogFile()

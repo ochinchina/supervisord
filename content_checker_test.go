@@ -74,13 +74,11 @@ func TestHttpCheckOk(t *testing.T) {
 	go func() {
 		listener, err := net.Listen("tcp", ":8999")
 		if err == nil {
-
 			http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				defer listener.Close()
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("this is an response"))
 			}))
-
 		}
 	}()
 	checker := NewHTTPChecker("http://127.0.0.1:8999", 2)
@@ -98,7 +96,6 @@ func TestHttpCheckFail(t *testing.T) {
 				w.WriteHeader(http.StatusNotFound)
 				w.Write([]byte("not found"))
 			}))
-
 		}
 	}()
 	checker := NewHTTPChecker("http://127.0.0.1:8999", 2)

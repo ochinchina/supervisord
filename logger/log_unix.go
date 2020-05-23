@@ -11,9 +11,9 @@ import (
 )
 
 // NewSysLogger create a local syslog
-func NewSysLogger(name string, logEventEmitter LogEventEmitter) *SysLogger {
+func NewSysLogger(name string) *SysLogger {
 	writer, err := syslog.New(syslog.LOG_DEBUG, name)
-	logger := &SysLogger{logEventEmitter: logEventEmitter}
+	logger := &SysLogger{}
 	if err == nil {
 		logger.logWriter = writer
 	}
@@ -48,7 +48,7 @@ func (bs *BackendSysLogWriter) start() {
 				}
 				break
 			}
-			//if not connect to syslog, try to connect to it
+			// if not connect to syslog, try to connect to it
 			if writer == nil {
 				writer, _ = syslog.Dial(bs.network, bs.raddr, bs.priority, bs.tag)
 			}
@@ -79,7 +79,7 @@ func (bs *BackendSysLogWriter) Close() error {
 // - protocol, should be tcp or udp
 // - port, if missing, for tcp it should be 6514 and for udp it should be 514
 //
-func parseSysLogConfig(config string) (protocol string, host string, port int, err error) {
+func parseSysLogConfig(config string) (protocol, host string, port int, err error) {
 	fields := strings.Split(config, ":")
 	host = ""
 	protocol = ""
@@ -119,26 +119,24 @@ func parseSysLogConfig(config string) (protocol string, host string, port int, e
 		err = errors.New("invalid format")
 	}
 	return
-
 }
 
 // NewRemoteSysLogger create a network syslog
-func NewRemoteSysLogger(name string, config string, logEventEmitter LogEventEmitter) *SysLogger {
+func NewRemoteSysLogger(name, config string) *SysLogger {
 	if len(config) <= 0 {
-		return NewSysLogger(name, logEventEmitter)
+		return NewSysLogger(name)
 	}
 
 	protocol, host, port, err := parseSysLogConfig(config)
 	if err != nil {
-		return NewSysLogger(name, logEventEmitter)
+		return NewSysLogger(name)
 	}
 	writer, err := syslog.Dial(protocol, fmt.Sprintf("%s:%d", host, port), syslog.LOG_LOCAL7|syslog.LOG_DEBUG, name)
-	logger := &SysLogger{logEventEmitter: logEventEmitter}
+	logger := &SysLogger{}
 	if writer != nil && err == nil {
 		logger.logWriter = writer
 	} else {
 		logger.logWriter = NewBackendSysLogWriter(protocol, fmt.Sprintf("%s:%d", host, port), syslog.LOG_LOCAL7|syslog.LOG_DEBUG, name)
 	}
 	return logger
-
 }

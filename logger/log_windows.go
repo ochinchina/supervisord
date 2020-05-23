@@ -2,10 +2,10 @@
 
 package logger
 
-func NewSysLogger(name string, logEventEmitter LogEventEmitter) *SysLogger {
-	return &SysLogger{logEventEmitter: logEventEmitter, logWriter: nil}
+func NewSysLogger(name string) *SysLogger {
+	return &SysLogger{logWriter: nil}
 }
 
-func NewRemoteSysLogger(name string, config string, logEventEmitter LogEventEmitter) *SysLogger {
-	return NewSysLogger(name, logEventEmitter)
+func NewRemoteSysLogger(name, config string) *SysLogger {
+	return NewSysLogger(name)
 }

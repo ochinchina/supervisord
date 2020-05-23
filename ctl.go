@@ -68,16 +68,18 @@ type CmdCheckWrapperCommand struct {
 	usage string
 }
 
-var ctlCommand CtlCommand
-var statusCommand = CmdCheckWrapperCommand{&StatusCommand{}, 0, ""}
-var startCommand = CmdCheckWrapperCommand{&StartCommand{}, 0, ""}
-var stopCommand = CmdCheckWrapperCommand{&StopCommand{}, 0, ""}
-var restartCommand = CmdCheckWrapperCommand{&RestartCommand{}, 0, ""}
-var shutdownCommand = CmdCheckWrapperCommand{&ShutdownCommand{}, 0, ""}
-var reloadCommand = CmdCheckWrapperCommand{&ReloadCommand{}, 0, ""}
-var pidCommand = CmdCheckWrapperCommand{&PidCommand{}, 1, "pid <program>"}
-var signalCommand = CmdCheckWrapperCommand{&SignalCommand{}, 2, "signal <signal_name> <program>[...]"}
-var logtailCommand = CmdCheckWrapperCommand{&LogtailCommand{}, 1, "logtail <program>"}
+var (
+	ctlCommand      CtlCommand
+	statusCommand   = CmdCheckWrapperCommand{&StatusCommand{}, 0, ""}
+	startCommand    = CmdCheckWrapperCommand{&StartCommand{}, 0, ""}
+	stopCommand     = CmdCheckWrapperCommand{&StopCommand{}, 0, ""}
+	restartCommand  = CmdCheckWrapperCommand{&RestartCommand{}, 0, ""}
+	shutdownCommand = CmdCheckWrapperCommand{&ShutdownCommand{}, 0, ""}
+	reloadCommand   = CmdCheckWrapperCommand{&ReloadCommand{}, 0, ""}
+	pidCommand      = CmdCheckWrapperCommand{&PidCommand{}, 1, "pid <program>"}
+	signalCommand   = CmdCheckWrapperCommand{&SignalCommand{}, 2, "signal <signal_name> <program>[...]"}
+	logtailCommand  = CmdCheckWrapperCommand{&LogtailCommand{}, 1, "logtail <program>"}
+)
 
 func (x *CtlCommand) getServerURL() string {
 	options.Configuration, _ = findSupervisordConf()
@@ -426,7 +428,7 @@ func (lc *LogtailCommand) Execute(args []string) error {
 	return lc.tailLog(program, "stdout")
 }
 
-func (lc *LogtailCommand) tailLog(program string, dev string) error {
+func (lc *LogtailCommand) tailLog(program, dev string) error {
 	_, err := ctlCommand.getProcessInfo(ctlCommand.createRPCClient(), program)
 	if err != nil {
 		fmt.Printf("Not exist program %s\n", program)
@@ -509,5 +511,4 @@ func init() {
 		"get the standard output&standard error of the program",
 		"get the standard output&standard error of the program",
 		&logtailCommand)
-
 }

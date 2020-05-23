@@ -25,7 +25,6 @@ func TestGetAllGroup(t *testing.T) {
 	if len(groups) != 2 || !util.HasAllElements(util.StringArrayToInterfacArray(groups), []interface{}{"group1", "group2"}) {
 		t.Fail()
 	}
-
 }
 
 func TestGetAllProcessInGroup(t *testing.T) {
@@ -61,7 +60,6 @@ func TestRemoveFromGroup(t *testing.T) {
 	if len(procs) != 2 || !util.HasAllElements(util.StringArrayToInterfacArray(procs), []interface{}{"proc2_2", "proc2_3"}) {
 		t.Fail()
 	}
-
 }
 
 func TestGroupDiff(t *testing.T) {
@@ -87,5 +85,4 @@ func TestGroupDiff(t *testing.T) {
 	if len(removed) != 1 || removed[0] != "group-2" {
 		t.Error("Fail to get removed groups")
 	}
-
 }

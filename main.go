@@ -7,10 +7,9 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"supervisord/internal/zap/encoder"
 	"syscall"
 	"unicode"
-
-	"supervisord/internal/zap/encoder"
 
 	"github.com/jessevdk/go-flags"
 	"go.uber.org/zap"
@@ -44,17 +43,18 @@ func initSignals(s *Supervisor) {
 		s.procMgr.StopAllProcesses()
 		os.Exit(-1)
 	}()
-
 }
 
-var options Options
-var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
+var (
+	options Options
+	parser  = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
+)
 
 func loadEnvFile() {
 	if len(options.EnvFile) <= 0 {
 		return
 	}
-	//try to open the environment file
+	// try to open the environment file
 	f, err := os.Open(options.EnvFile)
 	if err != nil {
 		zap.L().Error("Fail to open environment file", zap.String("file", options.EnvFile))
@@ -63,26 +63,26 @@ func loadEnvFile() {
 	defer f.Close()
 	reader := bufio.NewReader(f)
 	for {
-		//for each line
+		// for each line
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			break
 		}
-		//if line starts with '#', it is a comment line, ignore it
+		// if line starts with '#', it is a comment line, ignore it
 		line = strings.TrimSpace(line)
 		if len(line) > 0 && line[0] == '#' {
 			continue
 		}
-		//if environment variable is exported with "export"
+		// if environment variable is exported with "export"
 		if strings.HasPrefix(line, "export") && len(line) > len("export") && unicode.IsSpace(rune(line[len("export")])) {
 			line = strings.TrimSpace(line[len("export"):])
 		}
-		//split the environment variable with "="
+		// split the environment variable with "="
 		pos := strings.Index(line, "=")
 		if pos != -1 {
 			k := strings.TrimSpace(line[0:pos])
 			v := strings.TrimSpace(line[pos+1:])
-			//if key and value are not empty, put it into the environment
+			// if key and value are not empty, put it into the environment
 			if len(k) > 0 && len(v) > 0 {
 				os.Setenv(k, v)
 			}
@@ -99,13 +99,15 @@ func loadEnvFile() {
 // 5. ../etc/supervisord.conf (Relative to the executable)
 // 6. ../supervisord.conf (Relative to the executable)
 func findSupervisordConf() (string, error) {
-	possibleSupervisordConf := []string{options.Configuration,
+	possibleSupervisordConf := []string{
+		options.Configuration,
 		"./supervisord.conf",
 		"./etc/supervisord.conf",
 		"/etc/supervisord.conf",
 		"/etc/supervisor/supervisord.conf",
 		"../etc/supervisord.conf",
-		"../supervisord.conf"}
+		"../supervisord.conf",
+	}
 
 	for _, file := range possibleSupervisordConf {
 		if _, err := os.Stat(file); err == nil {

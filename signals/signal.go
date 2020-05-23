@@ -23,9 +23,7 @@ func ToSignal(signalName string) (os.Signal, error) {
 		return syscall.SIGUSR2, nil
 	} else {
 		return syscall.SIGTERM, nil
-
 	}
-
 }
 
 // Kill send signal to the process
