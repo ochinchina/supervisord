@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -9,121 +11,98 @@ import (
 	"supervisord/types"
 	"supervisord/xmlrpcclient"
 
-	"github.com/jessevdk/go-flags"
+	"github.com/spf13/cobra"
 )
 
-// CtlCommand the entry of ctl command
 type CtlCommand struct {
-	ServerURL string `short:"s" long:"serverurl" description:"URL on which supervisord server is listening"`
-	User      string `short:"u" long:"user" description:"the user name"`
-	Password  string `short:"P" long:"password" description:"the password"`
-	Verbose   bool   `short:"v" long:"verbose" description:"Show verbose debug information"`
-}
-
-// StatusCommand get the status of all supervisor managed programs
-type StatusCommand struct {
-}
-
-// StartCommand start the given program
-type StartCommand struct {
-}
-
-// StopCommand stop the given program
-type StopCommand struct {
-}
-
-// RestartCommand restart the given program
-type RestartCommand struct {
-}
-
-// ShutdownCommand shutdown the supervisor
-type ShutdownCommand struct {
-}
-
-// ReloadCommand reload all the programs
-type ReloadCommand struct {
-}
-
-// PidCommand get the pid of program
-type PidCommand struct {
-}
-
-// SignalCommand send signal of program
-type SignalCommand struct {
-}
-
-// LogtailCommand tail the stdout/stderr log of program through http interface
-type LogtailCommand struct {
-}
-
-// CmdCheckWrapperCommand A wrapper can be use to check whether
-// number of parameters is valid or not
-type CmdCheckWrapperCommand struct {
-	// Original cmd
-	cmd flags.Commander
-	// leastNumArgs indicates how many arguments
-	// this cmd should have at least
-	leastNumArgs int
-	// Print usage when arguments not valid
-	usage string
+	ServerURL string
+	Username  string
+	Password  string
+	Verbose   bool
 }
 
 var (
-	ctlCommand      CtlCommand
-	statusCommand   = CmdCheckWrapperCommand{&StatusCommand{}, 0, ""}
-	startCommand    = CmdCheckWrapperCommand{&StartCommand{}, 0, ""}
-	stopCommand     = CmdCheckWrapperCommand{&StopCommand{}, 0, ""}
-	restartCommand  = CmdCheckWrapperCommand{&RestartCommand{}, 0, ""}
-	shutdownCommand = CmdCheckWrapperCommand{&ShutdownCommand{}, 0, ""}
-	reloadCommand   = CmdCheckWrapperCommand{&ReloadCommand{}, 0, ""}
-	pidCommand      = CmdCheckWrapperCommand{&PidCommand{}, 1, "pid <program>"}
-	signalCommand   = CmdCheckWrapperCommand{&SignalCommand{}, 2, "signal <signal_name> <program>[...]"}
-	logtailCommand  = CmdCheckWrapperCommand{&LogtailCommand{}, 1, "logtail <program>"}
+	ctlOpt CtlCommand
+
+	ctlCmd = cobra.Command{
+		Use: "ctl",
+	}
 )
 
-func (x *CtlCommand) getServerURL() string {
-	options.Configuration, _ = findSupervisordConf()
+func init() {
+	rootCmd.AddCommand(&ctlCmd)
+	ctlCmd.PersistentFlags().StringVarP(&ctlOpt.ServerURL, "server-url", "s", "http://localhost:9001", "URL on which supervisord server is listening")
+	ctlCmd.PersistentFlags().StringVarP(&ctlOpt.Username, "username", "u", "", "Username for authentication")
+	ctlCmd.PersistentFlags().StringVarP(&ctlOpt.Password, "password", "p", "", "Password for authentication")
+	ctlCmd.PersistentFlags().BoolVarP(&ctlOpt.Verbose, "verbose", "v", false, "Show verbose debug information")
 
-	if x.ServerURL != "" {
-		return x.ServerURL
-	} else if _, err := os.Stat(options.Configuration); err == nil {
-		config := config.NewConfig(options.Configuration)
-		config.Load()
-		if config.SupervisorCtl != nil && config.SupervisorCtl.ServerURL != "" {
-			return config.SupervisorCtl.ServerURL
-		}
-	}
-	return "http://localhost:9001"
-}
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "status",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctlOpt.status(args)
+		},
+	})
 
-func (x *CtlCommand) getUser() string {
-	options.Configuration, _ = findSupervisordConf()
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "start",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctlOpt.startStopProcesses("start", args)
+		},
+	})
 
-	if x.User != "" {
-		return x.User
-	} else if _, err := os.Stat(options.Configuration); err == nil {
-		config := config.NewConfig(options.Configuration)
-		config.Load()
-		if config.SupervisorCtl != nil {
-			return config.SupervisorCtl.Username
-		}
-	}
-	return ""
-}
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "stop",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctlOpt.startStopProcesses("stop", args)
+		},
+	})
 
-func (x *CtlCommand) getPassword() string {
-	options.Configuration, _ = findSupervisordConf()
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "shutdown",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctlOpt.shutdown()
+		},
+	})
 
-	if x.Password != "" {
-		return x.Password
-	} else if _, err := os.Stat(options.Configuration); err == nil {
-		config := config.NewConfig(options.Configuration)
-		config.Load()
-		if config.SupervisorCtl != nil {
-			return config.SupervisorCtl.Password
-		}
-	}
-	return ""
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "reload",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctlOpt.reload()
+		},
+	})
+
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "signal",
+		Run: func(cmd *cobra.Command, args []string) {
+			sigName, processes := args[0], args[1:]
+			ctlOpt.signal(sigName, processes)
+		},
+		Args: cobra.MinimumNArgs(2),
+	})
+
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "pid",
+		Run: func(cmd *cobra.Command, args []string) {
+			ctlOpt.getPid(args[0])
+		},
+		Args: cobra.ExactArgs(1),
+	})
+
+	ctlCmd.AddCommand(&cobra.Command{
+		Use: "logtail",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			program := args[0]
+			go func() {
+				ctlOpt.tailLog(program, "stderr")
+			}()
+			err := ctlOpt.tailLog(program, "stdout")
+			if !errors.Is(err, io.EOF) {
+				return err
+			}
+			return nil
+		},
+		Args: cobra.ExactArgs(1),
+	})
 }
 
 func (x *CtlCommand) createRPCClient() *xmlrpcclient.XMLRPCClient {
@@ -133,50 +112,48 @@ func (x *CtlCommand) createRPCClient() *xmlrpcclient.XMLRPCClient {
 	return rpcc
 }
 
-// Execute implements flags.Commander interface to execute the control commands
-func (x *CtlCommand) Execute(args []string) error {
-	if len(args) == 0 {
-		return nil
+func (x *CtlCommand) getServerURL() string {
+	if x.ServerURL != "" {
+		return x.ServerURL
+	} else if _, err := os.Stat(rootOpt.Configuration); err == nil {
+		config := config.NewConfig(rootOpt.Configuration)
+		config.Load()
+		if config.SupervisorCtl != nil && config.SupervisorCtl.ServerURL != "" {
+			return config.SupervisorCtl.ServerURL
+		}
 	}
+	return "http://localhost:9001"
+}
 
-	rpcc := x.createRPCClient()
-	verb := args[0]
-
-	switch verb {
-
-	////////////////////////////////////////////////////////////////////////////////
-	// STATUS
-	////////////////////////////////////////////////////////////////////////////////
-	case "status":
-		x.status(rpcc, args[1:])
-
-		////////////////////////////////////////////////////////////////////////////////
-		// START or STOP
-		////////////////////////////////////////////////////////////////////////////////
-	case "start", "stop":
-		x.startStopProcesses(rpcc, verb, args[1:])
-
-		////////////////////////////////////////////////////////////////////////////////
-		// SHUTDOWN
-		////////////////////////////////////////////////////////////////////////////////
-	case "shutdown":
-		x.shutdown(rpcc)
-	case "reload":
-		x.reload(rpcc)
-	case "signal":
-		sigName, processes := args[1], args[2:]
-		x.signal(rpcc, sigName, processes)
-	case "pid":
-		x.getPid(rpcc, args[1])
-	default:
-		fmt.Println("unknown command")
+func (x *CtlCommand) getUser() string {
+	if x.Username != "" {
+		return x.Username
+	} else if _, err := os.Stat(rootOpt.Configuration); err == nil {
+		config := config.NewConfig(rootOpt.Configuration)
+		config.Load()
+		if config.SupervisorCtl != nil {
+			return config.SupervisorCtl.Username
+		}
 	}
+	return ""
+}
 
-	return nil
+func (x *CtlCommand) getPassword() string {
+	if x.Password != "" {
+		return x.Password
+	} else if _, err := os.Stat(rootOpt.Configuration); err == nil {
+		config := config.NewConfig(rootOpt.Configuration)
+		config.Load()
+		if config.SupervisorCtl != nil {
+			return config.SupervisorCtl.Password
+		}
+	}
+	return ""
 }
 
 // get the status of processes
-func (x *CtlCommand) status(rpcc *xmlrpcclient.XMLRPCClient, processes []string) {
+func (x *CtlCommand) status(processes []string) {
+	rpcc := x.createRPCClient()
 	processesMap := make(map[string]bool)
 	for _, process := range processes {
 		processesMap[process] = true
@@ -190,7 +167,8 @@ func (x *CtlCommand) status(rpcc *xmlrpcclient.XMLRPCClient, processes []string)
 
 // start or stop the processes
 // verb must be: start or stop
-func (x *CtlCommand) startStopProcesses(rpcc *xmlrpcclient.XMLRPCClient, verb string, processes []string) {
+func (x *CtlCommand) startStopProcesses(verb string, processes []string) {
+	rpcc := x.createRPCClient()
 	state := map[string]string{
 		"start": "started",
 		"stop":  "stopped",
@@ -229,13 +207,15 @@ func (x *CtlCommand) _startStopProcesses(rpcc *xmlrpcclient.XMLRPCClient, verb s
 	}
 }
 
-func (x *CtlCommand) restartProcesses(rpcc *xmlrpcclient.XMLRPCClient, processes []string) {
+func (x *CtlCommand) restartProcesses(processes []string) {
+	rpcc := x.createRPCClient()
 	x._startStopProcesses(rpcc, "stop", processes, "stopped", false)
 	x._startStopProcesses(rpcc, "start", processes, "restarted", true)
 }
 
 // shutdown the supervisord
-func (x *CtlCommand) shutdown(rpcc *xmlrpcclient.XMLRPCClient) {
+func (x *CtlCommand) shutdown() {
+	rpcc := x.createRPCClient()
 	if reply, err := rpcc.Shutdown(); err == nil {
 		if reply.Value {
 			fmt.Printf("Shut Down\n")
@@ -248,7 +228,8 @@ func (x *CtlCommand) shutdown(rpcc *xmlrpcclient.XMLRPCClient) {
 }
 
 // reload all the programs in the supervisord
-func (x *CtlCommand) reload(rpcc *xmlrpcclient.XMLRPCClient) {
+func (x *CtlCommand) reload() {
+	rpcc := x.createRPCClient()
 	if reply, err := rpcc.ReloadConfig(); err == nil {
 
 		if len(reply.AddedGroup) > 0 {
@@ -266,7 +247,8 @@ func (x *CtlCommand) reload(rpcc *xmlrpcclient.XMLRPCClient) {
 }
 
 // send signal to one or more processes
-func (x *CtlCommand) signal(rpcc *xmlrpcclient.XMLRPCClient, sigName string, processes []string) {
+func (x *CtlCommand) signal(sigName string, processes []string) {
+	rpcc := x.createRPCClient()
 	for _, process := range processes {
 		if process == "all" {
 			reply, err := rpcc.SignalAll(process)
@@ -289,7 +271,8 @@ func (x *CtlCommand) signal(rpcc *xmlrpcclient.XMLRPCClient, sigName string, pro
 }
 
 // get the pid of running program
-func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XMLRPCClient, process string) {
+func (x *CtlCommand) getPid(process string) {
+	rpcc := x.createRPCClient()
 	procInfo, err := rpcc.GetProcessInfo(process)
 	if err != nil {
 		fmt.Printf("program '%s' not found\n", process)
@@ -299,8 +282,40 @@ func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XMLRPCClient, process string) {
 	}
 }
 
-func (x *CtlCommand) getProcessInfo(rpcc *xmlrpcclient.XMLRPCClient, process string) (types.ProcessInfo, error) {
+func (x *CtlCommand) getProcessInfo(process string) (types.ProcessInfo, error) {
+	rpcc := x.createRPCClient()
 	return rpcc.GetProcessInfo(process)
+}
+
+func (x *CtlCommand) tailLog(program, dev string) error {
+	_, err := x.getProcessInfo(program)
+	if err != nil {
+		fmt.Printf("Not exist program %s\n", program)
+		return err
+	}
+	url := fmt.Sprintf("%s/logtail/%s/%s", x.getServerURL(), program, dev)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(x.getUser(), x.getPassword())
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 10240)
+	for {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			return err
+		}
+		if dev == "stdout" {
+			os.Stdout.Write(buf[0:n])
+		} else {
+			os.Stderr.Write(buf[0:n])
+		}
+	}
 }
 
 // check if group name should be displayed
@@ -363,147 +378,4 @@ func (x *CtlCommand) getANSIColor(statename string) string {
 		// yellow
 		return "\x1b[1;33m"
 	}
-}
-
-// Execute implements flags.Commander interface to get status of program
-func (sc *StatusCommand) Execute(args []string) error {
-	ctlCommand.status(ctlCommand.createRPCClient(), args)
-	return nil
-}
-
-// Execute start the given programs
-func (sc *StartCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "start", args)
-	return nil
-}
-
-// Execute stop the given programs
-func (sc *StopCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "stop", args)
-	return nil
-}
-
-// Execute restart the programs
-func (rc *RestartCommand) Execute(args []string) error {
-	ctlCommand.restartProcesses(ctlCommand.createRPCClient(), args)
-	return nil
-}
-
-// Execute shutdown the supervisor
-func (sc *ShutdownCommand) Execute(args []string) error {
-	ctlCommand.shutdown(ctlCommand.createRPCClient())
-	return nil
-}
-
-// Execute stop the running programs and reload the supervisor configuration
-func (rc *ReloadCommand) Execute(args []string) error {
-	ctlCommand.reload(ctlCommand.createRPCClient())
-	return nil
-}
-
-// Execute send signal to program
-func (rc *SignalCommand) Execute(args []string) error {
-	sigName, processes := args[0], args[1:]
-	ctlCommand.signal(ctlCommand.createRPCClient(), sigName, processes)
-	return nil
-}
-
-// Execute get the pid of program
-func (pc *PidCommand) Execute(args []string) error {
-	ctlCommand.getPid(ctlCommand.createRPCClient(), args[0])
-	return nil
-}
-
-// Execute tail the stdout/stderr of a program through http interrface
-func (lc *LogtailCommand) Execute(args []string) error {
-	program := args[0]
-	go func() {
-		lc.tailLog(program, "stderr")
-	}()
-	return lc.tailLog(program, "stdout")
-}
-
-func (lc *LogtailCommand) tailLog(program, dev string) error {
-	_, err := ctlCommand.getProcessInfo(ctlCommand.createRPCClient(), program)
-	if err != nil {
-		fmt.Printf("Not exist program %s\n", program)
-		return err
-	}
-	url := fmt.Sprintf("%s/logtail/%s/%s", ctlCommand.getServerURL(), program, dev)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-	req.SetBasicAuth(ctlCommand.getUser(), ctlCommand.getPassword())
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	buf := make([]byte, 10240)
-	for {
-		n, err := resp.Body.Read(buf)
-		if err != nil {
-			return err
-		}
-		if dev == "stdout" {
-			os.Stdout.Write(buf[0:n])
-		} else {
-			os.Stderr.Write(buf[0:n])
-		}
-	}
-	return nil
-}
-
-// Execute check if the number of arguments is ok
-func (wc *CmdCheckWrapperCommand) Execute(args []string) error {
-	if len(args) < wc.leastNumArgs {
-		err := fmt.Errorf("Invalid arguments.\nUsage: supervisord ctl %v", wc.usage)
-		fmt.Printf("%v\n", err)
-		return err
-	}
-	return wc.cmd.Execute(args)
-}
-
-func init() {
-	ctlCmd, _ := parser.AddCommand("ctl",
-		"Control a running daemon",
-		"The ctl subcommand resembles supervisorctl command of original daemon.",
-		&ctlCommand)
-	ctlCmd.AddCommand("status",
-		"show program status",
-		"show all or some program status",
-		&statusCommand)
-	ctlCmd.AddCommand("start",
-		"start programs",
-		"start one or more programs",
-		&startCommand)
-	ctlCmd.AddCommand("stop",
-		"stop programs",
-		"stop one or more programs",
-		&stopCommand)
-	ctlCmd.AddCommand("restart",
-		"restart programs",
-		"restart one or more programs",
-		&restartCommand)
-	ctlCmd.AddCommand("shutdown",
-		"shutdown supervisord",
-		"shutdown supervisord",
-		&shutdownCommand)
-	ctlCmd.AddCommand("reload",
-		"reload the programs",
-		"reload the programs",
-		&reloadCommand)
-	ctlCmd.AddCommand("signal",
-		"send signal to program",
-		"send signal to program",
-		&signalCommand)
-	ctlCmd.AddCommand("pid",
-		"get the pid of specified program",
-		"get the pid of specified program",
-		&pidCommand)
-	ctlCmd.AddCommand("logtail",
-		"get the standard output&standard error of the program",
-		"get the standard output&standard error of the program",
-		&logtailCommand)
 }

@@ -51,14 +51,9 @@ func (ii *Ini) getIncludeFiles(cfg *ini.File) []string {
 			return nil
 		}
 
-		env := NewStringExpression("here", ii.GetConfigFileDir())
 		files := key.Strings(",")
-		for _, fRaw := range files {
+		for _, f := range files {
 			dir := ii.GetConfigFileDir()
-			f, err := env.Eval(fRaw)
-			if err != nil {
-				continue
-			}
 			if filepath.IsAbs(f) {
 				dir = filepath.Dir(f)
 			}
@@ -97,7 +92,6 @@ func (ii *Ini) parsePrograms(cfg *ini.File, c *Config) []string {
 		programName := section.Name()[len("program."):]
 		obj := c.createProgram(programName)
 		_ = section.MapTo(obj)
-		obj.Command = stripEmpty(obj.Command)
 		obj.Environment = stripEmpty(obj.Environment)
 		group := c.ProgramGroup.GetGroup(programName, programName)
 		obj.Group = group

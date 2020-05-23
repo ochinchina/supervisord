@@ -23,6 +23,12 @@ import (
 	"go.uber.org/zap"
 )
 
+var gShellArgs []string
+
+func SetShellArgs(s []string) {
+	gShellArgs = s
+}
+
 // State the state of process
 type State int
 
@@ -352,11 +358,8 @@ func (p *Process) isRunning() bool {
 
 // create Command object for the program
 func (p *Process) createProgramCommand() error {
-	args := p.program.Command
-	p.cmd = exec.Command(args[0])
-	if len(args) > 1 {
-		p.cmd.Args = args
-	}
+	args := strings.SplitN(p.program.Command, " ", 2)
+	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], p.program.Command)...)
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
 		zap.L().Error("fail to run as user", zap.String("user", p.program.User))

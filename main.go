@@ -5,22 +5,15 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"supervisord/internal/zap/encoder"
+	"supervisord/process"
 	"syscall"
 	"unicode"
 
-	"github.com/jessevdk/go-flags"
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
-
-// Options the command line options
-type Options struct {
-	Configuration string `short:"c" long:"configuration" description:"the configuration file"`
-	Daemon        bool   `short:"d" long:"daemon" description:"run as daemon"`
-	EnvFile       string `long:"env-file" description:"the environment file"`
-}
 
 func init() {
 	cfg := zap.NewDevelopmentConfig()
@@ -45,19 +38,14 @@ func initSignals(s *Supervisor) {
 	}()
 }
 
-var (
-	options Options
-	parser  = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
-)
-
 func loadEnvFile() {
-	if len(options.EnvFile) <= 0 {
+	if len(rootOpt.EnvFile) <= 0 {
 		return
 	}
-	// try to open the environment file
-	f, err := os.Open(options.EnvFile)
+	// try to open the rootOpt file
+	f, err := os.Open(rootOpt.EnvFile)
 	if err != nil {
-		zap.L().Error("Fail to open environment file", zap.String("file", options.EnvFile))
+		zap.L().Error("Fail to open environment file", zap.String("file", rootOpt.EnvFile))
 		return
 	}
 	defer f.Close()
@@ -90,44 +78,11 @@ func loadEnvFile() {
 	}
 }
 
-// find the supervisord.conf in following order:
-//
-// 1. $CWD/supervisord.conf
-// 2. $CWD/etc/supervisord.conf
-// 3. /etc/supervisord.conf
-// 4. /etc/supervisor/supervisord.conf (since Supervisor 3.3.0)
-// 5. ../etc/supervisord.conf (Relative to the executable)
-// 6. ../supervisord.conf (Relative to the executable)
-func findSupervisordConf() (string, error) {
-	possibleSupervisordConf := []string{
-		options.Configuration,
-		"./supervisord.conf",
-		"./etc/supervisord.conf",
-		"/etc/supervisord.conf",
-		"/etc/supervisor/supervisord.conf",
-		"../etc/supervisord.conf",
-		"../supervisord.conf",
-	}
-
-	for _, file := range possibleSupervisordConf {
-		if _, err := os.Stat(file); err == nil {
-			absFile, err := filepath.Abs(file)
-			if err == nil {
-				return absFile, nil
-			}
-			return file, nil
-		}
-	}
-
-	return "", fmt.Errorf("fail to find supervisord.conf")
-}
-
 func runServer() {
 	// infinite loop for handling Restart ('reload' command)
 	loadEnvFile()
 	for true {
-		options.Configuration, _ = findSupervisordConf()
-		s := NewSupervisor(options.Configuration)
+		s := NewSupervisor(rootOpt.Configuration)
 		initSignals(s)
 		if _, _, _, sErr := s.Reload(); sErr != nil {
 			panic(sErr)
@@ -136,26 +91,49 @@ func runServer() {
 	}
 }
 
+var (
+	rootOpt = struct {
+		Configuration string
+		Daemon        bool
+		EnvFile       string
+		Shell         string
+	}{}
+
+	rootCmd = cobra.Command{
+		Run: func(cmd *cobra.Command, args []string) {
+			process.SetShellArgs(strings.Split(rootOpt.Shell, " "))
+
+			if rootOpt.Daemon {
+				Deamonize(runServer)
+			} else {
+				runServer()
+			}
+		},
+	}
+)
+
+func getDefaultShell() string {
+	sh := os.Getenv("SHELL")
+
+	if sh == "" {
+		return "/bin/sh -c"
+	}
+
+	return sh + " -c"
+}
+
 func main() {
 	ReapZombie()
 
-	if _, err := parser.Parse(); err != nil {
-		flagsErr, ok := err.(*flags.Error)
-		if ok {
-			switch flagsErr.Type {
-			case flags.ErrHelp:
-				fmt.Fprintln(os.Stdout, err)
-				os.Exit(0)
-			case flags.ErrCommandRequired:
-				if options.Daemon {
-					Deamonize(runServer)
-				} else {
-					runServer()
-				}
-			default:
-				fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)
-				os.Exit(1)
-			}
-		}
+	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration file")
+	flags := rootCmd.Flags()
+	flags.BoolVarP(&rootOpt.Daemon, "daemon", "d", false, "Run as daemon")
+	flags.StringVar(&rootOpt.EnvFile, "env-file", "", "An optional environment file")
+	flags.StringVar(&rootOpt.Shell, "shell", getDefaultShell(), "Specify an alternate shell path")
+
+	rootCmd.MarkFlagRequired("config")
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to execute command", err)
 	}
 }

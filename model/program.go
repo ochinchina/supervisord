@@ -1,13 +1,11 @@
 package model
 
 type Program struct {
-	ProcessNumber int    `yaml:"-"`
-	ProcessName   string `yaml:"-"`
-	Name          string `yaml:"-" ini:"-"`
-	Group         string `yaml:"-" ini:"-"`
+	Name  string `yaml:"-" ini:"-"`
+	Group string `yaml:"-" ini:"-"`
 
 	Directory                string   `yaml:"directory" ini:"directory"`
-	Command                  []string `yaml:"command" ini:"command" delim:"\n"`
+	Command                  string   `yaml:"command" ini:"command"`
 	Environment              []string `yaml:"environment" ini:"environment" delim:"\n"`
 	User                     string   `yaml:"user" ini:"user"`
 	ExitCodes                []int    `yaml:"exit_codes" ini:"exitcodes" delim:"," default:"[0,2]"`

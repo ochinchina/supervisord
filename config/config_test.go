@@ -133,7 +133,7 @@ func TestConfigWithInclude(t *testing.T) {
 func TestDefaultParams(t *testing.T) {
 	config, _ := parse([]byte("[program.test]\nautorestart=true\ntest=1\n[program]\ncommand=/usr/bin/ls\nstartretries=10\nautorestart=false"))
 	entry := config.GetProgram("test")
-	assert.Equal(t, []string{"/usr/bin/ls"}, entry.Command)
+	assert.Equal(t, "/usr/bin/ls", entry.Command)
 	assert.True(t, entry.AutoStart)
 	assert.Equal(t, entry.StartRetries, 10)
 }
