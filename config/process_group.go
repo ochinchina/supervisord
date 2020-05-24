@@ -3,7 +3,8 @@ package config
 import (
 	"bytes"
 	"strings"
-	"supervisord/util"
+
+	"github.com/stuartcarnie/gopm/util"
 )
 
 // ProcessGroup manage the program and its group mapping
@@ -37,7 +38,7 @@ func (pg *ProcessGroup) Sub(other *ProcessGroup) (added, changed, removed []stri
 	for _, group := range thisGroup {
 		proc1 := pg.GetAllProcess(group)
 		proc2 := other.GetAllProcess(group)
-		if len(proc2) > 0 && !util.IsSameStringArray(proc1, proc2) {
+		if len(proc2) > 0 && !util.ElementsMatchString(proc1, proc2) {
 			changed = append(changed, group)
 		}
 	}

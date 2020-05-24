@@ -1,13 +1,13 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-	"supervisord/faults"
 	"sync"
+
+	"github.com/stuartcarnie/gopm/faults"
 )
 
 // Logger the log interface to log program stdout/stderr logs to file
@@ -28,12 +28,6 @@ type FileLogger struct {
 	fileSize int64
 	file     *os.File
 	locker   sync.Locker
-}
-
-// SysLogger log program stdout/stderr to syslog
-type SysLogger struct {
-	NullLogger
-	logWriter io.WriteCloser
 }
 
 // NullLogger discard the program stdout/stderr log
@@ -273,23 +267,7 @@ func (l *FileLogger) Close() error {
 	return nil
 }
 
-// Write write the log to syslog
-func (sl *SysLogger) Write(b []byte) (int, error) {
-	if sl.logWriter == nil {
-		return 0, errors.New("not connect to syslog server")
-	}
-	return sl.logWriter.Write(b)
-}
-
-// Close close the logger
-func (sl *SysLogger) Close() error {
-	if sl.logWriter == nil {
-		return errors.New("not connect to syslog server")
-	}
-	return sl.logWriter.Close()
-}
-
-// NewNullLogger create a NullLoger
+// NewNullLogger creates a NullLogger
 func NewNullLogger() *NullLogger {
 	return &NullLogger{}
 }
@@ -529,17 +507,6 @@ func createLogger(programName, logFile string, locker sync.Locker, maxBytes int6
 		return NewNullLogger()
 	}
 
-	if logFile == "syslog" {
-		return NewSysLogger(programName)
-	}
-	if strings.HasPrefix(logFile, "syslog") {
-		fields := strings.Split(logFile, "@")
-		fields[0] = strings.TrimSpace(fields[0])
-		fields[1] = strings.TrimSpace(fields[1])
-		if len(fields) == 2 && fields[0] == "syslog" {
-			return NewRemoteSysLogger(programName, fields[1])
-		}
-	}
 	if len(logFile) > 0 {
 		return NewFileLogger(logFile, maxBytes, backups, locker)
 	}

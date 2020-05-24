@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,18 +58,10 @@ func TestProgramConfig(t *testing.T) {
 	}
 }
 
-func TestUnixHttpServer(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[unix_http_server]\nfile=/foo.bar"))
-
-	entry := config.UnixHTTPServer
-	assert.NotNil(t, entry)
-	assert.Equal(t, "/foo.bar", entry.File)
-}
-
-func TestInetHttpServer(t *testing.T) {
+func TestHttpServer(t *testing.T) {
 	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[inet_http_server]\nport=9898"))
 
-	entry := config.InetHTTPServer
+	entry := config.HTTPServer
 	assert.NotNil(t, entry)
 	assert.Equal(t, "9898", entry.Port)
 }
@@ -79,36 +70,6 @@ func TestProgramInGroup(t *testing.T) {
 	config, _ := parse([]byte("[program.test1]\nA=123\n[group.test]\nprograms=test1,test2\n[program.test2]\nB=hello\n[program.test3]\nC=tt"))
 	if config.GetProgram("test1").Group != "test" {
 		t.Error("fail to test the program in a group")
-	}
-}
-
-func TestToRegex(t *testing.T) {
-	pattern := toRegexp("/an/absolute/*.conf")
-	matched, err := regexp.MatchString(pattern, "/an/absolute/ab.conf")
-	if !matched || err != nil {
-		t.Error("fail to match the file")
-	}
-
-	matched, err = regexp.MatchString(pattern, "/an/absolute/abconf")
-
-	if matched && err == nil {
-		t.Error("fail to match the file")
-	}
-
-	pattern = toRegexp("/an/absolute/??.conf")
-	matched, err = regexp.MatchString(pattern, "/an/absolute/ab.conf")
-	if !matched || err != nil {
-		t.Error("fail to match the file")
-	}
-
-	matched, err = regexp.MatchString(pattern, "/an/absolute/abconf")
-	if matched && err == nil {
-		t.Error("fail to match the file")
-	}
-
-	matched, err = regexp.MatchString(pattern, "/an/absolute/abc.conf")
-	if matched && err == nil {
-		t.Error("fail to match the file")
 	}
 }
 

@@ -3,8 +3,9 @@ package process
 import (
 	"fmt"
 	"strings"
-	"supervisord/model"
 	"sync"
+
+	"github.com/stuartcarnie/gopm/model"
 
 	"go.uber.org/zap"
 )

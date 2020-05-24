@@ -1,10 +1,12 @@
-package main
+package gopm
 
 import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"supervisord/types"
+
+	"github.com/stuartcarnie/gopm/rpc"
+	"github.com/stuartcarnie/gopm/types"
 
 	"github.com/gorilla/mux"
 )
@@ -25,7 +27,6 @@ func (sr *SupervisorRestful) CreateProgramHandler() http.Handler {
 	sr.router.HandleFunc("/program/list", sr.ListProgram).Methods("GET")
 	sr.router.HandleFunc("/program/start/{name}", sr.StartProgram).Methods("POST", "PUT")
 	sr.router.HandleFunc("/program/stop/{name}", sr.StopProgram).Methods("POST", "PUT")
-	sr.router.HandleFunc("/program/log/{name}/stdout", sr.ReadStdoutLog).Methods("GET")
 	sr.router.HandleFunc("/program/startPrograms", sr.StartPrograms).Methods("POST", "PUT")
 	sr.router.HandleFunc("/program/stopPrograms", sr.StopPrograms).Methods("POST", "PUT")
 	return sr.router
@@ -61,10 +62,9 @@ func (sr *SupervisorRestful) StartProgram(w http.ResponseWriter, req *http.Reque
 }
 
 func (sr *SupervisorRestful) _startProgram(program string) (bool, error) {
-	startArgs := StartProcessArgs{Name: program, Wait: true}
-	result := struct{ Success bool }{false}
-	err := sr.supervisor.StartProcess(nil, &startArgs, &result)
-	return result.Success, err
+	req := rpc.StartStopRequest{Name: program, Wait: true}
+	res, err := sr.supervisor.StartProcess(nil, &req)
+	return res != nil, err
 }
 
 // StartPrograms start one or more programs through restful interface
@@ -102,10 +102,9 @@ func (sr *SupervisorRestful) StopProgram(w http.ResponseWriter, req *http.Reques
 }
 
 func (sr *SupervisorRestful) _stopProgram(programName string) (bool, error) {
-	stopArgs := StartProcessArgs{Name: programName, Wait: true}
-	result := struct{ Success bool }{false}
-	err := sr.supervisor.StopProcess(nil, &stopArgs, &result)
-	return result.Success, err
+	req := rpc.StartStopRequest{Name: programName, Wait: true}
+	res, err := sr.supervisor.StopProcess(nil, &req)
+	return res != nil, err
 }
 
 // StopPrograms stop programs through the restful interface
@@ -132,16 +131,11 @@ func (sr *SupervisorRestful) StopPrograms(w http.ResponseWriter, req *http.Reque
 	}
 }
 
-// ReadStdoutLog read the stdout of given program
-func (sr *SupervisorRestful) ReadStdoutLog(w http.ResponseWriter, req *http.Request) {
-}
-
 // Shutdown shutdown the supervisor itself
 func (sr *SupervisorRestful) Shutdown(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
-	reply := struct{ Ret bool }{false}
-	sr.supervisor.Shutdown(nil, nil, &reply)
+	sr.supervisor.Shutdown(nil, nil)
 	w.Write([]byte("Shutdown..."))
 }
 

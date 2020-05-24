@@ -10,13 +10,14 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"supervisord/logger"
-	"supervisord/model"
-	"supervisord/signals"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/stuartcarnie/gopm/logger"
+	"github.com/stuartcarnie/gopm/model"
+	"github.com/stuartcarnie/gopm/signals"
 
 	"github.com/ochinchina/filechangemonitor"
 	"github.com/robfig/cron/v3"
@@ -509,7 +510,7 @@ func (p *Process) run(finishCb func()) {
 		// Set startsec to 0 to indicate that the program needn't stay
 		// running for any particular amount of time.
 		if startSecs <= 0 {
-			zap.L().Info("success to start program", zap.String("program", p.Name()))
+			zap.L().Info("Program started", zap.String("program", p.Name()))
 			p.changeStateTo(Running)
 			go finishCbWrapper()
 		} else {

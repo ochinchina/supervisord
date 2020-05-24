@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"supervisord/internal/zap/encoder"
-	"supervisord/process"
 	"syscall"
 	"unicode"
+
+	"github.com/stuartcarnie/gopm"
+	"github.com/stuartcarnie/gopm/internal/zap/encoder"
+	"github.com/stuartcarnie/gopm/process"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -27,13 +29,13 @@ func init() {
 	zap.ReplaceGlobals(log)
 }
 
-func initSignals(s *Supervisor) {
+func initSignals(s *gopm.Supervisor) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
 		zap.L().Info("receive a signal to stop all process & exit", zap.Stringer("signal", sig))
-		s.procMgr.StopAllProcesses()
+		s.GetManager().StopAllProcesses()
 		os.Exit(-1)
 	}()
 }
@@ -82,7 +84,7 @@ func runServer() {
 	// infinite loop for handling Restart ('reload' command)
 	loadEnvFile()
 	for true {
-		s := NewSupervisor(rootOpt.Configuration)
+		s := gopm.NewSupervisor(rootOpt.Configuration)
 		initSignals(s)
 		if _, _, _, sErr := s.Reload(); sErr != nil {
 			panic(sErr)
@@ -94,7 +96,6 @@ func runServer() {
 var (
 	rootOpt = struct {
 		Configuration string
-		Daemon        bool
 		EnvFile       string
 		Shell         string
 	}{}
@@ -102,12 +103,7 @@ var (
 	rootCmd = cobra.Command{
 		Run: func(cmd *cobra.Command, args []string) {
 			process.SetShellArgs(strings.Split(rootOpt.Shell, " "))
-
-			if rootOpt.Daemon {
-				Deamonize(runServer)
-			} else {
-				runServer()
-			}
+			runServer()
 		},
 	}
 )
@@ -123,17 +119,15 @@ func getDefaultShell() string {
 }
 
 func main() {
-	ReapZombie()
+	gopm.ReapZombie()
 
 	rootCmd.PersistentFlags().StringVarP(&rootOpt.Configuration, "config", "c", "", "Configuration file")
 	flags := rootCmd.Flags()
-	flags.BoolVarP(&rootOpt.Daemon, "daemon", "d", false, "Run as daemon")
 	flags.StringVar(&rootOpt.EnvFile, "env-file", "", "An optional environment file")
 	flags.StringVar(&rootOpt.Shell, "shell", getDefaultShell(), "Specify an alternate shell path")
-
-	rootCmd.MarkFlagRequired("config")
+	_ = rootCmd.MarkFlagRequired("config")
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to execute command", err)
+		_, _ = fmt.Fprintln(os.Stderr, "Failed to execute command", err)
 	}
 }

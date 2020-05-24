@@ -1,10 +1,9 @@
 package config
 
 import (
-	"strings"
-	"supervisord/model"
-
 	"github.com/creasty/defaults"
+	"github.com/stuartcarnie/gopm/model"
+	"github.com/stuartcarnie/gopm/model/ini"
 )
 
 // Config memory representations of supervisor configuration file
@@ -14,10 +13,10 @@ type Config struct {
 	groups   map[string]*model.Group
 	programs map[string]*model.Program
 
-	InetHTTPServer *model.InetHTTPServer
-	UnixHTTPServer *model.UnixHTTPServer
-	SupervisorCtl  *model.SupervisorCtl
-	ProgramGroup   *ProcessGroup
+	HTTPServer    *model.HTTPServer
+	GrpcServer    *model.GrpcServer
+	SupervisorCtl *model.SupervisorCtl
+	ProgramGroup  *ProcessGroup
 }
 
 // NewConfig create Config object
@@ -30,7 +29,7 @@ func NewConfig(configFile string) *Config {
 	}
 }
 
-func (c *Config) createGroup(name string) *model.Group {
+func (c *Config) CreateGroup(name string) *model.Group {
 	obj := c.groups[name]
 	if obj == nil {
 		obj = new(model.Group)
@@ -41,7 +40,7 @@ func (c *Config) createGroup(name string) *model.Group {
 	return obj
 }
 
-func (c *Config) createProgram(name string) *model.Program {
+func (c *Config) CreateProgram(name string) *model.Program {
 	obj := c.programs[name]
 	if obj == nil {
 		obj = new(model.Program)
@@ -55,18 +54,13 @@ func (c *Config) createProgram(name string) *model.Program {
 //
 // Load load the configuration and return the loaded programs
 func (c *Config) Load() ([]string, error) {
-	ii := Ini{c.configFile}
-	return ii.Load(c)
-}
-
-// convert supervisor file pattern to the go regrexp
-func toRegexp(pattern string) string {
-	tmp := strings.Split(pattern, ".")
-	for i, t := range tmp {
-		s := strings.Replace(t, "*", ".*", -1)
-		tmp[i] = strings.Replace(s, "?", ".", -1)
+	var ii ini.Reader
+	m, err := ii.LoadPath(c.configFile)
+	if err != nil {
+		return nil, err
 	}
-	return strings.Join(tmp, "\\.")
+
+	return ApplyUpdates(c, m)
 }
 
 func (c *Config) Programs() model.Programs {

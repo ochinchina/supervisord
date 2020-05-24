@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package gopm.rpc;
+option go_package = ".;rpc";
+
+import "google/protobuf/empty.proto";
+
+service Gopm {
+    rpc GetVersion (google.protobuf.Empty) returns (VersionResponse);
+    rpc GetProcessInfo (google.protobuf.Empty) returns (ProcessInfoResponse);
+    rpc StartProcess(StartStopRequest) returns (StartStopResponse);
+    rpc StopProcess(StartStopRequest) returns (StartStopResponse);
+    rpc StartAllProcesses(StartStopAllRequest) returns (ProcessInfoResponse);
+    rpc StopAllProcesses(StartStopAllRequest) returns (ProcessInfoResponse);
+    rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc ReloadConfig(google.protobuf.Empty) returns (ReloadConfigResponse);
+    rpc TailLog(TailLogRequest) returns (stream TailLogResponse);
+    rpc SignalProcess(SignalProcessRequest) returns (google.protobuf.Empty);
+    rpc SignalProcessGroup(SignalProcessRequest) returns (ProcessInfoResponse);
+    rpc SignalAllProcesses(SignalProcessRequest) returns (ProcessInfoResponse);
+}
+
+message VersionResponse {
+    string Version = 1;
+}
+
+message ProcessInfoResponse {
+    repeated ProcessInfo processes = 1;
+}
+
+message ProcessInfo {
+    string Name = 1;
+    string Group = 2;
+    string Description = 3;
+    int64 Start = 4;
+    int64 Stop = 5;
+    int64 Now = 6;
+    int64 State = 7;
+    string StateName = 8;
+    string SpawnErr = 9;
+    int64 ExitStatus = 10;
+    string Logfile = 11;
+    string StdoutLogfile = 12;
+    string StderrLogfile = 13;
+    int64 Pid = 14;
+}
+
+message StartStopRequest {
+    string name = 1;
+    bool wait = 2;
+}
+
+message StartStopResponse {
+
+}
+
+message StartStopAllRequest {
+    bool wait = 2;
+}
+
+message ReloadConfigResponse {
+    repeated string AddedGroup = 1;
+    repeated string ChangedGroup = 2;
+    repeated string RemovedGroup = 3;
+}
+
+enum LogDevice {
+    Stdout = 0;
+    Stderr = 1;
+}
+
+message TailLogRequest {
+    string name = 1;
+    LogDevice device = 2;
+}
+
+message TailLogResponse {
+    bytes lines = 1;
+}
+
+enum ProcessSignal {
+    HUP = 0;
+    INT = 1;
+    QUIT = 2;
+    KILL = 3;
+    USR1 = 4;
+    USR2 = 5;
+    TERM = 6;
+}
+
+message SignalProcessRequest {
+    string name = 1;
+    ProcessSignal signal = 2;
+}

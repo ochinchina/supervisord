@@ -1,8 +1,9 @@
 package model_test
 
 import (
-	"supervisord/model"
 	"testing"
+
+	"github.com/stuartcarnie/gopm/model"
 )
 
 //
@@ -12,23 +13,23 @@ func isProgramBefore(t *testing.T, entries []*model.Program, program1, program2 
 	t.Helper()
 	order := 0
 	program1Order := -1
-	progam2Order := -1
+	program2Order := -1
 
 	for _, entry := range entries {
 		if entry.IsProgram() {
 			if entry.Name == program1 {
 				program1Order = order
 			} else if entry.Name == program2 {
-				progam2Order = order
+				program2Order = order
 			}
 			order++
 		}
 	}
 
-	before := program1Order >= 0 && program1Order < progam2Order
+	before := program1Order >= 0 && program1Order < program2Order
 
 	if !before {
-		t.Logf("%s Order=%d, %s Order=%d\n", program1, program1Order, program2, progam2Order)
+		t.Logf("%s Order=%d, %s Order=%d\n", program1, program1Order, program2, program2Order)
 	}
 
 	return before

@@ -1,8 +1,9 @@
 package model_test
 
 import (
-	"supervisord/model"
 	"testing"
+
+	"github.com/stuartcarnie/gopm/model"
 
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"

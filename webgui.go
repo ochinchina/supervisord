@@ -1,4 +1,4 @@
-package main
+package gopm
 
 import (
 	"net/http"
