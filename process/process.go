@@ -15,12 +15,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ochinchina/filechangemonitor"
+	"github.com/robfig/cron/v3"
 	"github.com/stuartcarnie/gopm/logger"
 	"github.com/stuartcarnie/gopm/model"
 	"github.com/stuartcarnie/gopm/signals"
-
-	"github.com/ochinchina/filechangemonitor"
-	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 )
 
@@ -93,6 +92,7 @@ type Process struct {
 	supervisorID string
 	program      *model.Program
 	cmd          *exec.Cmd
+	log          *zap.Logger
 	startTime    time.Time
 	stopTime     time.Time
 	state        State
@@ -112,10 +112,8 @@ func NewProcess(supervisorID string, program *model.Program) *Process {
 	proc := &Process{
 		supervisorID: supervisorID,
 		program:      program,
-		cmd:          nil,
+		log:          zap.L().With(zap.String("program", program.Name)),
 		state:        Stopped,
-		inStart:      false,
-		stopByUser:   false,
 		retryTimes:   new(int32),
 	}
 	proc.addToCron()
@@ -128,10 +126,9 @@ func (p *Process) addToCron() {
 	if len(s) == 0 {
 		return
 	}
-	log := zap.L().With(zap.String("program", p.Name()))
-	log.Info("Scheduling program with cron", zap.String("cron", s))
+	p.log.Info("Scheduling program with cron", zap.String("cron", s))
 	scheduler.AddFunc(s, func() {
-		log.Debug("Running program")
+		p.log.Debug("Running program")
 		if !p.isRunning() {
 			p.Start(false)
 		}
@@ -142,10 +139,10 @@ func (p *Process) addToCron() {
 // Args:
 //  wait - true, wait the program started or failed
 func (p *Process) Start(wait bool) {
-	zap.L().Info("Starting program", zap.String("program", p.Name()))
+	p.log.Info("Starting program")
 	p.lock.Lock()
 	if p.inStart {
-		zap.L().Info("Program already starting", zap.String("program", p.Name()))
+		p.log.Info("Program already starting")
 		p.lock.Unlock()
 		return
 	}
@@ -154,46 +151,47 @@ func (p *Process) Start(wait bool) {
 	p.stopByUser = false
 	p.lock.Unlock()
 
-	var runCond *sync.Cond
-	finished := false
+	signalWaiter := func() {}
+	waitCh := make(chan struct{})
 	if wait {
-		runCond = sync.NewCond(&sync.Mutex{})
-		runCond.L.Lock()
+		var once sync.Once
+		signalWaiter = func() {
+			once.Do(func() {
+				close(waitCh)
+			})
+		}
+	} else {
+		close(waitCh)
 	}
 
 	go func() {
+		defer func() {
+			p.lock.Lock()
+			p.inStart = false
+			p.lock.Unlock()
+			signalWaiter()
+		}()
+
 		for {
-			if wait {
-				runCond.L.Lock()
-			}
-			p.run(func() {
-				finished = true
-				if wait {
-					runCond.L.Unlock()
-					runCond.Signal()
-				}
-			})
+			p.run(signalWaiter)
+
 			// avoid print too many logs if fail to start program too quickly
 			if time.Now().Unix()-p.startTime.Unix() < 2 {
 				time.Sleep(5 * time.Second)
 			}
+
 			if p.stopByUser {
-				zap.L().Info("Stopped by user, don't start it again", zap.String("program", p.Name()))
-				break
+				p.log.Info("Stopped by user, don't start it again")
+				return
 			}
 			if !p.isAutoRestart() {
-				zap.L().Info("Auto restart disabled; won't restart", zap.String("program", p.Name()))
-				break
+				p.log.Info("Auto restart disabled; won't restart")
+				return
 			}
 		}
-		p.lock.Lock()
-		p.inStart = false
-		p.lock.Unlock()
 	}()
-	if wait && !finished {
-		runCond.Wait()
-		runCond.L.Unlock()
-	}
+
+	<-waitCh
 }
 
 // Name returns the name of program
@@ -363,7 +361,7 @@ func (p *Process) createProgramCommand() error {
 	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], p.program.Command)...)
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
-		zap.L().Error("Failed to run as user", zap.String("user", p.program.User))
+		p.log.Error("Failed to run as user", zap.String("user", p.program.User))
 		return fmt.Errorf("failed to set user")
 	}
 	p.setProgramRestartChangeMonitor(args[0])
@@ -383,7 +381,7 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 			absPath = programPath
 		}
 		AddProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
-			zap.L().Info("Program binary changed", zap.String("program", p.Name()))
+			p.log.Info("Program binary changed")
 			p.Stop(true)
 			p.Start(true)
 		})
@@ -398,7 +396,7 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 		AddConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
 			// fmt.Printf( "filePattern=%s, base=%s\n", filePattern, filepath.Base( path ) )
 			// if matched, err := filepath.Match( filePattern, filepath.Base( path ) ); matched && err == nil {
-			zap.L().Info("Watched file for program is changed", zap.String("program", p.Name()))
+			p.log.Info("Watched file for program is changed")
 			p.Stop(true)
 			p.Start(true)
 			//}
@@ -410,9 +408,9 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 func (p *Process) waitForExit() {
 	p.cmd.Wait()
 	if p.cmd.ProcessState != nil {
-		zap.L().Info("Program stopped", zap.Stringer("status", p.cmd.ProcessState), zap.String("program", p.Name()))
+		p.log.Info("Program stopped", zap.Stringer("status", p.cmd.ProcessState))
 	} else {
-		zap.L().Info("Program stopped", zap.String("program", p.Name()))
+		p.log.Info("Program stopped")
 	}
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -422,10 +420,10 @@ func (p *Process) waitForExit() {
 }
 
 // fail to start the program
-func (p *Process) failToStartProgram(reason string, finishCb func()) {
-	zap.L().Error(reason, zap.String("program", p.Name()))
+func (p *Process) failToStartProgram(reason string, finishedFn func()) {
+	p.log.Error(reason)
 	p.changeStateTo(Fatal)
-	finishCb()
+	finishedFn()
 }
 
 // monitor if the program is in running before endTime
@@ -441,19 +439,19 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited, prog
 	defer p.lock.Unlock()
 	// if the program does not exit
 	if atomic.LoadInt32(programExited) == 0 && p.state == Starting {
-		zap.L().Info("Successfully started program", zap.String("program", p.Name()))
+		p.log.Info("Successfully started program")
 		p.changeStateTo(Running)
 	}
 }
 
-func (p *Process) run(finishCb func()) {
+func (p *Process) run(finishedFn func()) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
 	// check if the program is in running state
 	if p.isRunning() {
-		zap.L().Info("Program already running", zap.String("program", p.Name()))
-		finishCb()
+		p.log.Info("Program already running")
+		finishedFn()
 		return
 
 	}
@@ -461,18 +459,18 @@ func (p *Process) run(finishCb func()) {
 	atomic.StoreInt32(p.retryTimes, 0)
 	startSecs := p.program.StartSeconds
 	restartPause := p.program.RestartPause
-	var once sync.Once
 
-	// finishCb can be only called one time
-	finishCbWrapper := func() {
-		once.Do(finishCb)
+	var once sync.Once
+	finishedOnceFn := func() {
+		once.Do(finishedFn)
 	}
+
 	// process is not expired and not stoped by user
 	for !p.stopByUser {
 		if restartPause > 0 && atomic.LoadInt32(p.retryTimes) != 0 {
 			// pause
 			p.lock.Unlock()
-			zap.L().Info("Delay program restart", zap.Duration("restart_pause_seconds", time.Duration(restartPause)), zap.String("program", p.Name()))
+			p.log.Info("Delay program restart", zap.Duration("restart_pause_seconds", time.Duration(restartPause)))
 			time.Sleep(time.Duration(restartPause))
 			p.lock.Lock()
 		}
@@ -482,7 +480,7 @@ func (p *Process) run(finishCb func()) {
 
 		err := p.createProgramCommand()
 		if err != nil {
-			p.failToStartProgram("fail to create program", finishCbWrapper)
+			p.failToStartProgram("Failed to create program", finishedOnceFn)
 			break
 		}
 
@@ -490,10 +488,10 @@ func (p *Process) run(finishCb func()) {
 
 		if err != nil {
 			if atomic.LoadInt32(p.retryTimes) >= int32(p.program.StartRetries) {
-				p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishCbWrapper)
+				p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishedOnceFn)
 				break
 			} else {
-				zap.L().Error("Failed to start program", zap.Error(err), zap.String("program", p.Name()))
+				p.log.Error("Failed to start program", zap.Error(err))
 				p.changeStateTo(Backoff)
 				continue
 			}
@@ -510,16 +508,16 @@ func (p *Process) run(finishCb func()) {
 		// Set startsec to 0 to indicate that the program needn't stay
 		// running for any particular amount of time.
 		if startSecs <= 0 {
-			zap.L().Info("Program started", zap.String("program", p.Name()))
+			p.log.Info("Program started")
 			p.changeStateTo(Running)
-			go finishCbWrapper()
+			go finishedOnceFn()
 		} else {
 			go func() {
 				p.monitorProgramIsRunning(endTime, &monitorExited, &programExited)
-				finishCbWrapper()
+				finishedOnceFn()
 			}()
 		}
-		zap.L().Debug("wait program exit", zap.String("program", p.Name()))
+		p.log.Debug("Waiting for program to exit")
 		p.lock.Unlock()
 		p.waitForExit()
 
@@ -534,7 +532,7 @@ func (p *Process) run(finishCb func()) {
 		// if the program still in running after startSecs
 		if p.state == Running {
 			p.changeStateTo(Exited)
-			zap.L().Info("Program exited", zap.String("program", p.Name()))
+			p.log.Info("Program exited")
 			break
 		} else {
 			p.changeStateTo(Backoff)
@@ -544,7 +542,7 @@ func (p *Process) run(finishCb func()) {
 		// start the program before giving up and putting the process into an Fatal state
 		// first start time is not the retry time
 		if atomic.LoadInt32(p.retryTimes) >= int32(p.program.StartRetries) {
-			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.program.StartRetries), finishCbWrapper)
+			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.program.StartRetries), finishedOnceFn)
 			break
 		}
 	}
@@ -660,49 +658,53 @@ func (p *Process) Stop(wait bool) {
 	isRunning := p.isRunning()
 	p.lock.Unlock()
 	if !isRunning {
-		zap.L().Info("Unable to stop; program not running", zap.String("program", p.Name()))
 		return
 	}
-	zap.L().Info("Stopping program", zap.String("program", p.Name()))
+	p.log.Info("Stopping program")
+
 	sigs := p.program.StopSignals
-	waitsecs := time.Duration(p.program.StopWaitSeconds)
-	stopasgroup := p.program.StopAsGroup
-	killasgroup := p.program.KillAsGroup
-	if stopasgroup && !killasgroup {
-		zap.L().Error("Invalid configuration; stop_as_group=true and kill_as_group=false", zap.String("program", p.Name()))
+	if len(sigs) == 0 {
+		p.log.Error("Missing signals; defaulting to KILL")
+		sigs = []string{"KILL"}
 	}
 
-	var stopped int32 = 0
+	waitDur := time.Duration(p.program.StopWaitSeconds)
+	stopAsGroup := p.program.StopAsGroup
+	killAsGroup := p.program.KillAsGroup
+	if stopAsGroup && !killAsGroup {
+		p.log.Error("Invalid configuration; stop_as_group=true and kill_as_group=false")
+	}
+
+	ch := make(chan struct{})
 	go func() {
-		for i := 0; i < len(sigs) && atomic.LoadInt32(&stopped) == 0; i++ {
+		defer close(ch)
+
+		for i := 0; i < len(sigs); i++ {
 			// send signal to process
 			sig, err := signals.ToSignal(sigs[i])
 			if err != nil {
 				continue
 			}
-			zap.L().Info("Send stop signal to program", zap.String("program", p.Name()), zap.String("signal", sigs[i]))
-			p.Signal(sig, stopasgroup)
-			endTime := time.Now().Add(waitsecs)
-			// wait at most "stopwaitsecs" seconds for one signal
+
+			p.log.Info("Send stop signal to program", zap.String("signal", sigs[i]))
+			_ = p.Signal(sig, stopAsGroup)
+
+			endTime := time.Now().Add(waitDur)
 			for endTime.After(time.Now()) {
 				// if it already exits
 				if p.state != Starting && p.state != Running && p.state != Stopping {
-					atomic.StoreInt32(&stopped, 1)
-					break
+					return
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
 		}
-		if atomic.LoadInt32(&stopped) == 0 {
-			zap.L().Info("Program did not stop in time, killing", zap.String("program", p.Name()))
-			p.Signal(syscall.SIGKILL, killasgroup)
-			atomic.StoreInt32(&stopped, 1)
-		}
+
+		p.log.Info("Program did not stop in time, killing")
+		p.Signal(syscall.SIGKILL, killAsGroup)
 	}()
+
 	if wait {
-		for atomic.LoadInt32(&stopped) == 0 {
-			time.Sleep(1 * time.Second)
-		}
+		<-ch
 	}
 }
 
