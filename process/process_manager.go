@@ -5,70 +5,48 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ochinchina/supervisord/config"
-	log "github.com/sirupsen/logrus"
+	"github.com/stuartcarnie/gopm/model"
+
+	"go.uber.org/zap"
 )
 
 // Manager manage all the process in the supervisor
 type Manager struct {
-	procs          map[string]*Process
-	eventListeners map[string]*Process
-	lock           sync.Mutex
+	procs map[string]*Process
+	lock  sync.Mutex
 }
 
 // NewManager create a new Manager object
 func NewManager() *Manager {
-	return &Manager{procs: make(map[string]*Process),
-		eventListeners: make(map[string]*Process),
+	return &Manager{
+		procs: make(map[string]*Process),
 	}
 }
 
-// CreateProcess create a process (program or event listener) and add to this manager
-func (pm *Manager) CreateProcess(supervisorID string, config *config.Entry) *Process {
+// CreateProcess create a process and adds to the manager
+func (pm *Manager) CreateProcess(supervisorID string, program *model.Program) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
-	if config.IsProgram() {
-		return pm.createProgram(supervisorID, config)
-	} else if config.IsEventListener() {
-		return pm.createEventListener(supervisorID, config)
-	} else {
-		return nil
-	}
+	return pm.createProgram(supervisorID, program)
 }
 
 // StartAutoStartPrograms start all the program if its autostart is true
 func (pm *Manager) StartAutoStartPrograms() {
 	pm.ForEachProcess(func(proc *Process) {
-		if proc.isAutoStart() {
+		if proc.program.AutoStart {
 			proc.Start(false)
 		}
 	})
 }
 
-func (pm *Manager) createProgram(supervisorID string, config *config.Entry) *Process {
-	procName := config.GetProgramName()
-
-	proc, ok := pm.procs[procName]
-
+func (pm *Manager) createProgram(supervisorID string, program *model.Program) *Process {
+	proc, ok := pm.procs[program.Name]
 	if !ok {
-		proc = NewProcess(supervisorID, config)
-		pm.procs[procName] = proc
+		proc = NewProcess(supervisorID, program)
+		pm.procs[program.Name] = proc
 	}
-	log.Info("create process:", procName)
+	zap.L().Info("create process", zap.String("program", program.Name))
 	return proc
-}
-
-func (pm *Manager) createEventListener(supervisorID string, config *config.Entry) *Process {
-	eventListenerName := config.GetEventListenerName()
-
-	evtListener, ok := pm.eventListeners[eventListenerName]
-
-	if !ok {
-		evtListener = NewProcess(supervisorID, config)
-		pm.eventListeners[eventListenerName] = evtListener
-	}
-	log.Info("create event listener:", eventListenerName)
-	return evtListener
 }
 
 // Add add the process to this process manager
@@ -76,7 +54,7 @@ func (pm *Manager) Add(name string, proc *Process) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	pm.procs[name] = proc
-	log.Info("add process:", name)
+	zap.L().Info("add process", zap.String("name", name))
 }
 
 // Remove remove the process from the manager
@@ -90,7 +68,7 @@ func (pm *Manager) Remove(name string) *Process {
 	defer pm.lock.Unlock()
 	proc, _ := pm.procs[name]
 	delete(pm.procs, name)
-	log.Info("remove process:", name)
+	zap.L().Info("remove process", zap.String("name", name))
 	return proc
 }
 
@@ -98,7 +76,7 @@ func (pm *Manager) Remove(name string) *Process {
 func (pm *Manager) Find(name string) *Process {
 	procs := pm.FindMatch(name)
 	if len(procs) == 1 {
-		if procs[0].GetName() == name || name == fmt.Sprintf("%s:%s", procs[0].GetGroup(), procs[0].GetName()) {
+		if procs[0].Name() == name || name == fmt.Sprintf("%s:%s", procs[0].Group(), procs[0].Name()) {
 			return procs[0]
 		}
 	}
@@ -106,17 +84,17 @@ func (pm *Manager) Find(name string) *Process {
 }
 
 // FindMatch find the program with one of following format:
-// - group:program
-// - group:*
+// - group.program
+// - group.*
 // - program
 func (pm *Manager) FindMatch(name string) []*Process {
 	result := make([]*Process, 0)
-	if pos := strings.Index(name, ":"); pos != -1 {
+	if pos := strings.Index(name, "."); pos != -1 {
 		groupName := name[0:pos]
 		programName := name[pos+1:]
 		pm.ForEachProcess(func(p *Process) {
-			if p.GetGroup() == groupName {
-				if programName == "*" || programName == p.GetName() {
+			if p.Group() == groupName {
+				if programName == "*" || programName == p.Name() {
 					result = append(result, p)
 				}
 			}
@@ -130,7 +108,7 @@ func (pm *Manager) FindMatch(name string) []*Process {
 		}
 	}
 	if len(result) <= 0 {
-		log.Info("fail to find process:", name)
+		zap.L().Info("fail to find process:", zap.String("name", name))
 	}
 	return result
 }
@@ -201,18 +179,16 @@ func (pm *Manager) StopAllProcesses() {
 }
 
 func sortProcess(procs []*Process) []*Process {
-	progConfigs := make([]*config.Entry, 0)
+	progConfigs := make([]*model.Program, 0)
 	for _, proc := range procs {
-		if proc.config.IsProgram() {
-			progConfigs = append(progConfigs, proc.config)
-		}
+		progConfigs = append(progConfigs, proc.program)
 	}
 
 	result := make([]*Process, 0)
-	p := config.NewProcessSorter()
-	for _, config := range p.SortProgram(progConfigs) {
+	p := model.NewProcessSorter()
+	for _, program := range p.SortProgram(progConfigs) {
 		for _, proc := range procs {
-			if proc.config == config {
+			if proc.program == program {
 				result = append(result, proc)
 			}
 		}

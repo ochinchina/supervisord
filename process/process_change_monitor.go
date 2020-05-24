@@ -2,6 +2,7 @@ package process
 
 import (
 	"fmt"
+
 	"github.com/ochinchina/filechangemonitor"
 )
 
@@ -17,7 +18,7 @@ func AddProgramChangeMonitor(path string, fileChangeCb func(path string, mode fi
 }
 
 // AddConfigChangeMonitor add a program change listener to monitor if any one of its configuration files is changed
-func AddConfigChangeMonitor(path string, filePattern string, fileChangeCb func(path string, mode filechangemonitor.FileChangeMode)) {
+func AddConfigChangeMonitor(path, filePattern string, fileChangeCb func(path string, mode filechangemonitor.FileChangeMode)) {
 	fmt.Printf("filePattern=%s\n", filePattern)
 	fileChangeMonitor.AddMonitorFile(path,
 		true,

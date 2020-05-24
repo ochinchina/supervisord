@@ -1,22 +1,26 @@
-module supervisord
+module github.com/stuartcarnie/gopm
 
 require (
-	github.com/GeertJohan/go.rice v1.0.0
+	github.com/creasty/defaults v1.3.0
+	github.com/goccy/go-yaml v1.4.3
+	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/mux v1.7.3
-	github.com/gorilla/rpc v1.2.0
-	github.com/jessevdk/go-flags v1.4.0
+	github.com/gorilla/rpc v1.2.0 // indirect
+	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/ochinchina/filechangemonitor v0.3.1
-	github.com/ochinchina/go-daemon v0.1.5
-	github.com/ochinchina/go-ini v1.0.1
-	github.com/ochinchina/go-reaper v0.0.0-20181016012355-6b11389e79fc
 	github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c
-	github.com/ochinchina/supervisord v0.6.4
+	github.com/ramr/go-reaper v0.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 // indirect
-	github.com/sirupsen/logrus v1.4.2
-	golang.org/x/net v0.0.0-20180921000356-2f5d2388922f
+	github.com/smartystreets/goconvey v1.6.4 // indirect
+	github.com/spf13/cobra v1.0.0
+	github.com/stretchr/testify v1.4.0
+	go.uber.org/zap v1.15.0
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/tools v0.0.0-20200522201501-cb1345f3a375 // indirect
+	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.23.0
+	gopkg.in/ini.v1 v1.56.0
 )
 
-replace github.com/ochinchina/supervisord => ./
-
-go 1.13
+go 1.14

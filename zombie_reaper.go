@@ -1,9 +1,9 @@
 // +build !windows
 
-package main
+package gopm
 
 import (
-	reaper "github.com/ochinchina/go-reaper"
+	"github.com/ramr/go-reaper"
 )
 
 // ReapZombie reap the zombie child process

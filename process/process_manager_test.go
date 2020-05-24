@@ -1,16 +1,16 @@
 package process
 
 import (
-	"github.com/ochinchina/supervisord/config"
 	"testing"
+
+	"github.com/stuartcarnie/gopm/model"
 )
 
-var procs *Manager = NewManager()
+var procs = NewManager()
 
 func TestProcessMgrAdd(t *testing.T) {
-	entry := &config.Entry{ConfigDir: ".", Group: "test", Name: "program:test1"}
 	procs.Clear()
-	procs.Add("test1", NewProcess("supervisord", entry))
+	procs.Add("test1", NewProcess("github.com/stuartcarnie/gopm", &model.Program{Name: "test1", Group: "test"}))
 
 	if procs.Find("test1") == nil {
 		t.Error("fail to add process")
