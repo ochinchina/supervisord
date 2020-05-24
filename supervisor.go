@@ -284,7 +284,7 @@ func (s *Supervisor) startAutoStartPrograms() {
 func (s *Supervisor) startHTTPServer() {
 	s.httpServer.Stop()
 
-	if cfg := s.config.HTTPServer; cfg != nil {
+	if cfg := s.config.HttpServer; cfg != nil {
 		addr := cfg.Port
 		if addr != "" {
 			cond := sync.NewCond(&sync.Mutex{})

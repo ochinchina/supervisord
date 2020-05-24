@@ -5,13 +5,10 @@ require (
 	github.com/goccy/go-yaml v1.4.3
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/mux v1.7.3
-	github.com/gorilla/rpc v1.2.0 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/ochinchina/filechangemonitor v0.3.1
-	github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c
 	github.com/ramr/go-reaper v0.2.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.4.0

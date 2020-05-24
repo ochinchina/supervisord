@@ -45,7 +45,7 @@ func (pm *Manager) createProgram(supervisorID string, program *model.Program) *P
 		proc = NewProcess(supervisorID, program)
 		pm.procs[program.Name] = proc
 	}
-	zap.L().Info("create process", zap.String("program", program.Name))
+	zap.L().Info("Created program", zap.String("program", program.Name))
 	return proc
 }
 
@@ -54,7 +54,6 @@ func (pm *Manager) Add(name string, proc *Process) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	pm.procs[name] = proc
-	zap.L().Info("add process", zap.String("name", name))
 }
 
 // Remove remove the process from the manager
@@ -108,7 +107,7 @@ func (pm *Manager) FindMatch(name string) []*Process {
 		}
 	}
 	if len(result) <= 0 {
-		zap.L().Info("fail to find process:", zap.String("name", name))
+		zap.L().Debug("Failed to find process", zap.String("name", name))
 	}
 	return result
 }

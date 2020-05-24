@@ -129,9 +129,9 @@ func (p *Process) addToCron() {
 		return
 	}
 	log := zap.L().With(zap.String("program", p.Name()))
-	log.Info("try to create cron program with cron expression:", zap.String("cron", s))
+	log.Info("Scheduling program with cron", zap.String("cron", s))
 	scheduler.AddFunc(s, func() {
-		log.Info("start cron program")
+		log.Debug("Running program")
 		if !p.isRunning() {
 			p.Start(false)
 		}
@@ -142,10 +142,10 @@ func (p *Process) addToCron() {
 // Args:
 //  wait - true, wait the program started or failed
 func (p *Process) Start(wait bool) {
-	zap.L().Info("try to start program", zap.String("program", p.Name()))
+	zap.L().Info("Starting program", zap.String("program", p.Name()))
 	p.lock.Lock()
 	if p.inStart {
-		zap.L().Info("Don't start program again, program is already started", zap.String("program", p.Name()))
+		zap.L().Info("Program already starting", zap.String("program", p.Name()))
 		p.lock.Unlock()
 		return
 	}
@@ -182,7 +182,7 @@ func (p *Process) Start(wait bool) {
 				break
 			}
 			if !p.isAutoRestart() {
-				zap.L().Info("Don't start the stopped program because its autorestart flag is false", zap.String("program", p.Name()))
+				zap.L().Info("Auto restart disabled; won't restart", zap.String("program", p.Name()))
 				break
 			}
 		}
@@ -363,8 +363,8 @@ func (p *Process) createProgramCommand() error {
 	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], p.program.Command)...)
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
-		zap.L().Error("fail to run as user", zap.String("user", p.program.User))
-		return fmt.Errorf("fail to set user")
+		zap.L().Error("Failed to run as user", zap.String("user", p.program.User))
+		return fmt.Errorf("failed to set user")
 	}
 	p.setProgramRestartChangeMonitor(args[0])
 	setDeathsig(p.cmd.SysProcAttr)
@@ -383,7 +383,7 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 			absPath = programPath
 		}
 		AddProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
-			zap.L().Info("program is changed, resatrt it", zap.String("program", p.Name()))
+			zap.L().Info("Program binary changed", zap.String("program", p.Name()))
 			p.Stop(true)
 			p.Start(true)
 		})
@@ -398,7 +398,7 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 		AddConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
 			// fmt.Printf( "filePattern=%s, base=%s\n", filePattern, filepath.Base( path ) )
 			// if matched, err := filepath.Match( filePattern, filepath.Base( path ) ); matched && err == nil {
-			zap.L().Info("configure file for program is changed, resatrt it", zap.String("program", p.Name()))
+			zap.L().Info("Watched file for program is changed", zap.String("program", p.Name()))
 			p.Stop(true)
 			p.Start(true)
 			//}
@@ -410,9 +410,9 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 func (p *Process) waitForExit() {
 	p.cmd.Wait()
 	if p.cmd.ProcessState != nil {
-		zap.L().Info("program stopped", zap.Stringer("status", p.cmd.ProcessState), zap.String("program", p.Name()))
+		zap.L().Info("Program stopped", zap.Stringer("status", p.cmd.ProcessState), zap.String("program", p.Name()))
 	} else {
-		zap.L().Info("program stopped", zap.String("program", p.Name()))
+		zap.L().Info("Program stopped", zap.String("program", p.Name()))
 	}
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -441,7 +441,7 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited, prog
 	defer p.lock.Unlock()
 	// if the program does not exit
 	if atomic.LoadInt32(programExited) == 0 && p.state == Starting {
-		zap.L().Info("success to start program", zap.String("program", p.Name()))
+		zap.L().Info("Successfully started program", zap.String("program", p.Name()))
 		p.changeStateTo(Running)
 	}
 }
@@ -452,7 +452,7 @@ func (p *Process) run(finishCb func()) {
 
 	// check if the program is in running state
 	if p.isRunning() {
-		zap.L().Info("Don't start program because it is running", zap.String("program", p.Name()))
+		zap.L().Info("Program already running", zap.String("program", p.Name()))
 		finishCb()
 		return
 
@@ -493,7 +493,7 @@ func (p *Process) run(finishCb func()) {
 				p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishCbWrapper)
 				break
 			} else {
-				zap.L().Info("fail to start program with error:", zap.Error(err), zap.String("program", p.Name()))
+				zap.L().Error("Failed to start program", zap.Error(err), zap.String("program", p.Name()))
 				p.changeStateTo(Backoff)
 				continue
 			}
@@ -534,7 +534,7 @@ func (p *Process) run(finishCb func()) {
 		// if the program still in running after startSecs
 		if p.state == Running {
 			p.changeStateTo(Exited)
-			zap.L().Info("program exited", zap.String("program", p.Name()))
+			zap.L().Info("Program exited", zap.String("program", p.Name()))
 			break
 		} else {
 			p.changeStateTo(Backoff)
@@ -578,7 +578,7 @@ func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
 		err := signals.Kill(p.cmd.Process, sig, sigChildren)
 		return err
 	}
-	return fmt.Errorf("process is not started")
+	return fmt.Errorf("process not started")
 }
 
 func (p *Process) setEnv() {
@@ -660,16 +660,16 @@ func (p *Process) Stop(wait bool) {
 	isRunning := p.isRunning()
 	p.lock.Unlock()
 	if !isRunning {
-		zap.L().Info("program is not running", zap.String("program", p.Name()))
+		zap.L().Info("Unable to stop; program not running", zap.String("program", p.Name()))
 		return
 	}
-	zap.L().Info("stop the program", zap.String("program", p.Name()))
+	zap.L().Info("Stopping program", zap.String("program", p.Name()))
 	sigs := p.program.StopSignals
 	waitsecs := time.Duration(p.program.StopWaitSeconds)
 	stopasgroup := p.program.StopAsGroup
 	killasgroup := p.program.KillAsGroup
 	if stopasgroup && !killasgroup {
-		zap.L().Error("Cannot set stopasgroup=true and killasgroup=false", zap.String("program", p.Name()))
+		zap.L().Error("Invalid configuration; stop_as_group=true and kill_as_group=false", zap.String("program", p.Name()))
 	}
 
 	var stopped int32 = 0
@@ -694,7 +694,7 @@ func (p *Process) Stop(wait bool) {
 			}
 		}
 		if atomic.LoadInt32(&stopped) == 0 {
-			zap.L().Info("Force kill", zap.String("program", p.Name()))
+			zap.L().Info("Program did not stop in time, killing", zap.String("program", p.Name()))
 			p.Signal(syscall.SIGKILL, killasgroup)
 			atomic.StoreInt32(&stopped, 1)
 		}

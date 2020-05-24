@@ -1,7 +1,7 @@
 package faults
 
 import (
-	xmlrpc "github.com/ochinchina/gorilla-xmlrpc/xml"
+	"fmt"
 )
 
 const (
@@ -58,7 +58,17 @@ const (
 	CantReRead = 92
 )
 
+type Fault struct {
+	Code   int    `json:"faultCode"`
+	String string `json:"faultString"`
+}
+
+// Error satisfies error interface for Fault.
+func (f Fault) Error() string {
+	return fmt.Sprintf("%d: %s", f.Code, f.String)
+}
+
 // NewFault create a Fault object as xml rpc result
 func NewFault(code int, desc string) error {
-	return &xmlrpc.Fault{Code: code, String: desc}
+	return &Fault{Code: code, String: desc}
 }

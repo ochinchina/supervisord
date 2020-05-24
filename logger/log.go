@@ -189,10 +189,10 @@ func (l *FileLogger) ReadLog(offset, length int64) (string, error) {
 // ReadTailLog tail the log of current log file
 func (l *FileLogger) ReadTailLog(offset, length int64) (string, int64, bool, error) {
 	if offset < 0 {
-		return "", offset, false, fmt.Errorf("offset should not be less than 0")
+		return "", offset, false, fmt.Errorf("invalid offset: value ≥ 0")
 	}
 	if length < 0 {
-		return "", offset, false, fmt.Errorf("length should be not be less than 0")
+		return "", offset, false, fmt.Errorf("invalid length: value ≥ 0")
 	}
 	l.locker.Lock()
 	defer l.locker.Unlock()
@@ -299,7 +299,7 @@ func (l *NullLogger) ReadTailLog(offset, length int64) (string, int64, bool, err
 
 // ClearCurLogFile close current log file, return error
 func (l *NullLogger) ClearCurLogFile() error {
-	return fmt.Errorf("No log")
+	return fmt.Errorf("no log")
 }
 
 // ClearAllLogFile clear all the lof file, return error
@@ -345,7 +345,7 @@ func (l *ChanLogger) ReadTailLog(offset, length int64) (string, int64, bool, err
 
 // ClearCurLogFile clear the log, return error
 func (l *ChanLogger) ClearCurLogFile() error {
-	return fmt.Errorf("No log")
+	return fmt.Errorf("no log")
 }
 
 // ClearAllLogFile clear the log, return error

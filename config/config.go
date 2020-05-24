@@ -1,9 +1,12 @@
 package config
 
 import (
+	"path/filepath"
+
 	"github.com/creasty/defaults"
 	"github.com/stuartcarnie/gopm/model"
 	"github.com/stuartcarnie/gopm/model/ini"
+	"github.com/stuartcarnie/gopm/model/yaml"
 )
 
 // Config memory representations of supervisor configuration file
@@ -13,10 +16,9 @@ type Config struct {
 	groups   map[string]*model.Group
 	programs map[string]*model.Program
 
-	HTTPServer    *model.HTTPServer
-	GrpcServer    *model.GrpcServer
-	SupervisorCtl *model.SupervisorCtl
-	ProgramGroup  *ProcessGroup
+	HttpServer   *model.HTTPServer
+	GrpcServer   *model.GrpcServer
+	ProgramGroup *ProcessGroup
 }
 
 // NewConfig create Config object
@@ -54,8 +56,20 @@ func (c *Config) CreateProgram(name string) *model.Program {
 //
 // Load load the configuration and return the loaded programs
 func (c *Config) Load() ([]string, error) {
-	var ii ini.Reader
-	m, err := ii.LoadPath(c.configFile)
+	var (
+		m   *model.Root
+		err error
+	)
+
+	ext := filepath.Ext(c.configFile)
+	if ext == ".yaml" || ext == ".yml" {
+		var r yaml.Reader
+		m, err = r.LoadPath(c.configFile)
+	} else {
+		var ii ini.Reader
+		m, err = ii.LoadPath(c.configFile)
+	}
+
 	if err != nil {
 		return nil, err
 	}

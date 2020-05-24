@@ -2,7 +2,7 @@
 <html>
   <head>
 	<meta charset="utf-8"> 
-    <title>Go-Supervisor</title>
+    <title>gopm</title>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <link rel="stylesheet" href="css/bootstrap.min.css"/>
     <link rel="stylesheet" href="css/bootstrap-table.css"/>
@@ -60,7 +60,7 @@
             refreshDisplay();
           } else {
             confirm_dialog( { 'title': "Information",
-                              'message': "Fail to start program, please check the log of supervisord to find reason",
+                              'message': "Fail to start program, please check the log of gopm to find reason",
                               'cancel-text': "Cancel",
                               'cancel-hide': true,
                               'confirm-text': "Ok",
@@ -71,7 +71,7 @@
     },
     error: function( jqXHR, status, errorThrown ) {
            confirm_dialog( { 'title': "Information",
-                             'message': "Fail to start program, please check if supervisord is started or not",
+                             'message': "Fail to start program, please check if gopm is started or not",
                              'cancel-text': "Cancel",
                              'cancel-hide': true,
                              'confirm-text': "Ok",
@@ -103,7 +103,7 @@
               refreshDisplay();
           } else {
               confirm_dialog( { 'title': "Information",
-                                'message': "Fail to stop program, please check the log of supervisord",
+                                'message': "Fail to stop program, please check the log of gopm",
                                 'cancel-text': "Cancel",
                                 'cancel-hide': true,
                                 'confirm-text': "Ok",
@@ -115,7 +115,7 @@
       },
       error: function( jqXHR, status, errorThrown ) {
 		confirm_dialog( { 'title': "Information",
-                        'message': "Fail to stop program, please check if supervisord is running",
+                        'message': "Fail to stop program, please check if gopm is running",
                         'cancel-text': "Cancel",
                         'cancel-hide': true,
                         'confirm-text': "Ok",
@@ -165,9 +165,9 @@
 
   }
 
-  function shutdown_supervisor() {
+  function shutdown_gopm() {
       confirm_dialog( { 'title': "Shutdown confirmation",
-                        'message': "Do you really want to shutdown supervisor?",
+                        'message': "Do you really want to shutdown gopm?",
                         'cancel-text': "Cancel",
                         'confirm-text': "Shutdown",
                         'confirm-onclick': function() {
@@ -187,7 +187,7 @@
 
   };
 
-  function reload_supervisor() {
+  function reload_gopm() {
       confirm_dialog( { 'title': "Reload confirmation",
                         'message': "Do you really want to reload supervisor?",
                         'cancel-text': "Cancel",
@@ -282,13 +282,13 @@
   });    
   </script>
   <body>
-    <H1 class="text-center text-success">Go-Supervisor</H1>
+    <H1 class="text-center text-success">gopm</H1>
     <div class="container">
       <H2>Programs</H2>
       <div class='row'>
           <div class="col-12">
-              <input type="button" class="btn btn-primary float-right mr-1" value="Shutdown" onclick='shutdown_supervisor();'>
-              <input type="button" class="btn btn-primary float-right mr-1" value="Reload" onclick='reload_supervisor();'>
+              <input type="button" class="btn btn-primary float-right mr-1" value="Shutdown" onclick='shutdown_gopm();'>
+              <input type="button" class="btn btn-primary float-right mr-1" value="Reload" onclick='reload_gopm();'>
               <input type="button" class="btn btn-primary float-right mr-1" value="Stop Select" onclick='stop_select();'>
               <input type="button" class="btn btn-primary float-right mr-1" value="Start Select" onclick='start_select();'>
           </div>

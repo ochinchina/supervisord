@@ -34,7 +34,7 @@ func initSignals(s *gopm.Supervisor) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		zap.L().Info("receive a signal to stop all process & exit", zap.Stringer("signal", sig))
+		zap.L().Info("Received signal to stop all processes and exit", zap.Stringer("signal", sig))
 		s.GetManager().StopAllProcesses()
 		os.Exit(-1)
 	}()
@@ -47,7 +47,7 @@ func loadEnvFile() {
 	// try to open the rootOpt file
 	f, err := os.Open(rootOpt.EnvFile)
 	if err != nil {
-		zap.L().Error("Fail to open environment file", zap.String("file", rootOpt.EnvFile))
+		zap.L().Error("Failed to open environment file", zap.String("file", rootOpt.EnvFile))
 		return
 	}
 	defer f.Close()

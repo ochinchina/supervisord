@@ -16,9 +16,8 @@ func (u *updater) update(c *Config, m *model.Root) ([]string, error) {
 
 	u.applyGroup(c, m)
 	loadedPrograms := u.applyPrograms(c, m)
-	u.applyInetHttpServer(c, m)
+	u.applyHttpServer(c, m)
 	u.applyGrpcServer(c, m)
-	u.applySupervisorCtl(c, m)
 
 	return loadedPrograms, nil
 }
@@ -46,15 +45,15 @@ func (u *updater) applyPrograms(c *Config, m *model.Root) []string {
 	return loadedPrograms
 }
 
-func (u *updater) applyInetHttpServer(c *Config, m *model.Root) {
-	if m.InetHTTPServer == nil {
-		c.HTTPServer = nil
+func (u *updater) applyHttpServer(c *Config, m *model.Root) {
+	if m.HttpServer == nil {
+		c.HttpServer = nil
 		return
 	}
-	if c.HTTPServer == nil {
-		c.HTTPServer = new(model.HTTPServer)
+	if c.HttpServer == nil {
+		c.HttpServer = new(model.HTTPServer)
 	}
-	*c.HTTPServer = *m.InetHTTPServer
+	*c.HttpServer = *m.HttpServer
 }
 
 func (u *updater) applyGrpcServer(c *Config, m *model.Root) {
@@ -66,15 +65,4 @@ func (u *updater) applyGrpcServer(c *Config, m *model.Root) {
 		c.GrpcServer = new(model.GrpcServer)
 	}
 	*c.GrpcServer = *m.GrpcServer
-}
-
-func (u *updater) applySupervisorCtl(c *Config, m *model.Root) {
-	if m.SupervisorCtl == nil {
-		c.SupervisorCtl = nil
-		return
-	}
-	if c.SupervisorCtl == nil {
-		c.SupervisorCtl = new(model.SupervisorCtl)
-	}
-	*c.SupervisorCtl = *m.SupervisorCtl
 }

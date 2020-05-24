@@ -3,7 +3,6 @@ package config
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,54 +45,32 @@ func parse(b []byte) (*Config, error) {
 
 func TestProgramConfig(t *testing.T) {
 	config, err := parse([]byte("[program.test]\ncommand=/bin/ls"))
-	if err != nil {
-		t.Error("Fail to parse program")
-		return
-	}
+	assert.NoError(t, err)
 
 	progs := config.Programs()
-
-	if len(progs) != 1 || config.GetProgram("test") == nil || config.GetProgram("app") != nil {
-		t.Error("Fail to parse the test program")
-	}
+	assert.Len(t, progs, 1)
+	assert.NotNil(t, config.GetProgram("test"))
+	assert.Nil(t, config.GetProgram("app"))
 }
 
 func TestHttpServer(t *testing.T) {
-	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[inet_http_server]\nport=9898"))
+	config, _ := parse([]byte("[program.test]\nA=1024\nB=2KB\nC=3MB\nD=4GB\nE=test\n[http_server]\nport=9898"))
 
-	entry := config.HTTPServer
+	entry := config.HttpServer
 	assert.NotNil(t, entry)
 	assert.Equal(t, "9898", entry.Port)
 }
 
 func TestProgramInGroup(t *testing.T) {
 	config, _ := parse([]byte("[program.test1]\nA=123\n[group.test]\nprograms=test1,test2\n[program.test2]\nB=hello\n[program.test3]\nC=tt"))
-	if config.GetProgram("test1").Group != "test" {
-		t.Error("fail to test the program in a group")
-	}
-}
-
-func TestConfigWithInclude(t *testing.T) {
-	dir, _ := ioutil.TempDir("", "tmp")
-
-	ioutil.WriteFile(filepath.Join(dir, "file1"), []byte("[program.cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
-	ioutil.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program.ls]\ncommand=ls\n"), os.ModePerm)
-
-	config := NewConfig(filepath.Join(dir, "file1"))
-	config.Load()
-
-	os.RemoveAll(filepath.Join(dir))
-
-	entry := config.GetProgram("ls")
-
-	if entry == nil {
-		t.Error("fail to include section test")
-	}
+	assert.NotNil(t, config.GetProgram("test1"))
+	assert.Equal(t, "test", config.GetProgram("test1").Group)
 }
 
 func TestDefaultParams(t *testing.T) {
 	config, _ := parse([]byte("[program.test]\nautorestart=true\ntest=1\n[program]\ncommand=/usr/bin/ls\nstartretries=10\nautorestart=false"))
 	entry := config.GetProgram("test")
+	assert.NotNil(t, entry)
 	assert.Equal(t, "/usr/bin/ls", entry.Command)
 	assert.True(t, entry.AutoStart)
 	assert.Equal(t, entry.StartRetries, 10)

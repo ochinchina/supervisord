@@ -3,6 +3,7 @@ package model_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stuartcarnie/gopm/model"
 )
 
@@ -78,10 +79,8 @@ func TestProcessSorter_SortProgram(t *testing.T) {
 	programs = append(programs, program)
 
 	result := model.NewProcessSorter().SortProgram(programs)
-	if !isProgramBefore(t, result, "prog-5", "prog-3") ||
-		!isProgramBefore(t, result, "prog-3", "prog-1") ||
-		!isProgramBefore(t, result, "prog-1", "prog-2") ||
-		!isProgramBefore(t, result, "prog-7", "prog-6") {
-		t.Error("Program sort is incorrect")
-	}
+	assert.True(t, isProgramBefore(t, result, "prog-5", "prog-3"))
+	assert.True(t, isProgramBefore(t, result, "prog-3", "prog-1"))
+	assert.True(t, isProgramBefore(t, result, "prog-1", "prog-2"))
+	assert.True(t, isProgramBefore(t, result, "prog-7", "prog-6"))
 }

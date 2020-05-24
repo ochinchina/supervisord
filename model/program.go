@@ -1,9 +1,11 @@
 package model
 
+import "github.com/creasty/defaults"
+
 type Program struct {
-	Name  string `yaml:"-" ini:"-"`
 	Group string `yaml:"-" ini:"-"`
 
+	Name                     string   `yaml:"name" ini:"-"`
 	Directory                string   `yaml:"directory" ini:"directory"`
 	Command                  string   `yaml:"command" ini:"command"`
 	Environment              []string `yaml:"environment" ini:"environment" delim:"\n"`
@@ -31,6 +33,12 @@ type Program struct {
 	StderrLogfileBackups     int      `yaml:"stderr_logfile_backups" ini:"stderr_logfile_backups" default:"10"`
 	StderrLogFileMaxBytes    int      `yaml:"stderr_logfile_max_bytes" ini:"stderr_logfile_maxbytes" default:"52428800"`
 	DependsOn                []string `yaml:"depends_on" ini:"depends_on" delim:","`
+}
+
+func (p *Program) UnmarshalYAML(f func(interface{}) error) error {
+	_ = defaults.Set(p)
+	type tmp Program // avoid recursive calls to UnmarshalYAML
+	return f((*tmp)(p))
 }
 
 func (p *Program) IsProgram() bool {
