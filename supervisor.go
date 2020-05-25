@@ -233,24 +233,17 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 	prevPrograms := s.config.ProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
 
-	loadedPrograms, err := s.config.Load()
-
-	if err == nil {
-		s.createPrograms(prevPrograms)
-		s.startHTTPServer()
-		s.startGrpcServer()
-		s.startAutoStartPrograms()
+	_, err = s.config.Load()
+	if err != nil {
+		zap.L().Error("Error loading configuration", zap.Error(err))
+		return nil, nil, nil, err
 	}
-	removedPrograms := util.Sub(prevPrograms, loadedPrograms)
-	for _, removedProg := range removedPrograms {
-		zap.L().Info("Removed from configuration; stopping", zap.String("program", removedProg))
-		s.config.RemoveProgram(removedProg)
-		proc := s.procMgr.Remove(removedProg)
-		if proc != nil {
-			proc.Stop(false)
-		}
 
-	}
+	s.createPrograms(prevPrograms)
+	s.startHTTPServer()
+	s.startGrpcServer()
+	s.startAutoStartPrograms()
+
 	addedGroup, changedGroup, removedGroup = s.config.ProgramGroup.Sub(prevProgGroup)
 	return addedGroup, changedGroup, removedGroup, err
 }
@@ -271,9 +264,15 @@ func (s *Supervisor) createPrograms(prevPrograms []string) {
 	for _, program := range s.config.Programs() {
 		s.procMgr.CreateProcess(s.GetSupervisorID(), program)
 	}
+
 	removedPrograms := util.Sub(prevPrograms, programs)
-	for _, p := range removedPrograms {
-		s.procMgr.Remove(p)
+	for _, removed := range removedPrograms {
+		zap.L().Info("Program removed from configuration; stopping", zap.String("program", removed))
+		s.config.RemoveProgram(removed)
+		proc := s.procMgr.Remove(removed)
+		if proc != nil {
+			proc.Destroy()
+		}
 	}
 }
 

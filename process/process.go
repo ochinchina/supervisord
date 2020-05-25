@@ -96,6 +96,7 @@ type Process struct {
 	startTime    time.Time
 	stopTime     time.Time
 	state        State
+	cronID       cron.EntryID
 	// true if process is starting
 	inStart bool
 	// true if the process is stopped by user
@@ -126,13 +127,31 @@ func (p *Process) addToCron() {
 	if len(s) == 0 {
 		return
 	}
+
 	p.log.Info("Scheduling program with cron", zap.String("cron", s))
-	scheduler.AddFunc(s, func() {
-		p.log.Debug("Running program")
+	id, err := scheduler.AddFunc(s, func() {
+		p.log.Debug("Running scheduled program")
 		if !p.isRunning() {
 			p.Start(false)
 		}
 	})
+	if err != nil {
+		p.log.Error("Error scheduling cron", zap.Error(err))
+		return
+	}
+
+	p.cronID = id
+}
+
+func (p *Process) removeFromCron() {
+	s := p.program.Cron
+	if len(s) == 0 {
+		return
+	}
+
+	p.log.Info("Removing program from cron schedule")
+	scheduler.Remove(p.cronID)
+	p.cronID = 0
 }
 
 // Start start the process
@@ -192,6 +211,12 @@ func (p *Process) Start(wait bool) {
 	}()
 
 	<-waitCh
+}
+
+// Destroy stops the process and removes it from cron
+func (p *Process) Destroy() {
+	p.removeFromCron()
+	p.Stop(false)
 }
 
 // Name returns the name of program
@@ -414,7 +439,7 @@ func (p *Process) waitForExit() {
 	}
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	p.stopTime = time.Now()
+	p.stopTime = time.Now().Round(time.Millisecond)
 	p.StdoutLog.Close()
 	p.StderrLog.Close()
 }
@@ -455,7 +480,7 @@ func (p *Process) run(finishedFn func()) {
 		return
 
 	}
-	p.startTime = time.Now()
+	p.startTime = time.Now().Round(time.Millisecond)
 	atomic.StoreInt32(p.retryTimes, 0)
 	startSecs := p.program.StartSeconds
 	restartPause := p.program.RestartPause
@@ -465,7 +490,7 @@ func (p *Process) run(finishedFn func()) {
 		once.Do(finishedFn)
 	}
 
-	// process is not expired and not stoped by user
+	// process is not expired and not stopped by user
 	for !p.stopByUser {
 		if restartPause > 0 && atomic.LoadInt32(p.retryTimes) != 0 {
 			// pause

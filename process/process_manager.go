@@ -40,6 +40,7 @@ func (pm *Manager) StartAutoStartPrograms() {
 }
 
 func (pm *Manager) createProgram(supervisorID string, program *model.Program) *Process {
+	// TODO(sgc): Update existing programs; e.g. cron schedule, etc
 	proc, ok := pm.procs[program.Name]
 	if !ok {
 		proc = NewProcess(supervisorID, program)
@@ -57,17 +58,13 @@ func (pm *Manager) Add(name string, proc *Process) {
 }
 
 // Remove remove the process from the manager
-//
-// Arguments:
-// name - the name of program
-//
-// Return the process or nil
+// Return the removed process or nil
 func (pm *Manager) Remove(name string) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	proc, _ := pm.procs[name]
 	delete(pm.procs, name)
-	zap.L().Info("remove process", zap.String("name", name))
+	zap.L().Info("Removed process", zap.String("name", name))
 	return proc
 }
 
