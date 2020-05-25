@@ -1,6 +1,7 @@
 package gopm
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -235,7 +236,17 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 
 	_, err = s.config.Load()
 	if err != nil {
-		zap.L().Error("Error loading configuration", zap.Error(err))
+		var el *config.ErrList
+		if errors.As(err, &el) {
+			errs := el.Errors()
+			zap.L().Error("Error loading configuration")
+			for _, err := range errs {
+				zap.L().Error("Configuration file error", zap.Error(err))
+			}
+		} else {
+			zap.L().Error("Error loading configuration", zap.Error(err))
+		}
+
 		return nil, nil, nil, err
 	}
 

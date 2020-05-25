@@ -360,11 +360,7 @@ func (p *Process) getExitCode() (int, error) {
 	if p.cmd.ProcessState == nil {
 		return -1, fmt.Errorf("no exit code")
 	}
-	if status, ok := p.cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
-		return status.ExitStatus(), nil
-	}
-
-	return -1, fmt.Errorf("no exit code")
+	return p.cmd.ProcessState.ExitCode(), nil
 }
 
 // check if the process is running or not
@@ -563,11 +559,11 @@ func (p *Process) run(finishedFn func()) {
 			p.changeStateTo(Backoff)
 		}
 
-		// The number of serial failure attempts that supervisord will allow when attempting to
+		// The number of serial failure attempts that gopm will allow when attempting to
 		// start the program before giving up and putting the process into an Fatal state
 		// first start time is not the retry time
 		if atomic.LoadInt32(p.retryTimes) >= int32(p.program.StartRetries) {
-			p.failToStartProgram(fmt.Sprintf("fail to start program because retry times is greater than %d", p.program.StartRetries), finishedOnceFn)
+			p.failToStartProgram(fmt.Sprintf("Unable to run program; exceeded retry count: %d", p.program.StartRetries), finishedOnceFn)
 			break
 		}
 	}
@@ -718,6 +714,7 @@ func (p *Process) Stop(wait bool) {
 			for endTime.After(time.Now()) {
 				// if it already exits
 				if p.state != Starting && p.state != Running && p.state != Stopping {
+					p.log.Info("Program exited")
 					return
 				}
 				time.Sleep(10 * time.Millisecond)

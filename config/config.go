@@ -74,6 +74,10 @@ func (c *Config) Load() ([]string, error) {
 		return nil, err
 	}
 
+	if err := Validate(m); err != nil {
+		return nil, err
+	}
+
 	return ApplyUpdates(c, m)
 }
 

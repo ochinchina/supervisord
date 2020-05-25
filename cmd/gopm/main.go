@@ -20,6 +20,7 @@ import (
 func init() {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Encoding = "term-color"
+	cfg.DisableStacktrace = true
 	cfg.EncoderConfig = encoder.NewDevelopmentEncoderConfig()
 	cfg.EncoderConfig.CallerKey = ""
 	log, err := cfg.Build()
