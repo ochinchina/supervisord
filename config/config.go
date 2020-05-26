@@ -545,12 +545,14 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 				originalProcName = procName
 			}
 
+			originalCmd := section.GetValueWithDefault("command", "")
+
 			for i := 1; i <= numProcs; i++ {
 				envs := NewStringExpression("program_name", programName,
 					"process_num", fmt.Sprintf("%d", i),
 					"group_name", c.ProgramGroup.GetGroup(programName, programName),
 					"here", c.GetConfigFileDir())
-				cmd, err := envs.Eval(section.GetValueWithDefault("command", ""))
+				cmd, err := envs.Eval(originalCmd)
 				if err != nil {
 					log.WithFields(log.Fields{
 						log.ErrorKey: err,
