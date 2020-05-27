@@ -1,18 +1,15 @@
 package config
 
 import (
-	"path/filepath"
+	"strings"
 
 	"github.com/creasty/defaults"
 	"github.com/stuartcarnie/gopm/model"
-	"github.com/stuartcarnie/gopm/model/ini"
 	"github.com/stuartcarnie/gopm/model/yaml"
 )
 
 // Config memory representations of supervisor configuration file
 type Config struct {
-	configFile string
-
 	groups   map[string]*model.Group
 	programs map[string]*model.Program
 
@@ -22,9 +19,8 @@ type Config struct {
 }
 
 // NewConfig create Config object
-func NewConfig(configFile string) *Config {
+func NewConfig() *Config {
 	return &Config{
-		configFile:   configFile,
 		groups:       make(map[string]*model.Group),
 		programs:     make(map[string]*model.Program),
 		ProgramGroup: NewProcessGroup(),
@@ -53,23 +49,34 @@ func (c *Config) CreateProgram(name string) *model.Program {
 	return obj
 }
 
-//
-// Load load the configuration and return the loaded programs
-func (c *Config) Load() ([]string, error) {
+func (c *Config) LoadString(s string) ([]string, error) {
 	var (
 		m   *model.Root
 		err error
 	)
 
-	ext := filepath.Ext(c.configFile)
-	if ext == ".yaml" || ext == ".yml" {
-		var r yaml.Reader
-		m, err = r.LoadPath(c.configFile)
-	} else {
-		var ii ini.Reader
-		m, err = ii.LoadPath(c.configFile)
+	var r yaml.Reader
+	m, err = r.LoadReader(strings.NewReader(s))
+	if err != nil {
+		return nil, err
 	}
 
+	if err := Validate(m); err != nil {
+		return nil, err
+	}
+
+	return ApplyUpdates(c, m)
+}
+
+// Load loads the configuration and return the loaded programs
+func (c *Config) LoadPath(configFile string) ([]string, error) {
+	var (
+		m   *model.Root
+		err error
+	)
+
+	var r yaml.Reader
+	m, err = r.LoadPath(configFile)
 	if err != nil {
 		return nil, err
 	}

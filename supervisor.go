@@ -30,6 +30,7 @@ const (
 // Supervisor manage all the processes defined in the supervisor configuration file.
 // All the supervisor public interface is defined in this class
 type Supervisor struct {
+	configFile string
 	config     *config.Config   // supervisor configuration
 	procMgr    *process.Manager // process manager
 	httpServer *HTTPServer      // XMLRPC interface
@@ -87,7 +88,8 @@ type ProcessTailLog struct {
 // NewSupervisor create a Supervisor object with supervisor configuration file
 func NewSupervisor(configFile string) *Supervisor {
 	return &Supervisor{
-		config:     config.NewConfig(configFile),
+		configFile: configFile,
+		config:     config.NewConfig(),
 		procMgr:    process.NewManager(),
 		httpServer: &HTTPServer{},
 		restarting: false,
@@ -234,7 +236,7 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 	prevPrograms := s.config.ProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
 
-	_, err = s.config.Load()
+	_, err = s.config.LoadPath(s.configFile)
 	if err != nil {
 		var el *config.ErrList
 		if errors.As(err, &el) {

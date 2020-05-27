@@ -62,8 +62,8 @@ func (ctl *Control) getServerURL() string {
 	if ctl.Address != "" {
 		return ctl.Address
 	} else if _, err := os.Stat(ctl.Configuration); err == nil {
-		cfg := config.NewConfig(ctl.Configuration)
-		cfg.Load()
+		cfg := config.NewConfig()
+		_, _ = cfg.LoadPath(ctl.Configuration)
 		if cfg.GrpcServer != nil && cfg.GrpcServer.Address != "" {
 			return cfg.GrpcServer.Address
 		}
