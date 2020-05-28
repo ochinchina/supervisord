@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 
+	"github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/rpc"
@@ -74,12 +76,26 @@ func (ctl *Control) getServerURL() string {
 // other commands
 
 func (ctl *Control) printProcessInfo(res *rpc.ProcessInfoResponse, processes map[string]bool) {
+	tw := tabwriter.NewWriter(os.Stdout, 20, 4, 5, ' ', 0)
+	state := func(s string) aurora.Value {
+		switch strings.ToUpper(s) {
+		case "RUNNING":
+			return aurora.Green(s)
+
+		case "BACKOFF", "FATAL":
+			return aurora.Red(s)
+
+		default:
+			return aurora.Yellow(s)
+		}
+	}
 	for _, pinfo := range res.Processes {
 		if ctl.inProcessMap(pinfo, processes) {
 			processName := pinfo.GetFullName()
-			fmt.Printf("%s%-33s%-10s%s%s\n", ctl.getANSIColor(pinfo.StateName), processName, pinfo.StateName, pinfo.Description, "\x1b[0m")
+			_, _ = fmt.Fprintln(tw, strings.Join([]string{processName, state(pinfo.StateName).String(), pinfo.Description}, "\t"))
 		}
 	}
+	tw.Flush()
 }
 
 func (ctl *Control) inProcessMap(procInfo *rpc.ProcessInfo, processesMap map[string]bool) bool {
@@ -102,17 +118,4 @@ func (ctl *Control) inProcessMap(procInfo *rpc.ProcessInfo, processesMap map[str
 		}
 	}
 	return false
-}
-
-func (ctl *Control) getANSIColor(statename string) string {
-	if statename == "RUNNING" {
-		// green
-		return "\x1b[0;32m"
-	} else if statename == "BACKOFF" || statename == "FATAL" {
-		// red
-		return "\x1b[0;31m"
-	} else {
-		// yellow
-		return "\x1b[1;33m"
-	}
 }
