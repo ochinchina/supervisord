@@ -693,7 +693,8 @@ func (p *Process) Stop(wait bool) {
 	stopAsGroup := p.program.StopAsGroup
 	killAsGroup := p.program.KillAsGroup
 	if stopAsGroup && !killAsGroup {
-		p.log.Error("Invalid configuration; stop_as_group=true and kill_as_group=false")
+		p.log.Error("Invalid group configuration; stop_as_group=true and kill_as_group=false")
+		killAsGroup = stopAsGroup
 	}
 
 	ch := make(chan struct{})
@@ -721,7 +722,7 @@ func (p *Process) Stop(wait bool) {
 			}
 		}
 
-		p.log.Info("Program did not stop in time, killing")
+		p.log.Info("Program did not stop in time, sending KILL")
 		p.Signal(syscall.SIGKILL, killAsGroup)
 	}()
 

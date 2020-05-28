@@ -1,12 +1,13 @@
 package gopm
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/stuartcarnie/gopm/config"
@@ -33,7 +34,7 @@ type Supervisor struct {
 	configFile string
 	config     *config.Config   // supervisor configuration
 	procMgr    *process.Manager // process manager
-	httpServer *HTTPServer      // XMLRPC interface
+	httpServer *http.Server
 	grpc       *grpc.Server
 	logger     logger.Logger // logger manager
 	restarting bool          // if supervisor is in restarting state
@@ -91,7 +92,6 @@ func NewSupervisor(configFile string) *Supervisor {
 		configFile: configFile,
 		config:     config.NewConfig(),
 		procMgr:    process.NewManager(),
-		httpServer: &HTTPServer{},
 		restarting: false,
 	}
 }
@@ -236,7 +236,7 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 	prevPrograms := s.config.ProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
 
-	_, err = s.config.LoadPath(s.configFile)
+	loaded, err := s.config.LoadPath(s.configFile)
 	if err != nil {
 		var el *config.ErrList
 		if errors.As(err, &el) {
@@ -252,7 +252,7 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 		return nil, nil, nil, err
 	}
 
-	s.createPrograms(prevPrograms)
+	s.createPrograms(prevPrograms, loaded)
 	s.startHTTPServer()
 	s.startGrpcServer()
 	s.startAutoStartPrograms()
@@ -272,13 +272,12 @@ func (s *Supervisor) WaitForExit() {
 	}
 }
 
-func (s *Supervisor) createPrograms(prevPrograms []string) {
-	programs := s.config.ProgramNames()
+func (s *Supervisor) createPrograms(prevPrograms []string, loaded []string) {
 	for _, program := range s.config.Programs() {
 		s.procMgr.CreateProcess(s.GetSupervisorID(), program)
 	}
 
-	removedPrograms := util.Sub(prevPrograms, programs)
+	removedPrograms := util.Sub(prevPrograms, loaded)
 	for _, removed := range removedPrograms {
 		zap.L().Info("Program removed from configuration; stopping", zap.String("program", removed))
 		s.config.RemoveProgram(removed)
@@ -294,18 +293,44 @@ func (s *Supervisor) startAutoStartPrograms() {
 }
 
 func (s *Supervisor) startHTTPServer() {
-	s.httpServer.Stop()
-
-	if cfg := s.config.HttpServer; cfg != nil {
-		addr := cfg.Port
-		if addr != "" {
-			cond := sync.NewCond(&sync.Mutex{})
-			cond.L.Lock()
-			defer cond.L.Unlock()
-			go s.httpServer.Start(cfg.Username, cfg.Password, addr, s, func() { cond.Signal() })
-			cond.Wait()
-		}
+	var cfg *model.HTTPServer
+	if s.config.HttpServer != nil {
+		cfg = new(model.HTTPServer)
+		*cfg = *s.config.HttpServer
 	}
+
+	go func() {
+		if s.httpServer != nil {
+			err := s.httpServer.Shutdown(context.Background())
+			if err != nil {
+				zap.L().Error("Unable to shutdown HTTP server", zap.Error(err))
+			} else {
+				zap.L().Info("Stopped HTTP server")
+			}
+			s.httpServer = nil
+		}
+
+		if cfg == nil {
+			return
+		}
+
+		mux := http.NewServeMux()
+		svc := NewSupervisorRestful(s)
+		progRestHandler := svc.CreateProgramHandler()
+		mux.Handle("/program/", progRestHandler)
+		supervisorRestHandler := svc.CreateSupervisorHandler()
+		mux.Handle("/supervisor/", supervisorRestHandler)
+		webguiHandler := NewSupervisorWebgui(s).CreateHandler()
+		mux.Handle("/", webguiHandler)
+
+		zap.L().Info("Starting HTTP server", zap.String("addr", cfg.Port))
+		srv := http.Server{Handler: mux, Addr: cfg.Port}
+		s.httpServer = &srv
+		err := srv.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			zap.L().Error("Unable to start HTTP server", zap.Error(err))
+		}
+	}()
 }
 
 func (s *Supervisor) startGrpcServer() {
@@ -338,8 +363,11 @@ func (s *Supervisor) startGrpcServer() {
 		reflection.Register(grpcServer)
 		s.grpc = grpcServer
 
-		zap.L().Info("Started gRPC server", zap.String("addr", cfg.Address))
-		_ = grpcServer.Serve(ln)
+		zap.L().Info("Starting gRPC server", zap.String("addr", cfg.Address))
+		err = grpcServer.Serve(ln)
+		if err != nil && err != io.EOF {
+			zap.L().Error("Unable to start gRPC server", zap.Error(err))
+		}
 	}()
 }
 

@@ -84,7 +84,7 @@ func loadEnvFile() {
 func runServer() {
 	// infinite loop for handling Restart ('reload' command)
 	loadEnvFile()
-	for true {
+	for {
 		s := gopm.NewSupervisor(rootOpt.Configuration)
 		initSignals(s)
 		if _, _, _, sErr := s.Reload(); sErr != nil {
@@ -111,7 +111,6 @@ var (
 
 func getDefaultShell() string {
 	sh := os.Getenv("SHELL")
-
 	if sh == "" {
 		return "/bin/sh -c"
 	}
