@@ -61,11 +61,7 @@ func (c *Config) LoadString(s string) ([]string, error) {
 		return nil, err
 	}
 
-	if err := Validate(m); err != nil {
-		return nil, err
-	}
-
-	return ApplyUpdates(c, m)
+	return c.update(m)
 }
 
 // Load loads the configuration and return the loaded programs
@@ -81,9 +77,15 @@ func (c *Config) LoadPath(configFile string) ([]string, error) {
 		return nil, err
 	}
 
+	return c.update(m)
+}
+
+func (c *Config) update(m *model.Root) ([]string, error) {
 	if err := Validate(m); err != nil {
 		return nil, err
 	}
+
+	ExpandEnv(m)
 
 	return ApplyUpdates(c, m)
 }
