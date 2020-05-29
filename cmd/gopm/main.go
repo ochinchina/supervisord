@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -52,12 +54,20 @@ func loadEnvFile() {
 		return
 	}
 	defer f.Close()
+
 	reader := bufio.NewReader(f)
 	for {
 		// for each line
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			break
+			if !errors.Is(err, io.EOF) {
+				break
+			}
+			// if the last line does not have a newline
+			// still process it
+			if len(line) == 0 {
+				break
+			}
 		}
 		// if line starts with '#', it is a comment line, ignore it
 		line = strings.TrimSpace(line)
