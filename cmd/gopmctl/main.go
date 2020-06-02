@@ -41,6 +41,8 @@ func init() {
 	rootCmd.AddCommand(&stopCmd)
 	rootCmd.AddCommand(&reloadCmd)
 	rootCmd.AddCommand(&shutdownCmd)
+	rootCmd.AddCommand(&stopAllCmd)
+	rootCmd.AddCommand(&startAllCmd)
 }
 
 func main() {

@@ -10,16 +10,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var startCmd = cobra.Command{Use: "start", Args: cobra.MinimumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-	for _, name := range args {
-		req := rpc.StartStopRequest{Name: name, Wait: true}
-		_, err := control.client.StartProcess(context.Background(), &req)
-		if status.Code(err) == codes.NotFound {
-			fmt.Printf("Process not found: %s\n", name)
-		} else if err != nil {
-			return err
+var startCmd = cobra.Command{
+	Use:   "start",
+	Short: "Start a list of processes",
+	Args:  cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		for _, name := range args {
+			req := rpc.StartStopRequest{Name: name, Wait: true}
+			_, err := control.client.StartProcess(context.Background(), &req)
+			if status.Code(err) == codes.NotFound {
+				fmt.Printf("Process not found: %s\n", name)
+			} else if err != nil {
+				return err
+			}
+			fmt.Printf("Process started: %s\n", name)
 		}
-		fmt.Printf("Process started: %s\n", name)
-	}
-	return nil
-}}
+		return nil
+	},
+}
