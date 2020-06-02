@@ -159,17 +159,18 @@ func (pm *Manager) getAllProcess() []*Process {
 
 // StopAllProcesses stop all the processes managed by this manager
 func (pm *Manager) StopAllProcesses() {
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
+
+	processes := pm.getAllProcess()
 	var wg sync.WaitGroup
-
-	pm.ForEachProcess(func(proc *Process) {
-		wg.Add(1)
-
-		go func(wg *sync.WaitGroup) {
+	wg.Add(len(processes))
+	for _, p := range processes {
+		go func(proc *Process) {
 			defer wg.Done()
-
 			proc.Stop(true)
-		}(&wg)
-	})
+		}(p)
+	}
 
 	wg.Wait()
 }
