@@ -5,3 +5,4 @@ debug
 assets_release.go
 *.yaml
 *.ini
+*.env
