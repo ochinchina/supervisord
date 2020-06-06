@@ -17,14 +17,12 @@ func isProgramBefore(t *testing.T, entries []*model.Program, program1, program2 
 	program2Order := -1
 
 	for _, entry := range entries {
-		if entry.IsProgram() {
-			if entry.Name == program1 {
-				program1Order = order
-			} else if entry.Name == program2 {
-				program2Order = order
-			}
-			order++
+		if entry.Name == program1 {
+			program1Order = order
+		} else if entry.Name == program2 {
+			program2Order = order
 		}
+		order++
 	}
 
 	before := program1Order >= 0 && program1Order < program2Order

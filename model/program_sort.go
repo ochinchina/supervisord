@@ -36,7 +36,7 @@ func NewProcessSorter() *ProcessSorter {
 func (p *ProcessSorter) initDepends(programs []*Program) {
 	// sort by dependsOn
 	for _, program := range programs {
-		if program.IsProgram() && len(program.DependsOn) > 0 {
+		if len(program.DependsOn) > 0 {
 			dependsOn := program.DependsOn
 			progName := program.Name
 			for _, dependsOnProg := range dependsOn {
@@ -56,10 +56,8 @@ func (p *ProcessSorter) initDepends(programs []*Program) {
 func (p *ProcessSorter) initProgramWithoutDepends(programConfigs []*Program) {
 	dependsOnPrograms := p.getDependsOnInfo()
 	for _, config := range programConfigs {
-		if config.IsProgram() {
-			if _, ok := dependsOnPrograms[config.Name]; !ok {
-				p.procsWithoutDepends = append(p.procsWithoutDepends, config)
-			}
+		if _, ok := dependsOnPrograms[config.Name]; !ok {
+			p.procsWithoutDepends = append(p.procsWithoutDepends, config)
 		}
 	}
 }
@@ -121,7 +119,7 @@ func (p *ProcessSorter) SortProgram(programs []*Program) []*Program {
 
 	for _, prog := range p.sortDepends() {
 		for _, config := range programs {
-			if config.IsProgram() && config.Name == prog {
+			if config.Name == prog {
 				result = append(result, config)
 			}
 		}
