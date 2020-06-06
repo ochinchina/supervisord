@@ -2,6 +2,7 @@
 test.log*
 .tags*
 debug
-assets_release.go
 *.yaml
 *.ini
+bin/
+assets_generated/
