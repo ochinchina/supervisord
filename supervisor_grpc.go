@@ -159,8 +159,8 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 	}
 	if ok {
 		ch := make(chan []byte, 100)
-		chanLogger := logger.NewChanLogger(ch)
-		compositeLogger.AddLogger(chanLogger)
+		clog := logger.NewChanLogger(ch)
+		compositeLogger.AddLogger(clog)
 		var (
 			res rpc.TailLogResponse
 			ctx = stream.Context()
@@ -169,8 +169,10 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 	READ:
 		for {
 			select {
-			case res.Lines = <-ch:
+			case buf := <-ch:
+				res.Lines = buf
 				err := stream.Send(&res)
+				clog.PutBuffer(buf)
 				if err != nil {
 					break READ
 				}
@@ -179,8 +181,8 @@ func (s *Supervisor) TailLog(req *rpc.TailLogRequest, stream rpc.Gopm_TailLogSer
 				break READ
 			}
 		}
-		compositeLogger.RemoveLogger(chanLogger)
-		_ = chanLogger.Close()
+		compositeLogger.RemoveLogger(clog)
+		_ = clog.Close()
 	}
 	return nil
 }

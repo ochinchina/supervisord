@@ -31,7 +31,16 @@ func Walk(v Visitor, node Node) {
 			Walk(v, g)
 		}
 
-	case *HTTPServer, *GrpcServer, *Program, *Group:
+		if n.FileSystem != nil {
+			Walk(v, n.FileSystem)
+		}
+
+	case *FileSystem:
+		for _, f := range n.Files {
+			Walk(v, f)
+		}
+
+	case *HTTPServer, *GrpcServer, *Program, *Group, *File:
 		// nothing further
 
 	default:

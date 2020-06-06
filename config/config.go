@@ -85,7 +85,9 @@ func (c *Config) update(m *model.Root) ([]string, error) {
 		return nil, err
 	}
 
-	ExpandEnv(m)
+	if err := ExpandEnv(m); err != nil {
+		return nil, err
+	}
 
 	return ApplyUpdates(c, m)
 }

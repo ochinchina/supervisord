@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mitchellh/go-homedir"
 	"github.com/ochinchina/filechangemonitor"
 	"github.com/robfig/cron/v3"
 	"github.com/stuartcarnie/gopm/logger"
@@ -303,7 +304,7 @@ func (p *Process) StopTime() time.Time {
 // GetStdoutLogfile get the program stdout log file
 func (p *Process) StdoutLogfile() string {
 	fileName := p.program.StdoutLogFile
-	expandFile, err := PathExpand(fileName)
+	expandFile, err := homedir.Expand(fileName)
 	if err != nil {
 		return fileName
 	}
@@ -313,7 +314,7 @@ func (p *Process) StdoutLogfile() string {
 // GetStderrLogfile get the program stderr log file
 func (p *Process) StderrLogfile() string {
 	fileName := p.program.StderrLogFile
-	expandFile, err := PathExpand(fileName)
+	expandFile, err := homedir.Expand(fileName)
 	if err != nil {
 		return fileName
 	}

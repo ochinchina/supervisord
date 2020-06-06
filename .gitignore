@@ -6,3 +6,4 @@ debug
 *.ini
 bin/
 assets_generated/
+*.env
