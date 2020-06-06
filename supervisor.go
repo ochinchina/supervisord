@@ -238,7 +238,7 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 
 	loaded, err := s.config.LoadPath(s.configFile)
 	if err != nil {
-		var el *config.ErrList
+		var el Errors
 		if errors.As(err, &el) {
 			errs := el.Errors()
 			zap.L().Error("Error loading configuration")

@@ -21,15 +21,15 @@ func (p ProgramByPriority) Less(i, j int) bool {
 
 // ProcessSorter sort the program by its priority
 type ProcessSorter struct {
-	dependsOnGraph       map[string][]string
-	procsWithooutDepends []*Program
+	dependsOnGraph      map[string][]string
+	procsWithoutDepends []*Program
 }
 
 // NewProcessSorter create a sorter
 func NewProcessSorter() *ProcessSorter {
 	return &ProcessSorter{
-		dependsOnGraph:       make(map[string][]string),
-		procsWithooutDepends: make([]*Program, 0),
+		dependsOnGraph:      make(map[string][]string),
+		procsWithoutDepends: make([]*Program, 0),
 	}
 }
 
@@ -58,7 +58,7 @@ func (p *ProcessSorter) initProgramWithoutDepends(programConfigs []*Program) {
 	for _, config := range programConfigs {
 		if config.IsProgram() {
 			if _, ok := dependsOnPrograms[config.Name]; !ok {
-				p.procsWithooutDepends = append(p.procsWithooutDepends, config)
+				p.procsWithoutDepends = append(p.procsWithoutDepends, config)
 			}
 		}
 	}
@@ -127,8 +127,8 @@ func (p *ProcessSorter) SortProgram(programs []*Program) []*Program {
 		}
 	}
 
-	sort.Sort(ProgramByPriority(p.procsWithooutDepends))
-	for _, p := range p.procsWithooutDepends {
+	sort.Sort(ProgramByPriority(p.procsWithoutDepends))
+	for _, p := range p.procsWithoutDepends {
 		result = append(result, p)
 	}
 	return result

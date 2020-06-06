@@ -7,11 +7,13 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/logrusorgru/aurora v0.0.0-20200102142835-e9ef32dff381
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ochinchina/filechangemonitor v0.3.1
 	github.com/ramr/go-reaper v0.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.4.0
+	go.uber.org/multierr v1.5.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/tools v0.0.0-20200522201501-cb1345f3a375 // indirect
