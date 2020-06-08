@@ -9,6 +9,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ochinchina/filechangemonitor v0.3.1
+	github.com/rakyll/statik v0.1.7
 	github.com/ramr/go-reaper v0.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.0.0
