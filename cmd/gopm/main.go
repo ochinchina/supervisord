@@ -21,7 +21,11 @@ import (
 
 func init() {
 	cfg := zap.NewDevelopmentConfig()
-	cfg.Encoding = "term-color"
+	encoding := "term-color"
+	if os.Getenv("NO_COLOR") != "" {
+		encoding = "term"
+	}
+	cfg.Encoding = encoding
 	cfg.DisableStacktrace = true
 	cfg.EncoderConfig = encoder.NewDevelopmentEncoderConfig()
 	cfg.EncoderConfig.CallerKey = ""
