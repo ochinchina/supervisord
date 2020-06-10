@@ -10,14 +10,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/hashicorp/go-memdb"
 	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/faults"
 	"github.com/stuartcarnie/gopm/logger"
-	"github.com/stuartcarnie/gopm/model"
 	"github.com/stuartcarnie/gopm/process"
 	"github.com/stuartcarnie/gopm/rpc"
 	"github.com/stuartcarnie/gopm/types"
-	"github.com/stuartcarnie/gopm/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -232,11 +231,11 @@ func (s *Supervisor) SendProcessStdin(r *http.Request, args *ProcessStdin, reply
 //return err, addedGroup, changedGroup, removedGroup
 //
 func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, err error) {
-	// get the previous loaded programs
-	prevPrograms := s.config.ProgramNames()
-	prevProgGroup := s.config.ProgramGroup.Clone()
+	changes, err := s.config.LoadPath(s.configFile)
+	if len(changes) == 0 {
+		return nil, nil, nil, nil
+	}
 
-	loaded, err := s.config.LoadPath(s.configFile)
 	if err != nil {
 		var el Errors
 		if errors.As(err, &el) {
@@ -252,16 +251,15 @@ func (s *Supervisor) Reload() (addedGroup, changedGroup, removedGroup []string, 
 		return nil, nil, nil, err
 	}
 
-	s.createPrograms(prevPrograms, loaded)
-	s.startHTTPServer()
-	s.startGrpcServer()
+	s.createPrograms(changes)
+	s.startHTTPServer(changes)
+	s.startGrpcServer(changes)
 	s.startAutoStartPrograms()
 
-	addedGroup, changedGroup, removedGroup = s.config.ProgramGroup.Sub(prevProgGroup)
-	return addedGroup, changedGroup, removedGroup, err
+	return nil, nil, nil, err
 }
 
-// WaitForExit wait the superisor to exit
+// WaitForExit wait the supervisor to exit
 func (s *Supervisor) WaitForExit() {
 	for {
 		if s.IsRestarting() {
@@ -272,18 +270,21 @@ func (s *Supervisor) WaitForExit() {
 	}
 }
 
-func (s *Supervisor) createPrograms(prevPrograms []string, loaded []string) {
-	for _, program := range s.config.Programs() {
-		s.procMgr.CreateProcess(s.GetSupervisorID(), program)
-	}
+func (s *Supervisor) createPrograms(changes memdb.Changes) {
+	for _, ch := range changes {
+		if ch.Table != "process" {
+			continue
+		}
 
-	removedPrograms := util.Sub(prevPrograms, loaded)
-	for _, removed := range removedPrograms {
-		zap.L().Info("Program removed from configuration; stopping", zap.String("program", removed))
-		s.config.RemoveProgram(removed)
-		proc := s.procMgr.Remove(removed)
-		if proc != nil {
-			proc.Destroy()
+		switch {
+		case ch.Created(), ch.Updated():
+			s.procMgr.CreateOrUpdateProcess(s.GetSupervisorID(), ch.After.(*config.Process))
+
+		case ch.Deleted():
+			proc := s.procMgr.Remove(ch.Before.(*config.Process).Name)
+			if proc != nil {
+				proc.Destroy()
+			}
 		}
 	}
 }
@@ -292,11 +293,35 @@ func (s *Supervisor) startAutoStartPrograms() {
 	s.procMgr.StartAutoStartPrograms()
 }
 
-func (s *Supervisor) startHTTPServer() {
-	var cfg *model.HTTPServer
-	if s.config.HttpServer != nil {
-		cfg = new(model.HTTPServer)
-		*cfg = *s.config.HttpServer
+func (s *Supervisor) findServerChange(name string, changes memdb.Changes) *memdb.Change {
+	for i := range changes {
+		ch := &changes[i]
+		if ch.Table != "server" {
+			continue
+		}
+
+		var id string
+		if ch.Deleted() {
+			id = ch.Before.(*config.Server).Name
+		} else {
+			id = ch.After.(*config.Server).Name
+		}
+		if id == name {
+			return ch
+		}
+	}
+	return nil
+}
+
+func (s *Supervisor) startHTTPServer(changes memdb.Changes) {
+	found := s.findServerChange("http", changes)
+	if found == nil {
+		return
+	}
+
+	var cfg *config.Server
+	if found.Updated() || found.Created() {
+		cfg = found.After.(*config.Server)
 	}
 
 	go func() {
@@ -323,8 +348,8 @@ func (s *Supervisor) startHTTPServer() {
 		webguiHandler := NewSupervisorWebgui(s).CreateHandler()
 		mux.Handle("/", webguiHandler)
 
-		zap.L().Info("Starting HTTP server", zap.String("addr", cfg.Port))
-		srv := http.Server{Handler: mux, Addr: cfg.Port}
+		zap.L().Info("Starting HTTP server", zap.String("addr", cfg.Address))
+		srv := http.Server{Handler: mux, Addr: cfg.Address}
 		s.httpServer = &srv
 		err := srv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -333,12 +358,16 @@ func (s *Supervisor) startHTTPServer() {
 	}()
 }
 
-func (s *Supervisor) startGrpcServer() {
+func (s *Supervisor) startGrpcServer(changes memdb.Changes) {
 	// restart asynchronously to permit existing Reload request to complete
-	var cfg *model.GrpcServer
-	if s.config.GrpcServer != nil {
-		cfg = new(model.GrpcServer)
-		*cfg = *s.config.GrpcServer
+	found := s.findServerChange("grpc", changes)
+	if found == nil {
+		return
+	}
+
+	var cfg *config.Server
+	if found.Updated() || found.Created() {
+		cfg = found.After.(*config.Server)
 	}
 
 	go func() {

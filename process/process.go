@@ -17,9 +17,10 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ochinchina/filechangemonitor"
+	"github.com/r3labs/diff"
 	"github.com/robfig/cron/v3"
+	"github.com/stuartcarnie/gopm/config"
 	"github.com/stuartcarnie/gopm/logger"
-	"github.com/stuartcarnie/gopm/model"
 	"github.com/stuartcarnie/gopm/signals"
 	"go.uber.org/zap"
 )
@@ -91,7 +92,6 @@ func (p State) String() string {
 // Process the program process management data
 type Process struct {
 	supervisorID string
-	program      *model.Program
 	cmd          *exec.Cmd
 	log          *zap.Logger
 	startTime    time.Time
@@ -103,18 +103,20 @@ type Process struct {
 	// true if the process is stopped by user
 	stopByUser bool
 	retryTimes *int32
-	lock       sync.RWMutex
+	mu         sync.RWMutex
 	stdin      io.WriteCloser
 	StdoutLog  logger.Logger
 	StderrLog  logger.Logger
+	cfgMu      sync.RWMutex // protects config access
+	config     *config.Process
 }
 
 // NewProcess create a new Process
-func NewProcess(supervisorID string, program *model.Program) *Process {
+func NewProcess(supervisorID string, cfg *config.Process) *Process {
 	proc := &Process{
 		supervisorID: supervisorID,
-		program:      program,
-		log:          zap.L().With(zap.String("program", program.Name)),
+		config:       cfg,
+		log:          zap.L().With(zap.String("program", cfg.Name)),
 		state:        Stopped,
 		retryTimes:   new(int32),
 	}
@@ -122,30 +124,41 @@ func NewProcess(supervisorID string, program *model.Program) *Process {
 	return proc
 }
 
+func (p *Process) UpdateConfig(config *config.Process) {
+	changes, _ := diff.Diff(p.Config(), config)
+	_ = changes
+	p.cfgMu.Lock()
+	p.config = config
+	p.cfgMu.Unlock()
+}
+
+func (p *Process) Config() *config.Process {
+	p.cfgMu.RLock()
+	defer p.cfgMu.RUnlock()
+	return p.config
+}
+
 // add this process to crontab
 func (p *Process) addToCron() {
-	s := p.program.Cron
-	if len(s) == 0 {
+	cfg := p.config
+	schedule := cfg.CronSchedule()
+	if schedule == nil {
 		return
 	}
 
-	p.log.Info("Scheduling program with cron", zap.String("cron", s))
-	id, err := scheduler.AddFunc(s, func() {
+	p.log.Info("Scheduling program with cron", zap.String("cron", cfg.Cron))
+	id := scheduler.Schedule(schedule, cron.FuncJob(func() {
 		p.log.Debug("Running scheduled program")
 		if !p.isRunning() {
 			p.Start(false)
 		}
-	})
-	if err != nil {
-		p.log.Error("Error scheduling cron", zap.Error(err))
-		return
-	}
+	}))
 
 	p.cronID = id
 }
 
 func (p *Process) removeFromCron() {
-	s := p.program.Cron
+	s := p.Config().Cron
 	if len(s) == 0 {
 		return
 	}
@@ -160,16 +173,16 @@ func (p *Process) removeFromCron() {
 //  wait - true, wait the program started or failed
 func (p *Process) Start(wait bool) {
 	p.log.Info("Starting program")
-	p.lock.Lock()
+	p.mu.Lock()
 	if p.inStart {
 		p.log.Info("Program already starting")
-		p.lock.Unlock()
+		p.mu.Unlock()
 		return
 	}
 
 	p.inStart = true
 	p.stopByUser = false
-	p.lock.Unlock()
+	p.mu.Unlock()
 
 	signalWaiter := func() {}
 	waitCh := make(chan struct{})
@@ -186,9 +199,9 @@ func (p *Process) Start(wait bool) {
 
 	go func() {
 		defer func() {
-			p.lock.Lock()
+			p.mu.Lock()
 			p.inStart = false
-			p.lock.Unlock()
+			p.mu.Unlock()
 			signalWaiter()
 		}()
 
@@ -222,18 +235,18 @@ func (p *Process) Destroy() {
 
 // Name returns the name of program
 func (p *Process) Name() string {
-	return p.program.Name
+	return p.Config().Name
 }
 
 // Group which group the program belongs to
 func (p *Process) Group() string {
-	return p.program.Group
+	return p.Config().Group
 }
 
 // Description get the process status description
 func (p *Process) Description() string {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	if p.state == Running {
 		seconds := int(time.Now().Sub(p.startTime).Seconds())
 		minutes := seconds / 60
@@ -251,8 +264,8 @@ func (p *Process) Description() string {
 
 // GetExitStatus get the exit status of the process if the program exit
 func (p *Process) ExitStatus() int {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	if p.state == Exited || p.state == Backoff {
 		if p.cmd.ProcessState == nil {
@@ -268,8 +281,8 @@ func (p *Process) ExitStatus() int {
 
 // GetPid get the pid of running process or 0 it is not in running status
 func (p *Process) Pid() int {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	if p.state == Stopped || p.state == Fatal || p.state == Unknown || p.state == Exited || p.state == Backoff {
 		return 0
@@ -303,7 +316,7 @@ func (p *Process) StopTime() time.Time {
 
 // GetStdoutLogfile get the program stdout log file
 func (p *Process) StdoutLogfile() string {
-	fileName := p.program.StdoutLogFile
+	fileName := p.Config().StdoutLogFile
 	expandFile, err := homedir.Expand(fileName)
 	if err != nil {
 		return fileName
@@ -313,7 +326,7 @@ func (p *Process) StdoutLogfile() string {
 
 // GetStderrLogfile get the program stderr log file
 func (p *Process) StderrLogfile() string {
-	fileName := p.program.StderrLogFile
+	fileName := p.Config().StderrLogFile
 	expandFile, err := homedir.Expand(fileName)
 	if err != nil {
 		return fileName
@@ -332,10 +345,8 @@ func (p *Process) SendProcessStdin(chars string) error {
 
 // check if the process should be
 func (p *Process) isAutoRestart() bool {
-	autoRestart := p.program.AutoRestart
-	if autoRestart == nil {
-		p.lock.RLock()
-		defer p.lock.RUnlock()
+	switch p.Config().AutoRestart {
+	case config.AutoStartModeDefault:
 		if p.cmd != nil && p.cmd.ProcessState != nil {
 			exitCode, err := p.getExitCode()
 			// If unexpected, the process will be restarted when the program exits
@@ -344,12 +355,15 @@ func (p *Process) isAutoRestart() bool {
 			return err == nil && !p.inExitCodes(exitCode)
 		}
 		return false
+
+	case config.AutoStartModeAlways:
+		return true
 	}
-	return *autoRestart
+	return false
 }
 
 func (p *Process) inExitCodes(exitCode int) bool {
-	for _, code := range p.program.ExitCodes {
+	for _, code := range p.Config().ExitCodes {
 		if code == exitCode {
 			return true
 		}
@@ -379,11 +393,13 @@ func (p *Process) isRunning() bool {
 
 // create Command object for the program
 func (p *Process) createProgramCommand() error {
-	args := strings.SplitN(p.program.Command, " ", 2)
-	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], p.program.Command)...)
+	cfg := p.Config()
+
+	args := strings.SplitN(cfg.Command, " ", 2)
+	p.cmd = exec.Command(gShellArgs[0], append(gShellArgs[1:], cfg.Command)...)
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
-		p.log.Error("Failed to run as user", zap.String("user", p.program.User))
+		p.log.Error("Failed to run as user", zap.String("user", cfg.User))
 		return fmt.Errorf("failed to set user")
 	}
 	p.setProgramRestartChangeMonitor(args[0])
@@ -397,7 +413,9 @@ func (p *Process) createProgramCommand() error {
 }
 
 func (p *Process) setProgramRestartChangeMonitor(programPath string) {
-	if p.program.RestartWhenBinaryChanged {
+	cfg := p.Config()
+
+	if cfg.RestartWhenBinaryChanged {
 		absPath, err := filepath.Abs(programPath)
 		if err != nil {
 			absPath = programPath
@@ -408,8 +426,8 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 			p.Start(true)
 		})
 	}
-	dirMonitor := p.program.RestartDirectoryMonitor
-	filePattern := p.program.RestartFilePattern
+	dirMonitor := cfg.RestartDirectoryMonitor
+	filePattern := cfg.RestartFilePattern
 	if dirMonitor != "" {
 		absDir, err := filepath.Abs(dirMonitor)
 		if err != nil {
@@ -434,8 +452,8 @@ func (p *Process) waitForExit() {
 	} else {
 		p.log.Info("Program stopped")
 	}
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.stopTime = time.Now().Round(time.Millisecond)
 	p.StdoutLog.Close()
 	p.StderrLog.Close()
@@ -457,8 +475,8 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited, prog
 	}
 	atomic.StoreInt32(monitorExited, 1)
 
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	// if the program does not exit
 	if atomic.LoadInt32(programExited) == 0 && p.state == Starting {
 		p.log.Info("Successfully started program")
@@ -467,8 +485,10 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited, prog
 }
 
 func (p *Process) run(finishedFn func()) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	cfg := p.Config()
 
 	// check if the program is in running state
 	if p.isRunning() {
@@ -479,8 +499,8 @@ func (p *Process) run(finishedFn func()) {
 	}
 	p.startTime = time.Now().Round(time.Millisecond)
 	atomic.StoreInt32(p.retryTimes, 0)
-	startSecs := p.program.StartSeconds
-	restartPause := p.program.RestartPause
+	startSecs := cfg.StartSeconds
+	restartPause := cfg.RestartPause
 
 	var once sync.Once
 	finishedOnceFn := func() {
@@ -491,10 +511,10 @@ func (p *Process) run(finishedFn func()) {
 	for !p.stopByUser {
 		if restartPause > 0 && atomic.LoadInt32(p.retryTimes) != 0 {
 			// pause
-			p.lock.Unlock()
+			p.mu.Unlock()
 			p.log.Info("Delay program restart", zap.Duration("restart_pause_seconds", time.Duration(restartPause)))
 			time.Sleep(time.Duration(restartPause))
-			p.lock.Lock()
+			p.mu.Lock()
 		}
 		endTime := time.Now().Add(time.Duration(startSecs))
 		p.changeStateTo(Starting)
@@ -509,7 +529,7 @@ func (p *Process) run(finishedFn func()) {
 		err = p.cmd.Start()
 
 		if err != nil {
-			if atomic.LoadInt32(p.retryTimes) >= int32(p.program.StartRetries) {
+			if atomic.LoadInt32(p.retryTimes) >= int32(cfg.StartRetries) {
 				p.failToStartProgram(fmt.Sprintf("fail to start program with error:%v", err), finishedOnceFn)
 				break
 			} else {
@@ -540,7 +560,7 @@ func (p *Process) run(finishedFn func()) {
 			}()
 		}
 		p.log.Debug("Waiting for program to exit")
-		p.lock.Unlock()
+		p.mu.Unlock()
 		p.waitForExit()
 
 		atomic.StoreInt32(&programExited, 1)
@@ -549,7 +569,7 @@ func (p *Process) run(finishedFn func()) {
 			time.Sleep(time.Duration(10) * time.Millisecond)
 		}
 
-		p.lock.Lock()
+		p.mu.Lock()
 
 		// if the program still in running after startSecs
 		if p.state == Running {
@@ -563,8 +583,8 @@ func (p *Process) run(finishedFn func()) {
 		// The number of serial failure attempts that gopm will allow when attempting to
 		// start the program before giving up and putting the process into an Fatal state
 		// first start time is not the retry time
-		if atomic.LoadInt32(p.retryTimes) >= int32(p.program.StartRetries) {
-			p.failToStartProgram(fmt.Sprintf("Unable to run program; exceeded retry count: %d", p.program.StartRetries), finishedOnceFn)
+		if atomic.LoadInt32(p.retryTimes) >= int32(cfg.StartRetries) {
+			p.failToStartProgram(fmt.Sprintf("Unable to run program; exceeded retry count: %d", cfg.StartRetries), finishedOnceFn)
 			break
 		}
 	}
@@ -581,8 +601,8 @@ func (p *Process) changeStateTo(procState State) {
 //   sigChildren - true: send the signal to the process and its children proess
 //
 func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	return p.sendSignal(sig, sigChildren)
 }
@@ -602,7 +622,11 @@ func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
 }
 
 func (p *Process) setEnv() {
-	env := p.program.Environment
+	var env []string
+	for k, v := range p.Config().Environment {
+		env = append(env, k+"="+v)
+	}
+
 	if len(env) != 0 {
 		p.cmd.Env = append(os.Environ(), env...)
 	} else {
@@ -611,20 +635,22 @@ func (p *Process) setEnv() {
 }
 
 func (p *Process) setDir() {
-	dir := p.program.Directory
+	dir := p.Config().Directory
 	if dir != "" {
 		p.cmd.Dir = dir
 	}
 }
 
 func (p *Process) setLog() {
-	p.StdoutLog = p.createLogger(p.StdoutLogfile(), int64(p.program.StdoutLogFileMaxBytes), p.program.StdoutLogfileBackups)
+	cfg := p.Config()
+
+	p.StdoutLog = p.createLogger(p.StdoutLogfile(), int64(cfg.StdoutLogFileMaxBytes), cfg.StdoutLogfileBackups)
 	p.cmd.Stdout = p.StdoutLog
 
-	if p.program.RedirectStderr {
+	if cfg.RedirectStderr {
 		p.StderrLog = p.StdoutLog
 	} else {
-		p.StderrLog = p.createLogger(p.StderrLogfile(), int64(p.program.StderrLogFileMaxBytes), p.program.StderrLogfileBackups)
+		p.StderrLog = p.createLogger(p.StderrLogfile(), int64(cfg.StderrLogFileMaxBytes), cfg.StderrLogfileBackups)
 	}
 
 	p.cmd.Stderr = p.StderrLog
@@ -635,7 +661,7 @@ func (p *Process) createLogger(logFile string, maxBytes int64, backups int) logg
 }
 
 func (p *Process) setUser() error {
-	userName := p.program.User
+	userName := p.Config().User
 	if len(userName) == 0 {
 		return nil
 	}
@@ -675,24 +701,26 @@ func (p *Process) setUser() error {
 
 // Stop send signal to process to stop it
 func (p *Process) Stop(wait bool) {
-	p.lock.Lock()
+	p.mu.Lock()
 	p.stopByUser = true
 	isRunning := p.isRunning()
-	p.lock.Unlock()
+	p.mu.Unlock()
 	if !isRunning {
 		return
 	}
 	p.log.Info("Stopping program")
 
-	sigs := p.program.StopSignals
+	cfg := p.Config()
+
+	sigs := cfg.StopSignals
 	if len(sigs) == 0 {
 		p.log.Error("Missing signals; defaulting to KILL")
 		sigs = []string{"KILL"}
 	}
 
-	waitDur := time.Duration(p.program.StopWaitSeconds)
-	stopAsGroup := p.program.StopAsGroup
-	killAsGroup := p.program.KillAsGroup
+	waitDur := cfg.StopWaitSeconds
+	stopAsGroup := cfg.StopAsGroup
+	killAsGroup := cfg.KillAsGroup
 	if stopAsGroup && !killAsGroup {
 		p.log.Error("Invalid group configuration; stop_as_group=true and kill_as_group=false")
 		killAsGroup = stopAsGroup

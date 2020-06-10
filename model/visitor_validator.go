@@ -1,11 +1,10 @@
-package config
+package model
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/robfig/cron/v3"
-	"github.com/stuartcarnie/gopm/model"
 	"go.uber.org/multierr"
 )
 
@@ -17,11 +16,11 @@ func (v *validator) Err() error {
 	return v.err
 }
 
-func (v *validator) Visit(node model.Node) model.Visitor {
+func (v *validator) Visit(node Node) Visitor {
 	switch n := node.(type) {
-	case *model.HTTPServer:
+	case *HTTPServer:
 
-	case *model.Program:
+	case *Program:
 		if len(n.Name) == 0 {
 			multierr.AppendInto(&v.err, errors.New("program name missing"))
 			// won't process anymore, as we have no name
@@ -40,7 +39,7 @@ func (v *validator) Visit(node model.Node) model.Visitor {
 			multierr.AppendInto(&v.err, fmt.Errorf("missing command for program %q", n.Name))
 		}
 
-	case *model.FileSystem:
+	case *FileSystem:
 		if len(n.Root) == 0 {
 			multierr.AppendInto(&v.err, errors.New("filesystem.root is required"))
 		}
@@ -64,8 +63,8 @@ func (v *validator) Visit(node model.Node) model.Visitor {
 	return v
 }
 
-func Validate(m *model.Root) error {
+func Validate(m *Root) error {
 	var v validator
-	model.Walk(&v, m)
+	Walk(&v, m)
 	return v.Err()
 }

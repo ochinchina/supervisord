@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stuartcarnie/gopm/model"
+	"github.com/stuartcarnie/gopm/config"
 )
 
 func TestProcessMgrAdd(t *testing.T) {
 	var procs = NewManager()
 	procs.Clear()
-	procs.Add("test1", NewProcess("github.com/stuartcarnie/gopm", &model.Program{Name: "test1", Group: "test"}))
+	procs.Add("test1", NewProcess("github.com/stuartcarnie/gopm", &config.Process{Name: "test1", Group: "test"}))
 	assert.NotNil(t, procs.Find("test1"))
 }
 

@@ -15,6 +15,10 @@ func Walk(v Visitor, node Node) {
 
 	switch n := node.(type) {
 	case *Root:
+		if n.Environment != nil {
+			Walk(v, n.Environment)
+		}
+
 		if n.HttpServer != nil {
 			Walk(v, n.HttpServer)
 		}
@@ -40,7 +44,7 @@ func Walk(v Visitor, node Node) {
 			Walk(v, f)
 		}
 
-	case *HTTPServer, *GrpcServer, *Program, *Group, *File:
+	case *Environment, *HTTPServer, *GrpcServer, *Program, *Group, *File:
 		// nothing further
 
 	default:

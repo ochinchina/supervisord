@@ -5,8 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/stuartcarnie/gopm/model"
-
+	"github.com/stuartcarnie/gopm/config"
 	"go.uber.org/zap"
 )
 
@@ -23,30 +22,41 @@ func NewManager() *Manager {
 	}
 }
 
-// CreateProcess create a process and adds to the manager
-func (pm *Manager) CreateProcess(supervisorID string, program *model.Program) *Process {
+// CreateOrUpdateProcess creates a new process and adds it to the manager or updates an existing process.
+func (pm *Manager) CreateOrUpdateProcess(supervisorID string, after *config.Process) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
-	return pm.createProgram(supervisorID, program)
+
+	proc, ok := pm.procs[after.Name]
+	if !ok {
+		proc = NewProcess(supervisorID, after)
+		pm.procs[after.Name] = proc
+		zap.L().Info("Created program", zap.String("program", after.Name))
+	} else {
+		proc.UpdateConfig(after)
+		zap.L().Info("Updated program", zap.String("program", after.Name))
+	}
+
+	return proc
 }
 
 // StartAutoStartPrograms start all the program if its autostart is true
 func (pm *Manager) StartAutoStartPrograms() {
 	pm.ForEachProcess(func(proc *Process) {
-		if proc.program.AutoStart {
+		if proc.config.AutoStart {
 			proc.Start(false)
 		}
 	})
 }
 
-func (pm *Manager) createProgram(supervisorID string, program *model.Program) *Process {
+func (pm *Manager) createProcess(supervisorID string, process *config.Process) *Process {
 	// TODO(sgc): Update existing programs; e.g. cron schedule, etc
-	proc, ok := pm.procs[program.Name]
+	proc, ok := pm.procs[process.Name]
 	if !ok {
-		proc = NewProcess(supervisorID, program)
-		pm.procs[program.Name] = proc
+		proc = NewProcess(supervisorID, process)
+		pm.procs[process.Name] = proc
 	}
-	zap.L().Info("Created program", zap.String("program", program.Name))
+	zap.L().Info("Created program", zap.String("program", process.Name))
 	return proc
 }
 
@@ -176,16 +186,16 @@ func (pm *Manager) StopAllProcesses() {
 }
 
 func sortProcess(procs []*Process) []*Process {
-	progConfigs := make([]*model.Program, 0)
+	progConfigs := make([]*config.Process, 0)
 	for _, proc := range procs {
-		progConfigs = append(progConfigs, proc.program)
+		progConfigs = append(progConfigs, proc.config)
 	}
 
 	result := make([]*Process, 0)
-	p := model.NewProcessSorter()
-	for _, program := range p.SortProgram(progConfigs) {
+	p := config.NewProcessSorter()
+	for _, program := range p.Sort(progConfigs) {
 		for _, proc := range procs {
-			if proc.program == program {
+			if proc.config == program {
 				result = append(result, proc)
 			}
 		}

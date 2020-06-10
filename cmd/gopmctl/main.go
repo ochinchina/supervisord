@@ -68,8 +68,9 @@ func (ctl *Control) getServerURL() string {
 	} else if _, err := os.Stat(ctl.Configuration); err == nil {
 		cfg := config.NewConfig()
 		_, _ = cfg.LoadPath(ctl.Configuration)
-		if cfg.GrpcServer != nil && cfg.GrpcServer.Address != "" {
-			return cfg.GrpcServer.Address
+		svr := cfg.GetGrpcServer()
+		if svr != nil && svr.Address != "" {
+			return svr.Address
 		}
 	}
 	return "localhost:9002"

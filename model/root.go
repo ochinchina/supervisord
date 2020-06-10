@@ -1,11 +1,12 @@
 package model
 
 type Root struct {
-	HttpServer *HTTPServer `yaml:"http_server"`
-	GrpcServer *GrpcServer `yaml:"grpc_server"`
-	Programs   []*Program  `yaml:"programs"`
-	Groups     []*Group    `yaml:"groups"`
-	FileSystem *FileSystem
+	Environment *Environment `yaml:"environment"`
+	HttpServer  *HTTPServer  `yaml:"http_server"`
+	GrpcServer  *GrpcServer  `yaml:"grpc_server"`
+	Programs    []*Program   `yaml:"programs"`
+	Groups      []*Group     `yaml:"groups"`
+	FileSystem  *FileSystem
 }
 
 type FileSystem struct {
@@ -17,4 +18,8 @@ type File struct {
 	Name    string
 	Path    string
 	Content string
+}
+
+type Environment struct {
+	Path string `yaml:"path"`
 }
