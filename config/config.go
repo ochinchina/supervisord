@@ -80,8 +80,6 @@ func (c *Entry) setGroup(group string) {
 // String dump the configuration as string
 func (c *Entry) String() string {
 	buf := bytes.NewBuffer(make([]byte, 0))
-	fmt.Fprintf(buf, "configDir=%s\n", c.ConfigDir)
-	fmt.Fprintf(buf, "group=%s\n", c.Group)
 	for k, v := range c.keyValues {
 		fmt.Fprintf(buf, "%s=%s\n", k, v)
 	}
@@ -124,10 +122,12 @@ func (c *Config) createEntry(name string, configDir string) *Entry {
 func (c *Config) Load() ([]string, error) {
 	ini := ini.NewIni()
 	c.ProgramGroup = NewProcessGroup()
+	log.WithFields(log.Fields{"file": c.configFile}).Info("load configuration from file")
 	ini.LoadFile(c.configFile)
 
 	includeFiles := c.getIncludeFiles(ini)
 	for _, f := range includeFiles {
+		log.WithFields(log.Fields{"file": f}).Info("load configuration from file")
 		ini.LoadFile(f)
 	}
 	return c.parse(ini), nil
@@ -148,6 +148,8 @@ func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
 				}
 				if filepath.IsAbs(f) {
 					dir = filepath.Dir(f)
+				} else {
+					dir = filepath.Join(c.GetConfigFileDir(), filepath.Dir(f))
 				}
 				fileInfos, err := ioutil.ReadDir(dir)
 				if err == nil {
@@ -167,6 +169,7 @@ func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
 }
 
 func (c *Config) parse(cfg *ini.Ini) []string {
+	c.setProgramDefaultParams(cfg)
 	c.parseGroup(cfg)
 	loadedPrograms := c.parseProgram(cfg)
 
@@ -178,29 +181,23 @@ func (c *Config) parse(cfg *ini.Ini) []string {
 			entry.parse(section)
 		}
 	}
-	c.setProgramDefaultParams()
 	return loadedPrograms
 }
 
 // set the default parameteres of programs
-func (c *Config) setProgramDefaultParams() {
-	defParams, ok := c.entries["program-default"]
-
-	if ok {
-		for _, entry := range c.entries {
-			if !entry.IsProgram() {
+func (c *Config) setProgramDefaultParams(cfg *ini.Ini) {
+	program_default_section, err := cfg.GetSection("program-default")
+	if err == nil {
+		for _, section := range cfg.Sections() {
+			if section.Name == "program-default" || !strings.HasPrefix(section.Name, "program:") {
 				continue
 			}
-			for param, value := range defParams.keyValues {
-				v, exist := entry.keyValues[param]
-				if !exist || len(v) <= 0 {
-					entry.keyValues[param] = value
-				}
+			for _, key := range program_default_section.Keys() {
+				section.Add(key.Name(), key.ValueWithDefault(""))
 			}
 
 		}
 	}
-
 }
 
 // GetConfigFileDir get the directory of supervisor configuration file
@@ -338,59 +335,64 @@ func (c *Entry) GetInt(key string, defValue int) int {
 	return defValue
 }
 
+func parseEnv(s string) *map[string]string {
+	result := make(map[string]string)
+	start := 0
+	n := len(s)
+	var i int
+	for {
+		for i = start; i < n && s[i] != '='; {
+			i++
+		}
+		key := s[start:i]
+		start = i + 1
+		if s[start] == '"' {
+			for i = start + 1; i < n && s[i] != '"'; {
+				i++
+			}
+			if i < n {
+				result[strings.TrimSpace(key)] = strings.TrimSpace(s[start+1 : i])
+			}
+			if i+1 < n && s[i+1] == ',' {
+				start = i + 2
+			} else {
+				break
+			}
+		} else {
+			for i = start; i < n && s[i] != ','; {
+				i++
+			}
+			if i < n {
+				result[strings.TrimSpace(key)] = strings.TrimSpace(s[start:i])
+				start = i + 1
+			} else {
+				result[strings.TrimSpace(key)] = strings.TrimSpace(s[start:])
+				break
+			}
+		}
+	}
+
+	return &result
+}
+
 // GetEnv get the value of key as environment setting. An environment string example:
 //  environment = A="env 1",B="this is a test"
 func (c *Entry) GetEnv(key string) []string {
 	value, ok := c.keyValues[key]
-	env := make([]string, 0)
+	result := make([]string, 0)
 
 	if ok {
-		start := 0
-		n := len(value)
-		var i int
-		for {
-			for i = start; i < n && value[i] != '='; {
-				i++
-			}
-			key := value[start:i]
-			start = i + 1
-			if value[start] == '"' {
-				for i = start + 1; i < n && value[i] != '"'; {
-					i++
-				}
-				if i < n {
-					env = append(env, fmt.Sprintf("%s=%s", strings.TrimSpace(key), strings.TrimSpace(value[start+1:i])))
-				}
-				if i+1 < n && value[i+1] == ',' {
-					start = i + 2
-				} else {
-					break
-				}
-			} else {
-				for i = start; i < n && value[i] != ','; {
-					i++
-				}
-				if i < n {
-					env = append(env, fmt.Sprintf("%s=%s", strings.TrimSpace(key), strings.TrimSpace(value[start:i])))
-					start = i + 1
-				} else {
-					env = append(env, fmt.Sprintf("%s=%s", strings.TrimSpace(key), strings.TrimSpace(value[start:])))
-					break
-				}
+		for k, v := range *parseEnv(value) {
+			tmp, err := NewStringExpression("program_name", c.GetProgramName(),
+				"process_num", c.GetString("process_num", "0"),
+				"group_name", c.GetGroupName(),
+				"here", c.ConfigDir).Eval(fmt.Sprintf("%s=%s", k, v))
+			if err == nil {
+				result = append(result, tmp)
 			}
 		}
 	}
 
-	result := make([]string, 0)
-	for i := 0; i < len(env); i++ {
-		tmp, err := NewStringExpression("program_name", c.GetProgramName(),
-			"process_num", c.GetString("process_num", "0"),
-			"group_name", c.GetGroupName(),
-			"here", c.ConfigDir).Eval(env[i])
-		if err == nil {
-			result = append(result, tmp)
-		}
-	}
 	return result
 }
 
@@ -520,7 +522,6 @@ func (c *Config) isProgramOrEventListener(section *ini.Section) (bool, string) {
 func (c *Config) parseProgram(cfg *ini.Ini) []string {
 	loadedPrograms := make([]string, 0)
 	for _, section := range cfg.Sections() {
-
 		programOrEventListener, prefix := c.isProgramOrEventListener(section)
 
 		//if it is program or event listener
@@ -552,6 +553,12 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 					"process_num", fmt.Sprintf("%d", i),
 					"group_name", c.ProgramGroup.GetGroup(programName, programName),
 					"here", c.GetConfigFileDir())
+				envValue, err := section.GetValue("environment")
+				if err == nil {
+					for k, v := range *parseEnv(envValue) {
+						envs.Add(fmt.Sprintf("ENV_%s", k), v)
+					}
+				}
 				cmd, err := envs.Eval(originalCmd)
 				if err != nil {
 					log.WithFields(log.Fields{
@@ -584,15 +591,13 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 		}
 	}
 	return loadedPrograms
-
 }
 
 // String convert the configuration to string represents
 func (c *Config) String() string {
 	buf := bytes.NewBuffer(make([]byte, 0))
-	fmt.Fprintf(buf, "configFile:%s\n", c.configFile)
-	for k, v := range c.entries {
-		fmt.Fprintf(buf, "[program:%s]\n", k)
+	for _, v := range c.entries {
+		fmt.Fprintf(buf, "[%s]\n", v.Name)
 		fmt.Fprintf(buf, "%s\n", v.String())
 	}
 	return buf.String()

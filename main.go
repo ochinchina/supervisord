@@ -120,7 +120,9 @@ func runServer() {
 	// infinite loop for handling Restart ('reload' command)
 	loadEnvFile()
 	for true {
-		options.Configuration, _ = findSupervisordConf()
+		if len(options.Configuration) <= 0 {
+			options.Configuration, _ = findSupervisordConf()
+		}
 		s := NewSupervisor(options.Configuration)
 		initSignals(s)
 		if _, _, _, sErr := s.Reload(); sErr != nil {
