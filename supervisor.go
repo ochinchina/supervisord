@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/ochinchina/supervisord/config"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/faults"
 	"github.com/ochinchina/supervisord/logger"
@@ -520,7 +520,9 @@ func (s *Supervisor) startHTTPServer() {
 				addr,
 				s,
 				func() {
+					cond.L.Lock()
 					cond.Signal()
+					cond.L.Unlock()
 				})
 			cond.Wait()
 		}
@@ -539,7 +541,9 @@ func (s *Supervisor) startHTTPServer() {
 				sockFile,
 				s,
 				func() {
+					cond.L.Lock()
 					cond.Signal()
+					cond.L.Unlock()
 				})
 			cond.Wait()
 		}
