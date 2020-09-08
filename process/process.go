@@ -2,13 +2,6 @@ package process
 
 import (
 	"fmt"
-	"github.com/ochinchina/filechangemonitor"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/events"
-	"github.com/ochinchina/supervisord/logger"
-	"github.com/ochinchina/supervisord/signals"
-	"github.com/robfig/cron/v3"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"os/exec"
@@ -21,6 +14,14 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/ochinchina/filechangemonitor"
+	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/events"
+	"github.com/ochinchina/supervisord/logger"
+	"github.com/ochinchina/supervisord/signals"
+	"github.com/robfig/cron/v3"
+	log "github.com/sirupsen/logrus"
 )
 
 // State the state of process
@@ -159,14 +160,12 @@ func (p *Process) Start(wait bool) {
 	go func() {
 
 		for {
-			if wait {
-				runCond.L.Lock()
-			}
 			p.run(func() {
 				finished = true
 				if wait {
-					runCond.L.Unlock()
+					runCond.L.Lock()
 					runCond.Signal()
+					runCond.L.Unlock()
 				}
 			})
 			//avoid print too many logs if fail to start program too quickly
