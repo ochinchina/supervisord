@@ -151,7 +151,6 @@ func (p *Process) Start(wait bool) {
 	p.lock.Unlock()
 
 	var runCond *sync.Cond
-	finished := false
 	if wait {
 		runCond = sync.NewCond(&sync.Mutex{})
 		runCond.L.Lock()
@@ -161,7 +160,6 @@ func (p *Process) Start(wait bool) {
 
 		for {
 			p.run(func() {
-				finished = true
 				if wait {
 					runCond.L.Lock()
 					runCond.Signal()
@@ -185,7 +183,8 @@ func (p *Process) Start(wait bool) {
 		p.inStart = false
 		p.lock.Unlock()
 	}()
-	if wait && !finished {
+
+	if wait {
 		runCond.Wait()
 		runCond.L.Unlock()
 	}
