@@ -2,42 +2,58 @@
 
 # Why this project?
 
-The python script supervisord is a powerful tool used by a lot of guys to manage the processes. I like the tool supervisord also.
+The python script supervisord is a powerful tool used by a lot of guys to manage the processes. I like  supervisord too.
 
-But this tool requires us to install the big python environment. In some situation, for example in the docker environment, the python is too big for us.
+But this tool requires that the big python environment be installed in target system. In some situation, for example in the docker environment, the python is too big for us.
 
-In this project, the supervisord is re-implemented in go-lang. The compiled supervisord is very suitable for these environment that the python is not installed.
+This project re-implements supervisord in go-lang. Compiled supervisord is very suitable for environments where python is not installed.
 
-# Compile the supervisord
+# Building the supervisord
 
-Before compiling the supervisord, make sure the go-lang is installed in your environement.
+Before compiling the supervisord, make sure the go-lang 1.11+ is installed in your environment.
 
-To compile the go-lang version supervisord, run following commands (required go 1.11+):
+To compile supervisord for **linux**, run following commands:
 
-1. local: `go build`
-1. linux: `env GOOS=linux GOARCH=amd64 go build -o supervisord_linux_amd64`
+1. go generate
+2. GOOS=linux go build -tags release -a -ldflags "-linkmode external -extldflags -static" -o supervisord
 
 # Run the supervisord
 
-After the supervisord binary is generated, create a supervisord configuration file and start the supervisord like below:
+After a supervisord binary has been generated, create a supervisord configuration file and start the supervisord like this:
 
-```shell
+```Shell
 $ cat supervisor.conf
 [program:test]
 command = /your/program args
 $ supervisord -c supervisor.conf
 ```
-# Run as daemon
+
+Please note that config-file location autodetected in this order:
+
+1. $CWD/supervisord.conf
+2. $CWD/etc/supervisord.conf
+3. /etc/supervisord.conf
+4. /etc/supervisor/supervisord.conf (since Supervisor 3.3.0)
+5. ../etc/supervisord.conf (Relative to the executable)
+6. ../supervisord.conf (Relative to the executable)
+
+
+# Run as daemon with web-ui
+
 Add the inet interface in your configuration:
+
 ```ini
 [inet_http_server]
 port=127.0.0.1:9001
 ```
+
 then run
+
 ```shell
 $ supervisord -c supervisor.conf -d
 ```
-In order to controll the daemon, you can use `$ supervisord ctl` subcommand, available commands are: `status`, `start`, `stop`, `shutdown`, `reload`.
+
+In order to manage the daemon, you can use `supervisord ctl` subcommand, available subcommands are: `status`, `start`, `stop`, `shutdown`, `reload`.
 
 ```shell
 $ supervisord ctl status
@@ -57,15 +73,18 @@ $ supervisord ctl pid <process_name>
 $ supervisord ctl fg <process_name>
 ```
 
-the URL of supervisord in the "supervisor ctl" subcommand is dected in following order:
+Please note that `supervisor ctl` subcommand works correctly only if http server is enabled in [inet_http_server], and **serverurl** correctly set. Unix domain socket is not currently supported for this pupose.
+
+Serverurl parameter detected in the following order:
 
 - check if option -s or --serverurl is present, use this url
-- check if -c option is present and the "serverurl" in "supervisorctl" section is present, use the "serverurl" in section "supervisorctl"
-- return http://localhost:9001
+- check if -c option is present, and the "serverurl" in "supervisorctl" section is present, use "serverurl" in section "supervisorctl"
+- check if "serverurl" in section "supervisorctl" is defined in autodetected supervisord.conf-file location and if it is - use found value
+- use http://localhost:9001
 
 # Check the version
 
-command "version" will show the current supervisor version.
+Command "version" will show the current supervisord binary version.
 
 ```shell
 $ supervisord version
@@ -73,63 +92,61 @@ $ supervisord version
 
 # Supported features
 
-## http server
+## Http server
 
-the unix socket & TCP http server is supported. Basic auth is supported.
+Http server can work via both unix domain socket and TCP. Basic auth is optional and supported too.
 
-The unix socket setting is in the "unix_http_server" section.
+The unix domain socket setting is in the "unix_http_server" section.
 The TCP http server setting is in "inet_http_server" section.
 
-If both "inet_http_server" and "unix_http_server" is not configured in the configuration file, no http server will be started.
+If both "inet_http_server" and "unix_http_server" are not set up in the configuration file, no http server will be started.
 
-## supervisord information
+## Supervisord daemon settings
 
-Following parameters are supported in "supervisord" section:
+Following parameters configured in "supervisord" section:
 
-- logfile
-- logfile_maxbytes
-- logfile_backups
-- loglevel
-- pidfile
-- minfds
-- minprocs
-- identifier
+- **logfile**. Where to put log of supervisord itself.
+- **logfile_maxbytes**. Rotate log-file after it exceeds this length.
+- **logfile_backups**. Number of rotated log-files to preserve.
+- **loglevel**. Logging verbosity, can be trace, debug, info, warning, error, fatal and panic (according to documentation of module used for this feature). Defaults to info.
+- **pidfile**. Full path to file containing process id of current supervisord instance.
+- **minfds**. Reserve al least this amount of file descriptors on supervisord startup. (Rlimit nofiles).
+- **minprocs**. Reserve at least this amount of processes resource on supervisord startup. (Rlimit noproc).
+- **identifier**. Identifier of this supervisord instance. Required if there is more than one supervisord run on one machine in same namespace.
 
-## program
+## Supervised program settings
 
-the following features is supported in the "program:x" section:
+Supervised program settings configured in [program:programName] section and include these options:
 
-- program command
-- process name
-- numprocs
-- numprocs_start
-- autostart
-- startsecs
-- startretries
-- autorestart
-- exitcodes
-- stopsignal
-- stopwaitsecs
-- stdout_logfile
-- stdout_logfile_maxbytes
-- stdout_logfile_backups
-- redirect_stderr
-- stderr_logfile
-- stderr_logfile_maxbytes
-- stderr_logfile_backups
-- environment
-- priority
-- user
-- directory
-- stopasgroup
-- killasgroup
-- restartpause
-
-### program extends
-
-Following new keys are supported by the [program:xxx] section:
-
-- **depends_on**: define program depends information. If program A depends on program B, C, the program B, C will be started before program A. Example:
+- **program command**. Command to supervise. It can be given as full path to executable or can be calculated via PATH variable. Command line parameters also should be supplied in this string. 
+- **process name**. ??
+- **numprocs**. ??
+- **numprocs_start**. ??
+- **autostart**. Should be supervised command run on supervisord start? Defaults to **true**.
+- **startsecs**. Start timeout??
+- **startretries**. ??
+- **autorestart**. Automatically re-run supervised command if it dies.
+- **exitcodes**. ??
+- **stopsignal**. Signal to send to command to gracefully stop it. If more than one stopsignal is configured, when stoping the program, the supervisor will send the signals to the program one by one with interval "stopwaitsecs". If the program does not exit after all the signals sent to the program, supervisord will kill the program.
+- **stopwaitsecs**. Amount of time to wait before sending SIGKILL to supervised command to make it stop ungracefully.
+- **stdout_logfile**. Where STDOUT of supervised command should be redirected. (Particular values described lower in this file).
+- **stdout_logfile_maxbytes**. Log size after exceed which log will be rotated.
+- **stdout_logfile_backups**. Number of rotated log-files to preserve.
+- **redirect_stderr**. Should STDERR be redirected to STDOUT.
+- **stderr_logfile**. Where STDERR of supervised command should be redirected. (Particular values described lower in this file).
+- **stderr_logfile_maxbytes**. Log size after exceed which log will be rotated.
+- **stderr_logfile_backups**. Number of rotated log-files to preserve.
+- **environment**. List of VARIABLE=value to be passed to supervised program.
+- **priority**. ??
+- **user**. Sudo to this USER or USER:GROUP right before exec supervised command.
+- **directory**. Jump to this path and exec supervised command there.
+- **stopasgroup**. Also stop this program when stopping group of programs where this program is listed.
+- **killasgroup**. Also kill this program when stopping group of programs where this program is listed.
+- **restartpause**. Wait (at least) this amount of seconds after stpping suprevised program before strt it again.
+- **restart_when_binary_changed**. Boolean value (false or true) to control if the supervised command should be restarted when its executable binary changes. Defaults to false.
+- **restart_directory_monitor**. Path to be monitored for restarting purpose.
+- **restart_file_pattern**. If a file changes under restart_directory_monitor and filename matches this pattern, the supervised command will be restarted.
+- **depends_on**. Define supervised command start dependency. If program A depends on program B, C, the program B, C will be started before program A. Example:
 
 ```ini
 [program:A]
@@ -141,45 +158,13 @@ depends_on = B, C
 ...
 ```
 
-- **user**: user in the section "program:xxx" now is extended to support group with format "user[:group]". So "user" can be configured as:
+## Set default parameters for all supervised programs
+
+All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omited in all other program sections.
+
+In example below the VAR1 and VAR2 environment variables apply to both test1 and test2 supervised programs:
 
 ```ini
-[program:xxx]
-user = user_name
-...
-```
-or
-```ini
-[program:xxx]
-user = user_name:group_name
-...
-```
-- **stopsignal** list
-one or more stop signal can be configured. If more than one stopsignal is configured, when stoping the program, the supervisor will send the signals to the program one by one with interval "stopwaitsecs". If the program does not exit after all the signals sent to the program, the supervisor will kill the program
-
-- **restart_when_binary_changed**: a bool flag to control if the program should be restarted when the executable binary is changed
-
-- **restart_directory_monitor**: a path to be monitored for restarting purpose
-- **restart_file_pattern**: if a file is changed under restart_directory_monitor and the filename matches this pattern, the program will be restarted.
-
-## Set default parameters for program
-
-A section "program-default" is added and the default parameters for programs can be set in this section. This can reduce some parameters for programs. For example both test1 and test2 program have exactly same environment variables VAR1 and VAR2, the environment variable is decalred like:
-
-```ini
-[program:test1]
-...
-environment=VAR1="value1",VAR2="value2"
-
-[program:test2]
-...
-environment=VAR1="value1",VAR2="value2"
-```
-
-the VAR1 and VAR2 environment variable can be moved to "program-default" section like:
-
-```ini
-
 [program-default]
 environment=VAR1="value1",VAR2="value2"
 
@@ -191,14 +176,13 @@ environment=VAR1="value1",VAR2="value2"
 
 ```
 
-
-
 ## Group
-the "group" section is supported and you can set "programs" item
+
+Section "group" is supported and you can set "programs" item
 
 ## Events
 
-the supervisor 3.x defined events are supported partially. Now it supports following events:
+Supervisord 3.x defined events are supported partially. Now it supports following events:
 
 - all process state related events
 - process communication event
@@ -208,18 +192,16 @@ the supervisor 3.x defined events are supported partially. Now it supports follo
 
 ## Logs
 
-The logs ( field stdout_logfile, stderr_logfile ) from programs managed by the supervisord can be written to:
+Supervisord can redirect stdout and stderr ( fields stdout_logfile, stderr_logfile ) of supervised programs to:
 
-```
-- /dev/null, ignore the log
-- /dev/stdout, write log to stdout
-- /dev/stderr, write log to stderr
-- syslog, write the log to local syslog
-- syslog @[protocol:]host[:port], write the log to remote syslog. protocol must be "tcp" or "udp", if missing, "udp" will be used. If port is missing, for "udp" protocol, it's value is 514 and for "tcp" protocol, it's value is 6514.
-- file name, write log to a file
-```
+- **/dev/null**. Ignore the log - send it to /dev/null.
+- **/dev/stdout**. Write log to STDOUT.
+- **/dev/stderr**. Write log to STDERR.
+- **syslog**. Send the log to local syslog service.
+- **syslog @[protocol:]host[:port]**. Send log events to remote syslog server. Protocol must be "tcp" or "udp", if missing, "udp" assumed. If port is missing, for "udp" protocol, it's defaults to 514 and for "tcp" protocol, it's value is 6514.
+- **file name**. Write log to specified file.
 
-Mutiple log file can be configured for the stdout_logfile and stderr_logfile with delimeter ',', for example if want to a program write log to both stdout and test.log file, the stdout_logfile for the program can be configured as:
+Multiple log files can be configured for the stdout_logfile and stderr_logfile with ',' as delimiter. For example:
 
 ```ini
 stdout_logfile = test.log, /dev/stdout
@@ -227,9 +209,21 @@ stdout_logfile = test.log, /dev/stdout
 
 # Web GUI
 
-This supervisord has a default web GUI, you can start, stop & check the status of program from the GUI. Following picture shows the default web GUI:
+Supervisord has builtin web GUI: you can start, stop & check the status of program from the GUI. Following picture shows the default web GUI:
 
 ![alt text](https://github.com/ochinchina/supervisord/blob/master/go_supervisord_gui.png)
+
+Please note that in order to see|use Web GUI you should configure it in /etc/supervisord.conf both in [inet_http_server] (and|or [unix_http_server] if you prefer unix domain socket) and [supervisorctl]:
+
+```ini
+[inet_http_server]
+port=127.0.0.1:9001
+;username=test1
+;password=thepassword
+
+[supervisorctl]
+serverurl=http://127.0.0.1:9001
+```
 
 # Usage from a Docker container
 
@@ -240,13 +234,3 @@ FROM debian:latest
 COPY --from=ochinchina/supervisord:latest /usr/local/bin/supervisord /usr/local/bin/supervisord
 CMD ["/usr/local/bin/supervisord"]
 ```
-
-# The MIT License (MIT)
-
-Copyright (c) <year> <copyright holders>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
