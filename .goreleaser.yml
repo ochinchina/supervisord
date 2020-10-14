@@ -1,6 +1,9 @@
+env:
+  - GO111MODULE=on
 before:
   hooks:
     - go generate ./...
+    - go mod download
 project_name: supervisord
 builds:
 - id: static
