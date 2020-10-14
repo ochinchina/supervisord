@@ -193,7 +193,9 @@ func (c *Config) setProgramDefaultParams(cfg *ini.Ini) {
 				continue
 			}
 			for _, key := range program_default_section.Keys() {
-				section.Add(key.Name(), key.ValueWithDefault(""))
+				if !section.HasKey(key.Name()) {
+					section.Add(key.Name(), key.ValueWithDefault(""))
+				}
 			}
 
 		}
