@@ -19,4 +19,4 @@ require (
 
 replace github.com/ochinchina/supervisord => ./
 
-go 1.13
+go 1.15
