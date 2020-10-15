@@ -1,4 +1,4 @@
-module supervisord
+module github.com/ochinchina/supervisord
 
 require (
 	github.com/GeertJohan/go.rice v1.0.0
