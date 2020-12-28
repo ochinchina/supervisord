@@ -3,15 +3,17 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"github.com/gorilla/rpc"
+	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	"github.com/ochinchina/supervisord/process"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/gorilla/rpc"
-	"github.com/ochinchina/gorilla-xmlrpc/xml"
-	log "github.com/sirupsen/logrus"
 )
 
 // XMLRPC mange the XML RPC servers
@@ -98,6 +100,8 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 		startedCb()
 		return
 	}
+	procCollector := process.NewProcCollector(s.procMgr)
+	prometheus.MustRegister(procCollector)
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", newHTTPBasicAuth(user, password, p.createRPCServer(s)))
 	progRestHandler := NewSupervisorRestful(s).CreateProgramHandler()
@@ -108,6 +112,7 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	mux.Handle("/logtail/", newHTTPBasicAuth(user, password, logtailHandler))
 	webguiHandler := NewSupervisorWebgui(s).CreateHandler()
 	mux.Handle("/", newHTTPBasicAuth(user, password, webguiHandler))
+	mux.Handle("/metrics", promhttp.Handler())
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Info("success to listen on address")
