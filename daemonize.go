@@ -8,8 +8,8 @@ import (
 )
 
 // Deamonize run this process in daemon mode
-func Deamonize(proc func()) {
-	context := daemon.Context{LogFileName: "/dev/stdout"}
+func Deamonize(logfile string, proc func()) {
+	context := daemon.Context{LogFileName: logfile}
 
 	child, err := context.Reborn()
 	if err != nil {

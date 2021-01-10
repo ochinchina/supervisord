@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/jessevdk/go-flags"
+	ini "github.com/ochinchina/go-ini"
+	"github.com/ochinchina/supervisord/config"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -132,6 +134,24 @@ func runServer() {
 	}
 }
 
+// Get the supervisord log file
+func getSupervisordLogFile(configFile string) string {
+	configFileDir := filepath.Dir(configFile)
+	env := config.NewStringExpression("here", configFileDir)
+	ini := ini.NewIni()
+	ini.LoadFile(configFile)
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	logFile := ini.GetValueWithDefault("supervisord", "logfile", filepath.Join(cwd, "supervisord.log"))
+	logFile, err = env.Eval(logFile)
+	if err == nil {
+		return logFile
+	} else {
+		return filepath.Join(".", "supervisord.log")
+	}
+}
 func main() {
 	ReapZombie()
 
@@ -144,7 +164,8 @@ func main() {
 				os.Exit(0)
 			case flags.ErrCommandRequired:
 				if options.Daemon {
-					Deamonize(runServer)
+					logFile := getSupervisordLogFile(options.Configuration)
+					Deamonize(logFile, runServer)
 				} else {
 					runServer()
 				}
