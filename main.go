@@ -6,6 +6,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	ini "github.com/ochinchina/go-ini"
 	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/logger"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -24,7 +25,8 @@ type Options struct {
 }
 
 func init() {
-	log.SetOutput(os.Stdout)
+	nullLogger := logger.NewNullLogger(logger.NewNullLogEventEmitter())
+	log.SetOutput(nullLogger)
 	if runtime.GOOS == "windows" {
 		log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
 	} else {
@@ -163,6 +165,7 @@ func main() {
 				fmt.Fprintln(os.Stdout, err)
 				os.Exit(0)
 			case flags.ErrCommandRequired:
+				log.SetOutput(os.Stdout)
 				if options.Daemon {
 					logFile := getSupervisordLogFile(options.Configuration)
 					Deamonize(logFile, runServer)
