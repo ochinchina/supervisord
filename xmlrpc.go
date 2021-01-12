@@ -101,7 +101,7 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 		return
 	}
 	procCollector := process.NewProcCollector(s.procMgr)
-	prometheus.MustRegister(procCollector)
+	prometheus.Register(procCollector)
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", newHTTPBasicAuth(user, password, p.createRPCServer(s)))
 	progRestHandler := NewSupervisorRestful(s).CreateProgramHandler()

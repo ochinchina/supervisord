@@ -2,7 +2,6 @@ package process
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"os"
 )
 
 const namespace = "node"
@@ -19,7 +18,7 @@ type procCollector struct {
 func NewProcCollector(mgr *Manager) *procCollector {
 	var (
 		subsystem  = "supervisord"
-		labelNames = []string{"instance", "name", "group"}
+		labelNames = []string{"name", "group"}
 	)
 
 	return &procCollector{
@@ -65,11 +64,7 @@ func (c *procCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c *procCollector) collectProcessMetrics(proc *Process, ch chan<- prometheus.Metric) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "unknown"
-	}
-	labels := []string{hostname, proc.GetName(), proc.GetGroup()}
+	labels := []string{proc.GetName(), proc.GetGroup()}
 
 	ch <- prometheus.MustNewConstMetric(c.stateDesc, prometheus.GaugeValue, float64(proc.GetState()), labels...)
 	ch <- prometheus.MustNewConstMetric(c.exitStatusDesc, prometheus.GaugeValue, float64(proc.GetExitstatus()), labels...)
