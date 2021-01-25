@@ -343,6 +343,7 @@ func parseEnv(s string) *map[string]string {
 	n := len(s)
 	var i int
 	for {
+		// find the '='
 		for i = start; i < n && s[i] != '='; {
 			i++
 		}
