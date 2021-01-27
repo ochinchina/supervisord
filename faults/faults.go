@@ -45,7 +45,7 @@ const (
 	// NotRunning not running result code
 	NotRunning = 70
 
-	// Success sucess result code
+	// Success success result code
 	Success = 80
 
 	// AlreadyAdded already added result code

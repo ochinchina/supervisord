@@ -133,7 +133,7 @@ func TestGetUnitHttpServer(t *testing.T) {
 
 func TestProgramInGroup(t *testing.T) {
 	config, _ := parse([]byte("[program:test1]\nA=123\n[group:test]\nprograms=test1,test2\n[program:test2]\nB=hello\n[program:test3]\nC=tt"))
-	if config.GetProgram("test1").Group != "test" { //|| config.GetProgram( "test2" ).Group != "test" || config.GetProgram( "test3" ).Group == "test" {
+	if config.GetProgram("test1").Group != "test" { // || config.GetProgram( "test2" ).Group != "test" || config.GetProgram( "test3" ).Group == "test" {
 		t.Error("fail to test the program in a group")
 	}
 }

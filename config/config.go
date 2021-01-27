@@ -87,10 +87,10 @@ func (c *Entry) String() string {
 
 }
 
-// Config memory reprentations of supervisor configuration file
+// Config memory representation of supervisor configuration file
 type Config struct {
 	configFile string
-	//mapping between the section name and the configure
+	// mapping between the section name and the configure
 	entries map[string]*Entry
 
 	ProgramGroup *ProcessGroup
@@ -106,7 +106,7 @@ func NewConfig(configFile string) *Config {
 	return &Config{configFile, make(map[string]*Entry), NewProcessGroup()}
 }
 
-//create a new entry or return the already-exist entry
+// create a new entry or return the already-exist entry
 func (c *Config) createEntry(name string, configDir string) *Entry {
 	entry, ok := c.entries[name]
 
@@ -120,17 +120,17 @@ func (c *Config) createEntry(name string, configDir string) *Entry {
 //
 // Load load the configuration and return the loaded programs
 func (c *Config) Load() ([]string, error) {
-	ini := ini.NewIni()
+	myini := ini.NewIni()
 	c.ProgramGroup = NewProcessGroup()
 	log.WithFields(log.Fields{"file": c.configFile}).Info("load configuration from file")
-	ini.LoadFile(c.configFile)
+	myini.LoadFile(c.configFile)
 
-	includeFiles := c.getIncludeFiles(ini)
+	includeFiles := c.getIncludeFiles(myini)
 	for _, f := range includeFiles {
 		log.WithFields(log.Fields{"file": f}).Info("load configuration from file")
-		ini.LoadFile(f)
+		myini.LoadFile(f)
 	}
-	return c.parse(ini), nil
+	return c.parse(myini), nil
 }
 
 func (c *Config) getIncludeFiles(cfg *ini.Ini) []string {
@@ -173,7 +173,7 @@ func (c *Config) parse(cfg *ini.Ini) []string {
 	c.parseGroup(cfg)
 	loadedPrograms := c.parseProgram(cfg)
 
-	//parse non-group,non-program and non-eventlistener sections
+	// parse non-group,non-program and non-eventlistener sections
 	for _, section := range cfg.Sections() {
 		if !strings.HasPrefix(section.Name, "group:") && !strings.HasPrefix(section.Name, "program:") && !strings.HasPrefix(section.Name, "eventlistener:") {
 			entry := c.createEntry(section.Name, c.GetConfigFileDir())
@@ -184,7 +184,7 @@ func (c *Config) parse(cfg *ini.Ini) []string {
 	return loadedPrograms
 }
 
-// set the default parameteres of programs
+// set the default parameters of programs
 func (c *Config) setProgramDefaultParams(cfg *ini.Ini) {
 	program_default_section, err := cfg.GetSection("program-default")
 	if err == nil {
@@ -207,7 +207,7 @@ func (c *Config) GetConfigFileDir() string {
 	return filepath.Dir(c.configFile)
 }
 
-//convert supervisor file pattern to the go regrexp
+// convert supervisor file pattern to the go regrexp
 func toRegexp(pattern string) string {
 	tmp := strings.Split(pattern, ".")
 	for i, t := range tmp {
@@ -224,7 +224,7 @@ func (c *Config) GetUnixHTTPServer() (*Entry, bool) {
 	return entry, ok
 }
 
-//GetSupervisord get the supervisord section
+// GetSupervisord get the supervisord section
 func (c *Config) GetSupervisord() (*Entry, bool) {
 	entry, ok := c.entries["supervisord"]
 	return entry, ok
@@ -418,7 +418,7 @@ func (c *Entry) GetString(key string, defValue string) string {
 	return defValue
 }
 
-//GetStringExpression get the value of key as string and attempt to parse it with StringExpression
+// GetStringExpression get the value of key as string and attempt to parse it with StringExpression
 func (c *Entry) GetStringExpression(key string, defValue string) string {
 	s, ok := c.keyValues[key]
 	if !ok || s == "" {
@@ -492,7 +492,7 @@ func (c *Entry) parse(section *ini.Section) {
 
 func (c *Config) parseGroup(cfg *ini.Ini) {
 
-	//parse the group at first
+	// parse the group at first
 	for _, section := range cfg.Sections() {
 		if strings.HasPrefix(section.Name, "group:") {
 			entry := c.createEntry(section.Name, c.GetConfigFileDir())
@@ -507,7 +507,7 @@ func (c *Config) parseGroup(cfg *ini.Ini) {
 }
 
 func (c *Config) isProgramOrEventListener(section *ini.Section) (bool, string) {
-	//check if it is a program or event listener section
+	// check if it is a program or event listener section
 	isProgram := strings.HasPrefix(section.Name, "program:")
 	isEventListener := strings.HasPrefix(section.Name, "eventlistener:")
 	prefix := ""
@@ -527,9 +527,9 @@ func (c *Config) parseProgram(cfg *ini.Ini) []string {
 	for _, section := range cfg.Sections() {
 		programOrEventListener, prefix := c.isProgramOrEventListener(section)
 
-		//if it is program or event listener
+		// if it is program or event listener
 		if programOrEventListener {
-			//get the number of processes
+			// get the number of processes
 			numProcs, err := section.GetInt("numprocs")
 			programName := section.Name[len(prefix):]
 			if err != nil {

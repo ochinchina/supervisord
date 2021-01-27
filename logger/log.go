@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-//Logger the log interface to log program stdout/stderr logs to file
+// Logger the log interface to log program stdout/stderr logs to file
 type Logger interface {
 	io.WriteCloser
 	SetPid(pid int)
@@ -79,7 +79,7 @@ func NewFileLogger(name string, maxSize int64, backups int, logEventEmitter LogE
 
 // SetPid set the pid of the program
 func (l *FileLogger) SetPid(pid int) {
-	//NOTHING TO DO
+	// NOTHING TO DO
 }
 
 // open the file and truncate the file if trunc is true
@@ -162,7 +162,7 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	}
 	defer f.Close()
 
-	//check the length of file
+	// check the length of file
 	statInfo, err := f.Stat()
 	if err != nil {
 		return "", faults.NewFault(faults.Failed, "FAILED")
@@ -170,25 +170,25 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 
 	fileLen := statInfo.Size()
 
-	if offset < 0 { //offset < 0 && length == 0
+	if offset < 0 { // offset < 0 && length == 0
 		offset = fileLen + offset
 		if offset < 0 {
 			offset = 0
 		}
 		length = fileLen - offset
-	} else if length == 0 { //offset >= 0 && length == 0
+	} else if length == 0 { // offset >= 0 && length == 0
 		if offset > fileLen {
 			return "", nil
 		}
 		length = fileLen - offset
-	} else { //offset >= 0 && length > 0
+	} else { // offset >= 0 && length > 0
 
-		//if the offset exceeds the length of file
+		// if the offset exceeds the length of file
 		if offset >= fileLen {
 			return "", nil
 		}
 
-		//compute actual bytes should be read
+		// compute actual bytes should be read
 
 		if offset+length > fileLen {
 			length = fileLen - offset
@@ -214,7 +214,7 @@ func (l *FileLogger) ReadTailLog(offset int64, length int64) (string, int64, boo
 	l.locker.Lock()
 	defer l.locker.Unlock()
 
-	//open the file
+	// open the file
 	f, err := os.Open(l.name)
 	if err != nil {
 		return "", 0, false, err
@@ -222,7 +222,7 @@ func (l *FileLogger) ReadTailLog(offset int64, length int64) (string, int64, boo
 
 	defer f.Close()
 
-	//get the length of file
+	// get the length of file
 	statInfo, err := f.Stat()
 	if err != nil {
 		return "", 0, false, err
@@ -230,12 +230,12 @@ func (l *FileLogger) ReadTailLog(offset int64, length int64) (string, int64, boo
 
 	fileLen := statInfo.Size()
 
-	//check if offset exceeds the length of file
+	// check if offset exceeds the length of file
 	if offset >= fileLen {
 		return "", fileLen, true, nil
 	}
 
-	//get the length
+	// get the length
 	if offset+length > fileLen {
 		length = fileLen - offset
 	}
@@ -311,7 +311,7 @@ func NewNullLogger(logEventEmitter LogEventEmitter) *NullLogger {
 
 // SetPid set the pid of program
 func (l *NullLogger) SetPid(pid int) {
-	//NOTHING TO DO
+	// NOTHING TO DO
 }
 
 // Write write the log to this logger
@@ -352,7 +352,7 @@ func NewChanLogger(channel chan []byte) *ChanLogger {
 
 // SetPid set the program pid
 func (l *ChanLogger) SetPid(pid int) {
-	//NOTHING TO DO
+	// NOTHING TO DO
 }
 
 // Write write the log to channel

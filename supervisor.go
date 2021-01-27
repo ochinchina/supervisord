@@ -41,7 +41,7 @@ type StartProcessArgs struct {
 	Wait bool   `default:"true"` // Wait the program starting finished
 }
 
-//ProcessStdin  process stdin from client
+// ProcessStdin  process stdin from client
 type ProcessStdin struct {
 	Name  string // program name
 	Chars string // inputs from client
@@ -95,7 +95,7 @@ func NewSupervisor(configFile string) *Supervisor {
 		restarting: false}
 }
 
-// GetConfig get the loaded superisor configuration
+// GetConfig get the loaded supervisor configuration
 func (s *Supervisor) GetConfig() *config.Config {
 	return s.config
 }
@@ -141,7 +141,7 @@ func (s *Supervisor) GetState(r *http.Request, args *struct{}, reply *struct{ St
 	return nil
 }
 
-// GetPrograms Get all the name of prorams
+// GetPrograms Get all the name of programs
 //
 // Return the name of all the programs
 func (s *Supervisor) GetPrograms() []string {
@@ -211,7 +211,7 @@ func getProcessInfo(proc *process.Process) *types.ProcessInfo {
 
 }
 
-// GetAllProcessInfo get all the program informations managed by supervisor
+// GetAllProcessInfo get all the program information managed by supervisor
 func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	reply.AllProcessInfo = make([]types.ProcessInfo, 0)
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
@@ -431,10 +431,10 @@ func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent,
 }
 
 // Reload reload the supervisor configuration
-//return err, addedGroup, changedGroup, removedGroup
+// return err, addedGroup, changedGroup, removedGroup
 //
 func (s *Supervisor) Reload() (addedGroup []string, changedGroup []string, removedGroup []string, err error) {
-	//get the previous loaded programs
+	// get the previous loaded programs
 	prevPrograms := s.config.GetProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
 
@@ -467,7 +467,7 @@ func (s *Supervisor) Reload() (addedGroup []string, changedGroup []string, remov
 
 }
 
-// WaitForExit wait the superisor to exit
+// WaitForExit wait the supervisor to exit
 func (s *Supervisor) WaitForExit() {
 	for {
 		if s.IsRestarting() {
@@ -554,7 +554,7 @@ func (s *Supervisor) startHTTPServer() {
 func (s *Supervisor) setSupervisordInfo() {
 	supervisordConf, ok := s.config.GetSupervisord()
 	if ok {
-		//set supervisord log
+		// set supervisord log
 
 		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
 		logFile, err := env.Eval(supervisordConf.GetString("logfile", "supervisord.log"))
@@ -575,7 +575,7 @@ func (s *Supervisor) setSupervisordInfo() {
 			log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
 			log.SetOutput(s.logger)
 		}
-		//set the pid
+		// set the pid
 		pidfile, err := env.Eval(supervisordConf.GetString("pidfile", "supervisord.pid"))
 		if err == nil {
 			f, err := os.Create(pidfile)
@@ -712,7 +712,7 @@ func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply 
 	return nil
 }
 
-// GetManager get the Manager object created by superisor
+// GetManager get the Manager object created by supervisor
 func (s *Supervisor) GetManager() *process.Manager {
 	return s.procMgr
 }

@@ -84,9 +84,9 @@ func (x *CtlCommand) getServerURL() string {
 	if x.ServerURL != "" {
 		return x.ServerURL
 	} else if _, err := os.Stat(options.Configuration); err == nil {
-		config := config.NewConfig(options.Configuration)
-		config.Load()
-		if entry, ok := config.GetSupervisorctl(); ok {
+		myconfig := config.NewConfig(options.Configuration)
+		myconfig.Load()
+		if entry, ok := myconfig.GetSupervisorctl(); ok {
 			serverurl := entry.GetString("serverurl", "")
 			if serverurl != "" {
 				return serverurl
@@ -102,9 +102,9 @@ func (x *CtlCommand) getUser() string {
 	if x.User != "" {
 		return x.User
 	} else if _, err := os.Stat(options.Configuration); err == nil {
-		config := config.NewConfig(options.Configuration)
-		config.Load()
-		if entry, ok := config.GetSupervisorctl(); ok {
+		myconfig := config.NewConfig(options.Configuration)
+		myconfig.Load()
+		if entry, ok := myconfig.GetSupervisorctl(); ok {
 			user := entry.GetString("username", "")
 			return user
 		}
@@ -118,9 +118,9 @@ func (x *CtlCommand) getPassword() string {
 	if x.Password != "" {
 		return x.Password
 	} else if _, err := os.Stat(options.Configuration); err == nil {
-		config := config.NewConfig(options.Configuration)
-		config.Load()
-		if entry, ok := config.GetSupervisorctl(); ok {
+		myconfig := config.NewConfig(options.Configuration)
+		myconfig.Load()
+		if entry, ok := myconfig.GetSupervisorctl(); ok {
 			password := entry.GetString("password", "")
 			return password
 		}
@@ -416,7 +416,7 @@ func (pc *PidCommand) Execute(args []string) error {
 	return nil
 }
 
-// Execute tail the stdout/stderr of a program through http interrface
+// Execute tail the stdout/stderr of a program through http interface
 func (lc *LogtailCommand) Execute(args []string) error {
 	program := args[0]
 	go func() {

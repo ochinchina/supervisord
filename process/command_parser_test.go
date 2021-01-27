@@ -38,7 +38,7 @@ func TestCommandLineArgsIsQuatationMarks(t *testing.T) {
 	args, err := parseCommand("/home/test/nginx-1.13.0/objs/nginx -p /home/test/nginx-1.13.0 -c conf/nginx.conf -g \"daemon off;\"")
 	fmt.Printf("%s\n", strings.Join(args, ","))
 	if err != nil || len(args) != 7 {
-		t.Error("fail to pase the command line")
+		t.Error("fail to parse the command line")
 	}
 	if args[0] != "/home/test/nginx-1.13.0/objs/nginx" ||
 		args[1] != "-p" ||

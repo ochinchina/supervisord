@@ -8,7 +8,7 @@ import (
 
 // ProcessGroup manage the program and its group mapping
 type ProcessGroup struct {
-	//mapping between the program and its group
+	// mapping between the program and its group
 	processGroup map[string]string
 }
 
@@ -44,17 +44,17 @@ func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []stri
 	return
 }
 
-//Add add a process to a group
+// Add add a process to a group
 func (pg *ProcessGroup) Add(group string, procName string) {
 	pg.processGroup[procName] = group
 }
 
-//Remove remove a process
+// Remove remove a process
 func (pg *ProcessGroup) Remove(procName string) {
 	delete(pg.processGroup, procName)
 }
 
-//GetAllGroup get all the groups
+// GetAllGroup get all the groups
 func (pg *ProcessGroup) GetAllGroup() []string {
 	groups := make(map[string]bool)
 	for _, group := range pg.processGroup {

@@ -12,7 +12,7 @@ func (s *Supervisor) checkRequiredResources() error {
 		return s.checkMinLimit(syscall.RLIMIT_NOFILE, "NOFILE", minfds)
 	}
 	if minprocs, vErr := s.getMinRequiredRes("minprocs"); vErr == nil {
-		//RPROC = 6
+		// RPROC = 6
 		return s.checkMinLimit(6, "NPROC", minprocs)
 	}
 	return nil

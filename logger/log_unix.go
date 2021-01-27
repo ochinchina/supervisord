@@ -29,7 +29,7 @@ type BackendSysLogWriter struct {
 	logChannel chan []byte
 }
 
-// NewBackendSysLogWriter create a backgroud running syslog writer
+// NewBackendSysLogWriter create a background running syslog writer
 func NewBackendSysLogWriter(network, raddr string, priority syslog.Priority, tag string) *BackendSysLogWriter {
 	bs := &BackendSysLogWriter{network: network, raddr: raddr, priority: priority, tag: tag, logChannel: make(chan []byte)}
 	bs.start()
@@ -48,7 +48,7 @@ func (bs *BackendSysLogWriter) start() {
 				}
 				break
 			}
-			//if not connect to syslog, try to connect to it
+			// if not connect to syslog, try to connect to it
 			if writer == nil {
 				writer, _ = syslog.Dial(bs.network, bs.raddr, bs.priority, bs.tag)
 			}

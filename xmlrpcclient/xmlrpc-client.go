@@ -175,17 +175,17 @@ func (r *XMLRPCClient) postUnixHTTP(method string, path string, data interface{}
 
 }
 func (r *XMLRPCClient) post(method string, data interface{}, processBody func(io.ReadCloser, error)) {
-	url, err := url.Parse(r.serverurl)
+	myurl, err := url.Parse(r.serverurl)
 	if err != nil {
-		fmt.Printf("Malform url:%s\n", url)
+		fmt.Printf("Malform url:%s\n", myurl)
 		return
 	}
-	if url.Scheme == "http" || url.Scheme == "https" {
+	if myurl.Scheme == "http" || myurl.Scheme == "https" {
 		r.postInetHTTP(method, r.URL(), data, processBody)
-	} else if url.Scheme == "unix" {
-		r.postUnixHTTP(method, url.Path, data, processBody)
+	} else if myurl.Scheme == "unix" {
+		r.postUnixHTTP(method, myurl.Path, data, processBody)
 	} else {
-		fmt.Printf("Unsupported URL scheme:%s\n", url.Scheme)
+		fmt.Printf("Unsupported URL scheme:%s\n", myurl.Scheme)
 	}
 
 }
@@ -202,7 +202,7 @@ func (r *XMLRPCClient) GetVersion() (reply VersionReply, err error) {
 	return
 }
 
-// GetAllProcessInfo get all the processes of superisor
+// GetAllProcessInfo get all the processes of supervisor
 func (r *XMLRPCClient) GetAllProcessInfo() (reply AllProcessInfoReply, err error) {
 	ins := struct{}{}
 	r.post("supervisor.getAllProcessInfo", &ins, func(body io.ReadCloser, procError error) {
@@ -215,7 +215,7 @@ func (r *XMLRPCClient) GetAllProcessInfo() (reply AllProcessInfoReply, err error
 	return
 }
 
-// ChangeProcessState change the proccess state
+// ChangeProcessState change the process state
 func (r *XMLRPCClient) ChangeProcessState(change string, processName string) (reply StartStopReply, err error) {
 	if !(change == "start" || change == "stop") {
 		err = fmt.Errorf("Incorrect required state")
