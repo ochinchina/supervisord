@@ -434,8 +434,8 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 		}
 		AddProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is changed, restart it")
-			restart_cmd := p.config.GetString("restart_cmd_when_binary_chanaged", "")
-			s := p.config.GetString("restart_signal_when_binary_chanaged", "")
+			restart_cmd := p.config.GetString("restart_cmd_when_binary_changed", "")
+			s := p.config.GetString("restart_signal_when_binary_changed", "")
 			if len(restart_cmd) > 0 {
 				_, err := executeCommand(restart_cmd)
 				if err == nil {
@@ -461,7 +461,7 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 		}
 		AddConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("configure file for program is changed, restart it")
-			restart_cmd := p.config.GetString("restart_cmd_when_file_chanaged", "")
+			restart_cmd := p.config.GetString("restart_cmd_when_file_changed", "")
 			s := p.config.GetString("restart_signal_when_file_changed", "")
 			if len(restart_cmd) > 0 {
 				_, err := executeCommand(restart_cmd)
