@@ -1,7 +1,10 @@
 package process
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
+	"syscall"
 	"unicode"
 )
 
@@ -78,4 +81,40 @@ func parseCommand(command string) ([]string, error) {
 		return nil, fmt.Errorf("no command from empty string")
 	}
 	return args, nil
+}
+
+// create command from string or []string
+//
+func createCommand(command interface{}) (*exec.Cmd, error) {
+	args := make([]string, 0)
+	var err error = nil
+
+	if s, ok := command.(string); ok {
+		args, err = parseCommand(s)
+		if err != nil {
+			return nil, err
+		}
+	} else if a, ok := command.([]string); ok {
+		args = a
+	}
+
+	if len(args) <= 0 {
+		return nil, errors.New("empty command")
+	}
+
+	cmd := exec.Command(args[0])
+	if len(args) > 1 {
+		cmd.Args = args
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+
+	return cmd, nil
+}
+
+func executeCommand(command interface{}) ([]byte, error) {
+	cmd, err := createCommand(command)
+	if err != nil {
+		return nil, err
+	}
+	return cmd.CombinedOutput()
 }

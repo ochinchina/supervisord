@@ -407,11 +407,10 @@ func (p *Process) createProgramCommand() error {
 	if err != nil {
 		return err
 	}
-	p.cmd = exec.Command(args[0])
-	if len(args) > 1 {
-		p.cmd.Args = args
+	p.cmd, err = createCommand(args)
+	if err != nil {
+		return err
 	}
-	p.cmd.SysProcAttr = &syscall.SysProcAttr{}
 	if p.setUser() != nil {
 		log.WithFields(log.Fields{"user": p.config.GetString("user", "")}).Error("fail to run as user")
 		return fmt.Errorf("fail to set user")
@@ -434,9 +433,23 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 			absPath = programPath
 		}
 		AddProgramChangeMonitor(absPath, func(path string, mode filechangemonitor.FileChangeMode) {
-			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is changed, resatrt it")
-			p.Stop(true)
-			p.Start(true)
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is changed, restart it")
+			restart_cmd := p.config.GetString("restart_cmd_when_binary_chanaged", "")
+			s := p.config.GetString("restart_signal_when_binary_chanaged", "")
+			if len(restart_cmd) > 0 {
+				_, err := executeCommand(restart_cmd)
+				if err == nil {
+					log.WithFields(log.Fields{"program": p.GetName(), "command": restart_cmd}).Info("restart program with command successfully")
+				} else {
+					log.WithFields(log.Fields{"program": p.GetName(), "command": restart_cmd, "error": err}).Info("fail to restart program")
+				}
+			} else if len(s) > 0 {
+				p.sendSignals(strings.Fields(s), true)
+			} else {
+				p.Stop(true)
+				p.Start(true)
+			}
+
 		})
 	}
 	dirMonitor := p.config.GetString("restart_directory_monitor", "")
@@ -447,12 +460,22 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 			absDir = dirMonitor
 		}
 		AddConfigChangeMonitor(absDir, filePattern, func(path string, mode filechangemonitor.FileChangeMode) {
-			//fmt.Printf( "filePattern=%s, base=%s\n", filePattern, filepath.Base( path ) )
-			//if matched, err := filepath.Match( filePattern, filepath.Base( path ) ); matched && err == nil {
-			log.WithFields(log.Fields{"program": p.GetName()}).Info("configure file for program is changed, resatrt it")
-			p.Stop(true)
-			p.Start(true)
-			//}
+			log.WithFields(log.Fields{"program": p.GetName()}).Info("configure file for program is changed, restart it")
+			restart_cmd := p.config.GetString("restart_cmd_when_file_chanaged", "")
+			s := p.config.GetString("restart_signal_when_file_changed", "")
+			if len(restart_cmd) > 0 {
+				_, err := executeCommand(restart_cmd)
+				if err == nil {
+					log.WithFields(log.Fields{"program": p.GetName(), "command": restart_cmd}).Info("restart program with command successfully")
+				} else {
+					log.WithFields(log.Fields{"program": p.GetName(), "command": restart_cmd, "error": err}).Info("fail to restart program")
+				}
+			} else if len(s) > 0 {
+				p.sendSignals(strings.Fields(s), true)
+			} else {
+				p.Stop(true)
+				p.Start(true)
+			}
 		})
 	}
 
@@ -646,6 +669,20 @@ func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
 	return p.sendSignal(sig, sigChildren)
 }
 
+func (p *Process) sendSignals(sigs []string, sigChildren bool) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	for _, strSig := range sigs {
+		sig, err := signals.ToSignal(strSig)
+		if err == nil {
+			p.sendSignal(sig, sigChildren)
+		} else {
+			log.WithFields(log.Fields{"program": p.GetName(), "signal": strSig}).Info("Invalid signal name")
+		}
+	}
+}
+
 // send signal to the process
 //
 // Args:
@@ -654,6 +691,7 @@ func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
 //
 func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
 	if p.cmd != nil && p.cmd.Process != nil {
+		log.WithFields(log.Fields{"program": p.GetName(), "signal": sig}).Info("Send signal to program")
 		err := signals.Kill(p.cmd.Process, sig, sigChildren)
 		return err
 	}
