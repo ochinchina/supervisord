@@ -144,8 +144,12 @@ Supervised program settings configured in [program:programName] section and incl
 - **killasgroup**. Also kill this program when stopping group of programs where this program is listed.
 - **restartpause**. Wait (at least) this amount of seconds after stpping suprevised program before strt it again.
 - **restart_when_binary_changed**. Boolean value (false or true) to control if the supervised command should be restarted when its executable binary changes. Defaults to false.
+- **restart_cmd_when_binary_changed**. The command to restart the program if the program binary itself is changed.
+- **restart_signal_when_binary_changed**. The signal sent to the program for restarting if the program binary is changed.
 - **restart_directory_monitor**. Path to be monitored for restarting purpose.
 - **restart_file_pattern**. If a file changes under restart_directory_monitor and filename matches this pattern, the supervised command will be restarted.
+- **restart_cmd_when_file_changed**. The command to restart the program if any monitored files under **restart_directory_monitor** with pattern **restart_file_pattern** are changed.
+- **restart_signal_when_file_changed**. The signal will be sent to the proram, such as Nginx, for restarting if any monitored files under **restart_directory_monitor** with pattern **restart_file_pattern** are changed.
 - **depends_on**. Define supervised command start dependency. If program A depends on program B, C, the program B, C will be started before program A. Example:
 
 ```ini
@@ -234,3 +238,9 @@ FROM debian:latest
 COPY --from=ochinchina/supervisord:latest /usr/local/bin/supervisord /usr/local/bin/supervisord
 CMD ["/usr/local/bin/supervisord"]
 ```
+
+# Integrate with Prometheus
+
+The Prometheus node exporter supported supervisord metrics are now integrated into the supervisor. So there is no need to deploy an extra node_exporter to collect the supervisord metrics. To collect the metrics, the port parameter in section "inet_http_server" must be configured and the metrics server is started on the path /metrics of the supervisor http server.
+
+For example, if the port parameter in "inet_http_server" is "127.0.0.1:9001" and then the metrics server should be accessed in url "http://127.0.0.1:9001/metrics" 
