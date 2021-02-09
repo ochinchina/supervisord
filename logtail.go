@@ -6,15 +6,18 @@ import (
 	"net/http"
 )
 
+// Logtail tail the process log through http interface
 type Logtail struct {
 	router     *mux.Router
 	supervisor *Supervisor
 }
 
+// NewLogtail create a Logtail object
 func NewLogtail(supervisor *Supervisor) *Logtail {
 	return &Logtail{router: mux.NewRouter(), supervisor: supervisor}
 }
 
+// CreateHandler create http handlers to process the program stdout and stderr through http interface
 func (lt *Logtail) CreateHandler() http.Handler {
 	lt.router.HandleFunc("/logtail/{program}/stdout", lt.getStdoutLog).Methods("GET")
 	lt.router.HandleFunc("/logtail/{program}/stderr", lt.getStderrLog).Methods("GET")
@@ -32,7 +35,7 @@ func (lt *Logtail) getStderrLog(w http.ResponseWriter, req *http.Request) {
 func (lt *Logtail) getLog(logType string, w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	program := vars["program"]
-	procMgr := lt.supervisor.GetProcessManager()
+	procMgr := lt.supervisor.GetManager()
 	proc := procMgr.Find(program)
 	if proc == nil {
 		w.WriteHeader(http.StatusBadRequest)

@@ -89,8 +89,8 @@ func TestProcCommEventCapture(t *testing.T) {
 	r2, w2 := io.Pipe()
 	reader := bufio.NewReader(r1)
 
-	capture_reader, capture_writer := io.Pipe()
-	eventCapture := NewProcCommEventCapture(capture_reader,
+	captureReader, captureWriter := io.Pipe()
+	eventCapture := NewProcCommEventCapture(captureReader,
 		10240,
 		"PROCESS_COMMUNICATION_STDOUT",
 		"proc-1",
@@ -105,14 +105,14 @@ func TestProcCommEventCapture(t *testing.T) {
 		[]string{"PROCESS_COMMUNICATION"},
 		listener)
 	w2.Write([]byte("READY\n"))
-	capture_writer.Write([]byte(`this is unuseful information, seems it is very 
+	captureWriter.Write([]byte(`this is unuseful information, seems it is very 
 	long and not useful, just used for testing purpose.
 	let's input more unuseful information, ok.....
 	haha...<!--XSUPERVISOR:BEGIN-->this is a proc event test<!--XSUPERVISOR:END--> also
 	add some other unuseful`))
 	_, body := readEvent(reader)
-	expect_body := "processname:proc-1 groupname:group-1 pid:99\nthis is a proc event test"
-	if body != expect_body {
+	expectBody := "processname:proc-1 groupname:group-1 pid:99\nthis is a proc event test"
+	if body != expectBody {
 		t.Error("Fail to get the process communication event")
 	}
 	w2.Close()
@@ -126,6 +126,7 @@ func TestProcessStartingEvent(t *testing.T) {
 	if event.GetType() != "PROCESS_STATE_STARTING" {
 		t.Error("Fail to creating the process starting event")
 	}
+	fmt.Printf( "%s\n", event.GetBody() )
 	if event.GetBody() != "processname:proc-1 groupname:group-1 from_state:STOPPED tries:0" {
 		t.Error("Fail to encode the process starting event")
 	}

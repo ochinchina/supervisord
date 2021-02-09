@@ -7,10 +7,12 @@ import (
 	"strings"
 )
 
+// StringExpression replace the python String like "%(var)s" to string
 type StringExpression struct {
-	env map[string]string
+	env map[string]string // the environment variable used to replace the var in the python expression
 }
 
+// NewStringExpression create a new StringExpression with the environment variables
 func NewStringExpression(envs ...string) *StringExpression {
 	se := &StringExpression{env: make(map[string]string)}
 
@@ -32,11 +34,13 @@ func NewStringExpression(envs ...string) *StringExpression {
 
 }
 
+// Add add the environment variable (key,value)
 func (se *StringExpression) Add(key string, value string) *StringExpression {
 	se.env[key] = value
 	return se
 }
 
+// Eval evaluate the expression include "%(var)s"  and return the string after replacing the var
 func (se *StringExpression) Eval(s string) (string, error) {
 	for {
 		//find variable start indicator

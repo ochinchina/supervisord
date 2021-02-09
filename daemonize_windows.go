@@ -2,6 +2,6 @@
 
 package main
 
-func Deamonize(proc func()) {
+func Deamonize(logfile string, proc func()) {
 	proc()
 }

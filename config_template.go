@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-var config_template = `[unix_http_server]
+var configTemplate = `[unix_http_server]
 file=/tmp/supervisord.sock
 #chmod=not support
 #chown=not support
@@ -114,12 +114,14 @@ password = 123
 #prompt = not support
 `
 
+// InitTemplateCommand implemnts flags.Commander interface
 type InitTemplateCommand struct {
 	OutFile string `short:"o" long:"output" description:"the output file name" required:"true"`
 }
 
 var initTemplateCommand InitTemplateCommand
 
+// Execute execute the init command
 func (x *InitTemplateCommand) Execute(args []string) error {
 	f, err := os.Create(x.OutFile)
 	if err != nil {
@@ -129,8 +131,9 @@ func (x *InitTemplateCommand) Execute(args []string) error {
 	return GenTemplate(f)
 }
 
+// GenTemplate generate the template
 func GenTemplate(writer io.Writer) error {
-	_, err := writer.Write([]byte(config_template))
+	_, err := writer.Write([]byte(configTemplate))
 	return err
 }
 

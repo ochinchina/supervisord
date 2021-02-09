@@ -64,18 +64,18 @@ func TestRemoveFromGroup(t *testing.T) {
 }
 
 func TestGroupDiff(t *testing.T) {
-	group_1 := NewProcessGroup()
-	group_1.Add("group-1", "proc-11")
-	group_1.Add("group-1", "proc-12")
-	group_1.Add("group-2", "proc-21")
+	group1 := NewProcessGroup()
+	group1.Add("group-1", "proc-11")
+	group1.Add("group-1", "proc-12")
+	group1.Add("group-2", "proc-21")
 
-	group_2 := NewProcessGroup()
-	group_2.Add("group-1", "proc-11")
-	group_2.Add("group-1", "proc-12")
-	group_2.Add("group-1", "proc-13")
-	group_2.Add("group-3", "proc-31")
+	group2 := NewProcessGroup()
+	group2.Add("group-1", "proc-11")
+	group2.Add("group-1", "proc-12")
+	group2.Add("group-1", "proc-13")
+	group2.Add("group-3", "proc-31")
 
-	added, changed, removed := group_2.Sub(group_1)
+	added, changed, removed := group2.Sub(group1)
 	if len(added) != 1 || added[0] != "group-3" {
 		t.Error("Fail to get the Added groups")
 	}

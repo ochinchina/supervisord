@@ -133,7 +133,7 @@
           var statename = programs[i]['statename'];
           var action = "";
           var color = "";
-          if( statename.indexOf("RUNNING") >= 0 || statename.indexOf( "STARTING") >= 0 ) {
+          if( statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf( "starting") >= 0 ) {
             action = '<button type="button" disabled class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
             action = action + '<button type="button" class="btn btn-primary" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
             color = "green";

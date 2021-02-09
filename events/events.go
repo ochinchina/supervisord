@@ -15,30 +15,40 @@ import (
 )
 
 const (
-	EVENT_SYS_VERSION     = "3.0"
-	PROC_COMMON_BEGIN_STR = "<!--XSUPERVISOR:BEGIN-->"
-	PROC_COMMON_END_STR   = "<!--XSUPERVISOR:END-->"
+	// EventSysVersion the event system version
+	EventSysVersion = "3.0"
+
+	// ProcCommonBeginStr the process communication begin
+	ProcCommonBeginStr = "<!--XSUPERVISOR:BEGIN-->"
+
+	// ProcCommonEndStr the process communication end
+	ProcCommonEndStr = "<!--XSUPERVISOR:END-->"
 )
 
+// Event the event interface definition
 type Event interface {
 	GetSerial() uint64
 	GetType() string
 	GetBody() string
 }
 
+// BaseEvent the base event, all other events should inherit this BaseEvent to implement the Event interface
 type BaseEvent struct {
 	serial    uint64
 	eventType string
 }
 
+// GetSerial get the serial of the event
 func (be *BaseEvent) GetSerial() uint64 {
 	return be.serial
 }
 
+// GetType get the event type
 func (be *BaseEvent) GetType() string {
 	return be.eventType
 }
 
+// EventListenerManager manage the event listeners
 type EventListenerManager struct {
 	//mapping between the event listener name and the listener
 	namedListeners map[string]*EventListener
@@ -46,11 +56,13 @@ type EventListenerManager struct {
 	eventListeners map[string]map[*EventListener]bool
 }
 
+// EventPoolSerial manage the event serial generation
 type EventPoolSerial struct {
 	sync.Mutex
 	poolserial map[string]uint64
 }
 
+// NewEventPoolSerial create a new EventPoolSerial object
 func NewEventPoolSerial() *EventPoolSerial {
 	return &EventPoolSerial{poolserial: make(map[string]uint64)}
 }
@@ -67,28 +79,30 @@ func (eps *EventPoolSerial) nextSerial(pool string) uint64 {
 	return r
 }
 
+// EventListener the event listener object
 type EventListener struct {
-	pool        string
-	server      string
-	cond        *sync.Cond
-	events      *list.List
-	stdin       *bufio.Reader
-	stdout      io.Writer
-	buffer_size int
+	pool       string
+	server     string
+	cond       *sync.Cond
+	events     *list.List
+	stdin      *bufio.Reader
+	stdout     io.Writer
+	bufferSize int
 }
 
+// NewEventListener create a NewEventListener object
 func NewEventListener(pool string,
 	server string,
 	stdin io.Reader,
 	stdout io.Writer,
-	buffer_size int) *EventListener {
+	bufferSize int) *EventListener {
 	evtListener := &EventListener{pool: pool,
-		server:      server,
-		cond:        sync.NewCond(new(sync.Mutex)),
-		events:      list.New(),
-		stdin:       bufio.NewReader(stdin),
-		stdout:      stdout,
-		buffer_size: buffer_size}
+		server:     server,
+		cond:       sync.NewCond(new(sync.Mutex)),
+		events:     list.New(),
+		stdin:      bufio.NewReader(stdin),
+		stdout:     stdout,
+		bufferSize: bufferSize}
 	evtListener.start()
 	return evtListener
 }
@@ -200,15 +214,16 @@ func (el *EventListener) readResult() (string, error) {
 	return "", fmt.Errorf("Fail to read the result")
 }
 
+// HandleEvent handle the emitted event
 func (el *EventListener) HandleEvent(event Event) {
 	encodedEvent := el.encodeEvent(event)
 	el.cond.L.Lock()
 	defer el.cond.L.Unlock()
-	if el.events.Len() <= el.buffer_size {
+	if el.events.Len() <= el.bufferSize {
 		el.events.PushBack(encodedEvent)
 		el.cond.Signal()
 	} else {
-		log.WithFields(log.Fields{"eventListener": el.pool}).Error("events reaches the buffer_size, discard the events")
+		log.WithFields(log.Fields{"eventListener": el.pool}).Error("events reaches the bufferSize, discard the events")
 	}
 }
 
@@ -217,7 +232,7 @@ func (el *EventListener) encodeEvent(event Event) []byte {
 
 	//header
 	s := fmt.Sprintf("ver:%s server:%s serial:%d pool:%s poolserial:%d eventname:%s len:%d\n",
-		EVENT_SYS_VERSION,
+		EventSysVersion,
 		el.server,
 		event.GetSerial(),
 		el.pool,
@@ -272,12 +287,12 @@ func startTickTimer() {
 		c := time.Tick(1 * time.Second)
 		for now := range c {
 			for tickType, period := range tickConfigs {
-				time_slice := now.Unix() / period
-				last_time_slice, ok := lastTickSlice[tickType]
+				timeSlice := now.Unix() / period
+				lastTimeSlice, ok := lastTickSlice[tickType]
 				if !ok {
-					lastTickSlice[tickType] = time_slice
-				} else if last_time_slice != time_slice {
-					lastTickSlice[tickType] = time_slice
+					lastTickSlice[tickType] = timeSlice
+				} else if lastTimeSlice != timeSlice {
+					lastTickSlice[tickType] = timeSlice
 					EmitEvent(NewTickEvent(tickType, now.Unix()))
 				}
 			}
@@ -289,6 +304,7 @@ func nextEventSerial() uint64 {
 	return atomic.AddUint64(&eventSerial, 1)
 }
 
+// NewEventListenerManager create an EventListenerManager object
 func NewEventListenerManager() *EventListenerManager {
 	return &EventListenerManager{namedListeners: make(map[string]*EventListener),
 		eventListeners: make(map[string]map[*EventListener]bool)}
@@ -299,21 +315,21 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 	listener *EventListener) {
 
 	em.namedListeners[eventListenerName] = listener
-	all_events := make(map[string]bool)
+	allEvents := make(map[string]bool)
 	for _, event := range events {
 		for k, values := range eventTypeDerives {
 			if event == k { //if it is a final event
-				all_events[k] = true
+				allEvents[k] = true
 			} else { //if it is an abstract event, add all its derived events
 				for _, val := range values {
 					if val == event {
-						all_events[k] = true
+						allEvents[k] = true
 					}
 				}
 			}
 		}
 	}
-	for event := range all_events {
+	for event := range allEvents {
 		log.WithFields(log.Fields{"eventListener": eventListenerName, "event": event}).Info("register event listener")
 		if _, ok := em.eventListeners[event]; !ok {
 			em.eventListeners[event] = make(map[*EventListener]bool)
@@ -322,6 +338,7 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 	}
 }
 
+// RegisterEventListener register the event listener to accept the emitted events
 func RegisterEventListener(eventListenerName string,
 	events []string,
 	listener *EventListener) {
@@ -344,10 +361,12 @@ func (em *EventListenerManager) unregisterEventListener(eventListenerName string
 	return nil
 }
 
+// UnregisterEventListener unregister the listener by its name
 func UnregisterEventListener(eventListenerName string) *EventListener {
 	return eventListenerManager.unregisterEventListener(eventListenerName)
 }
 
+// EmitEvent emit an event to all the listeners managed by this manager
 func (em *EventListenerManager) EmitEvent(event Event) {
 	listeners, ok := em.eventListeners[event.GetType()]
 	if ok {
@@ -359,12 +378,14 @@ func (em *EventListenerManager) EmitEvent(event Event) {
 	}
 }
 
+// RemoteCommunicationEvent remote communication event definition
 type RemoteCommunicationEvent struct {
 	BaseEvent
 	typ  string
 	data string
 }
 
+// NewRemoteCommunicationEvent create a new RemoteCommunicationEvent object
 func NewRemoteCommunicationEvent(typ string, data string) *RemoteCommunicationEvent {
 	r := &RemoteCommunicationEvent{typ: typ, data: data}
 	r.eventType = "REMOTE_COMMUNICATION"
@@ -372,10 +393,12 @@ func NewRemoteCommunicationEvent(typ string, data string) *RemoteCommunicationEv
 	return r
 }
 
+// GetBody get the event body
 func (r *RemoteCommunicationEvent) GetBody() string {
 	return fmt.Sprintf("type:%s\n%s", r.typ, r.data)
 }
 
+// ProcCommEvent process communication event definition
 type ProcCommEvent struct {
 	BaseEvent
 	processName string
@@ -384,6 +407,7 @@ type ProcCommEvent struct {
 	data        string
 }
 
+// NewProcCommEvent create a new ProcCommEvent object
 func NewProcCommEvent(eventType string,
 	procName string,
 	groupName string,
@@ -396,19 +420,23 @@ func NewProcCommEvent(eventType string,
 		data:        data}
 }
 
+// GetBody get the process communication event body
 func (p *ProcCommEvent) GetBody() string {
 	return fmt.Sprintf("processname:%s groupname:%s pid:%d\n%s", p.processName, p.groupName, p.pid, p.data)
 }
 
+// EmitEvent emit an event to default event listener manager
 func EmitEvent(event Event) {
 	eventListenerManager.EmitEvent(event)
 }
 
+// TickEvent the tick event definition
 type TickEvent struct {
 	BaseEvent
 	when int64
 }
 
+// NewTickEvent create a new periodical TickEvent object
 func NewTickEvent(tickType string, when int64) *TickEvent {
 	r := &TickEvent{when: when}
 	r.eventType = tickType
@@ -416,10 +444,12 @@ func NewTickEvent(tickType string, when int64) *TickEvent {
 	return r
 }
 
+// GetBody get the TickEvent body
 func (te *TickEvent) GetBody() string {
 	return fmt.Sprintf("when:%d", te.when)
 }
 
+// ProcCommEventCapture process communication event capture
 type ProcCommEventCapture struct {
 	reader          io.Reader
 	captureMaxBytes int
@@ -431,6 +461,7 @@ type ProcCommEventCapture struct {
 	eventBeginPos   int
 }
 
+// NewProcCommEventCapture create a new ProcCommEventCapture object
 func NewProcCommEventCapture(reader io.Reader,
 	captureMaxBytes int,
 	stdType string,
@@ -448,6 +479,7 @@ func NewProcCommEventCapture(reader io.Reader,
 	return pec
 }
 
+// SetPid set the pid of the program
 func (pec *ProcCommEventCapture) SetPid(pid int) {
 	pec.pid = pid
 }
@@ -473,12 +505,12 @@ func (pec *ProcCommEventCapture) startCapture() {
 
 func (pec *ProcCommEventCapture) captureEvent() Event {
 	pec.findBeginStr()
-	end_pos := pec.findEndStr()
-	if end_pos == -1 {
+	endPos := pec.findEndStr()
+	if endPos == -1 {
 		return nil
 	}
-	data := pec.eventBuffer[pec.eventBeginPos+len(PROC_COMMON_BEGIN_STR) : end_pos]
-	pec.eventBuffer = pec.eventBuffer[end_pos+len(PROC_COMMON_END_STR):]
+	data := pec.eventBuffer[pec.eventBeginPos+len(ProcCommonBeginStr) : endPos]
+	pec.eventBuffer = pec.eventBuffer[endPos+len(ProcCommonEndStr):]
 	pec.eventBeginPos = -1
 	return NewProcCommEvent(pec.stdType,
 		pec.procName,
@@ -489,12 +521,12 @@ func (pec *ProcCommEventCapture) captureEvent() Event {
 
 func (pec *ProcCommEventCapture) findBeginStr() {
 	if pec.eventBeginPos == -1 {
-		pec.eventBeginPos = strings.Index(pec.eventBuffer, PROC_COMMON_BEGIN_STR)
+		pec.eventBeginPos = strings.Index(pec.eventBuffer, ProcCommonBeginStr)
 		if pec.eventBeginPos == -1 {
 			//remove some string
 			n := len(pec.eventBuffer)
-			if n > len(PROC_COMMON_BEGIN_STR) {
-				pec.eventBuffer = pec.eventBuffer[n-len(PROC_COMMON_BEGIN_STR):]
+			if n > len(ProcCommonBeginStr) {
+				pec.eventBuffer = pec.eventBuffer[n-len(ProcCommonBeginStr):]
 			}
 		}
 	}
@@ -504,148 +536,158 @@ func (pec *ProcCommEventCapture) findEndStr() int {
 	if pec.eventBeginPos == -1 {
 		return -1
 	}
-	end_pos := strings.Index(pec.eventBuffer, PROC_COMMON_END_STR)
-	if end_pos == -1 {
+	endPos := strings.Index(pec.eventBuffer, ProcCommonEndStr)
+	if endPos == -1 {
 		if len(pec.eventBuffer) > pec.captureMaxBytes {
 			log.WithFields(log.Fields{"program": pec.procName}).Warn("The capture buffer is overflow, discard the content")
 			pec.eventBeginPos = -1
 			pec.eventBuffer = ""
 		}
 	}
-	return end_pos
+	return endPos
 }
 
+// ProcessStateEvent process state event definition
 type ProcessStateEvent struct {
 	BaseEvent
-	process_name string
-	group_name   string
-	from_state   string
-	tries        int
-	expected     int
-	pid          int
+	processName string
+	groupName   string
+	fromState   string
+	tries       int
+	expected    int
+	pid         int
 }
 
+// CreateProcessStartingEvent create a process starting event
 func CreateProcessStartingEvent(process string,
 	group string,
-	from_state string,
+	fromState string,
 	tries int) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      tries,
-		expected:   -1,
-		pid:        0}
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     tries,
+		expected:  -1,
+		pid:       0}
 	r.eventType = "PROCESS_STATE_STARTING"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// CreateProcessRunningEvent create a process running event
 func CreateProcessRunningEvent(process string,
 	group string,
-	from_state string,
+	fromState string,
 	pid int) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      -1,
-		expected:   -1,
-		pid:        pid}
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     -1,
+		expected:  -1,
+		pid:       pid}
 	r.eventType = "PROCESS_STATE_RUNNING"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// CreateProcessBackoffEvent create process backoff event
 func CreateProcessBackoffEvent(process string,
 	group string,
-	from_state string,
+	fromState string,
 	tries int) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      tries,
-		expected:   -1,
-		pid:        0}
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     tries,
+		expected:  -1,
+		pid:       0}
 	r.eventType = "PROCESS_STATE_BACKOFF"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// CreateProcessStoppingEvent create process stopping event
 func CreateProcessStoppingEvent(process string,
 	group string,
-	from_state string,
+	fromState string,
 	pid int) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      -1,
-		expected:   -1,
-		pid:        pid}
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     -1,
+		expected:  -1,
+		pid:       pid}
 	r.eventType = "PROCESS_STATE_STOPPING"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// CreateProcessExitedEvent create process exited event
 func CreateProcessExitedEvent(process string,
 	group string,
-	from_state string,
+	fromState string,
 	expected int,
 	pid int) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      -1,
-		expected:   expected,
-		pid:        pid}
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     -1,
+		expected:  expected,
+		pid:       pid}
 	r.eventType = "PROCESS_STATE_EXITED"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// CreateProcessStoppedEvent create process stopped event
 func CreateProcessStoppedEvent(process string,
 	group string,
-	from_state string,
+	fromState string,
 	pid int) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      -1,
-		expected:   -1,
-		pid:        pid}
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     -1,
+		expected:  -1,
+		pid:       pid}
 	r.eventType = "PROCESS_STATE_STOPPED"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// CreateProcessFatalEvent create process fatal error event
 func CreateProcessFatalEvent(process string,
 	group string,
-	from_state string) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      -1,
-		expected:   -1,
-		pid:        0}
+	fromState string) *ProcessStateEvent {
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     -1,
+		expected:  -1,
+		pid:       0}
 	r.eventType = "PROCESS_STATE_FATAL"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// CreateProcessUnknownEvent create process state unknown event
 func CreateProcessUnknownEvent(process string,
 	group string,
-	from_state string) *ProcessStateEvent {
-	r := &ProcessStateEvent{process_name: process,
-		group_name: group,
-		from_state: from_state,
-		tries:      -1,
-		expected:   -1,
-		pid:        0}
+	fromState string) *ProcessStateEvent {
+	r := &ProcessStateEvent{processName: process,
+		groupName: group,
+		fromState: fromState,
+		tries:     -1,
+		expected:  -1,
+		pid:       0}
 	r.eventType = "PROCESS_STATE_UNKNOWN"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// GetBody get the body of process state event
 func (pse *ProcessStateEvent) GetBody() string {
-	body := fmt.Sprintf("processname:%s groupname:%s from_state:%s", pse.process_name, pse.group_name, pse.from_state)
+	body := fmt.Sprintf("processname:%s groupname:%s from_state:%s", pse.processName, pse.groupName, pse.fromState)
 	if pse.tries >= 0 {
 		body = fmt.Sprintf("%s tries:%d", body, pse.tries)
 	}
@@ -660,14 +702,17 @@ func (pse *ProcessStateEvent) GetBody() string {
 	return body
 }
 
+// SupervisorStateChangeEvent supervisor state change event
 type SupervisorStateChangeEvent struct {
 	BaseEvent
 }
 
+// GetBody get the body of supervisor state change event
 func (s *SupervisorStateChangeEvent) GetBody() string {
 	return ""
 }
 
+// CreateSupervisorStateChangeRunning create a SupervisorStateChangeEvent object
 func CreateSupervisorStateChangeRunning() *SupervisorStateChangeEvent {
 	r := &SupervisorStateChangeEvent{}
 	r.eventType = "SUPERVISOR_STATE_CHANGE_RUNNING"
@@ -682,67 +727,75 @@ func createSupervisorStateChangeStopping() *SupervisorStateChangeEvent {
 	return r
 }
 
+// ProcessLogEvent process log event definition
 type ProcessLogEvent struct {
 	BaseEvent
-	process_name string
-	group_name   string
-	pid          int
-	data         string
+	processName string
+	groupName   string
+	pid         int
+	data        string
 }
 
+// GetBody get the body of process log event
 func (pe *ProcessLogEvent) GetBody() string {
 	return fmt.Sprintf("processname:%s groupname:%s pid:%d\n%s",
-		pe.process_name,
-		pe.group_name,
+		pe.processName,
+		pe.groupName,
 		pe.pid,
 		pe.data)
 }
 
-func CreateProcessLogStdoutEvent(process_name string,
-	group_name string,
+// CreateProcessLogStdoutEvent create process stdout log event
+func CreateProcessLogStdoutEvent(processName string,
+	groupName string,
 	pid int,
 	data string) *ProcessLogEvent {
-	r := &ProcessLogEvent{process_name: process_name,
-		group_name: group_name,
-		pid:        pid,
-		data:       data}
+	r := &ProcessLogEvent{processName: processName,
+		groupName: groupName,
+		pid:       pid,
+		data:      data}
 	r.eventType = "PROCESS_LOG_STDOUT"
 	r.serial = nextEventSerial()
 	return r
 }
 
-func CreateProcessLogStderrEvent(process_name string,
-	group_name string,
+// CreateProcessLogStderrEvent create process stderr log event
+func CreateProcessLogStderrEvent(processName string,
+	groupName string,
 	pid int,
 	data string) *ProcessLogEvent {
-	r := &ProcessLogEvent{process_name: process_name,
-		group_name: group_name,
-		pid:        pid,
-		data:       data}
+	r := &ProcessLogEvent{processName: processName,
+		groupName: groupName,
+		pid:       pid,
+		data:      data}
 	r.eventType = "PROCESS_LOG_STDERR"
 	r.serial = nextEventSerial()
 	return r
 }
 
+// ProcessGroupEvent the process group event definition
 type ProcessGroupEvent struct {
 	BaseEvent
-	group_name string
+	groupName string
 }
 
+// GetBody get the body of process group event
 func (pe *ProcessGroupEvent) GetBody() string {
-	return fmt.Sprintf("groupname:%s", pe.group_name)
+	return fmt.Sprintf("groupname:%s", pe.groupName)
 }
 
-func CreateProcessGroupAddedEvent(group_name string) *ProcessGroupEvent {
-	r := &ProcessGroupEvent{group_name: group_name}
+// CreateProcessGroupAddedEvent create process group addded event
+func CreateProcessGroupAddedEvent(groupName string) *ProcessGroupEvent {
+	r := &ProcessGroupEvent{groupName: groupName}
 
 	r.eventType = "PROCESS_GROUP_ADDED"
 	r.serial = nextEventSerial()
 	return r
 }
 
-func CreateProcessGroupRemovedEvent(group_name string) *ProcessGroupEvent {
-	r := &ProcessGroupEvent{group_name: group_name}
+// CreateProcessGroupRemovedEvent create process group removed event
+func CreateProcessGroupRemovedEvent(groupName string) *ProcessGroupEvent {
+	r := &ProcessGroupEvent{groupName: groupName}
 
 	r.eventType = "PROCESS_GROUP_REMOVED"
 	r.serial = nextEventSerial()

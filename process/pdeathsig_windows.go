@@ -6,5 +6,5 @@ import (
 	"syscall"
 )
 
-func set_deathsig(_ *syscall.SysProcAttr) {
+func setDeathsig(_ *syscall.SysProcAttr) {
 }

@@ -9,10 +9,12 @@ import (
 	"time"
 )
 
+// ContentChecker define the check interface
 type ContentChecker interface {
 	Check() bool
 }
 
+// BaseChecker basic implementation of ContentChecker
 type BaseChecker struct {
 	data     string
 	includes []string
@@ -21,6 +23,7 @@ type BaseChecker struct {
 	notifyChannel chan string
 }
 
+// NewBaseChecker create a BaseChecker object
 func NewBaseChecker(includes []string, timeout int) *BaseChecker {
 	return &BaseChecker{data: "",
 		includes:      includes,
@@ -28,21 +31,24 @@ func NewBaseChecker(includes []string, timeout int) *BaseChecker {
 		notifyChannel: make(chan string, 1)}
 }
 
+// Write write the data to the checker
 func (bc *BaseChecker) Write(b []byte) (int, error) {
 	bc.notifyChannel <- string(b)
 	return len(b), nil
 }
 
 func (bc *BaseChecker) isReady() bool {
-	find_all := true
+	allFound := true
 	for _, include := range bc.includes {
 		if strings.Index(bc.data, include) == -1 {
-			find_all = false
+			allFound = false
 			break
 		}
 	}
-	return find_all
+	return allFound
 }
+
+// Check check the content of input data
 func (bc *BaseChecker) Check() bool {
 	d := bc.timeoutTime.Sub(time.Now())
 	if d < 0 {
@@ -63,14 +69,18 @@ func (bc *BaseChecker) Check() bool {
 	}
 }
 
+// ScriptChecker implement ContentChecker by calling external script
 type ScriptChecker struct {
 	args []string
 }
 
+// NewScriptChecker create a ScriptChecker object
 func NewScriptChecker(args []string) *ScriptChecker {
 	return &ScriptChecker{args: args}
 }
 
+// Check check the the return code of script. If the return code is 0, the
+// check is success
 func (sc *ScriptChecker) Check() bool {
 	cmd := exec.Command(sc.args[0])
 	if len(sc.args) > 1 {
@@ -80,22 +90,24 @@ func (sc *ScriptChecker) Check() bool {
 	return err == nil && cmd.ProcessState != nil && cmd.ProcessState.Success()
 }
 
-type TcpChecker struct {
+// TCPChecker check by TCP protocol
+type TCPChecker struct {
 	host        string
 	port        int
 	conn        net.Conn
 	baseChecker *BaseChecker
 }
 
-func NewTcpChecker(host string, port int, includes []string, timeout int) *TcpChecker {
-	checker := &TcpChecker{host: host,
+// NewTCPChecker create a TCPChecker object
+func NewTCPChecker(host string, port int, includes []string, timeout int) *TCPChecker {
+	checker := &TCPChecker{host: host,
 		port:        port,
 		baseChecker: NewBaseChecker(includes, timeout)}
 	checker.start()
 	return checker
 }
 
-func (tc *TcpChecker) start() {
+func (tc *TCPChecker) start() {
 	go func() {
 		b := make([]byte, 1024)
 		var err error
@@ -118,7 +130,8 @@ func (tc *TcpChecker) start() {
 	}()
 }
 
-func (tc *TcpChecker) Check() bool {
+// Check check if it is ready by reading the tcp data
+func (tc *TCPChecker) Check() bool {
 	ret := tc.baseChecker.Check()
 	if tc.conn != nil {
 		tc.conn.Close()
@@ -126,17 +139,20 @@ func (tc *TcpChecker) Check() bool {
 	return ret
 }
 
-type HttpChecker struct {
+// HTTPChecker implements the ContentChcker by HTTP protocol
+type HTTPChecker struct {
 	url         string
 	timeoutTime time.Time
 }
 
-func NewHttpChecker(url string, timeout int) *HttpChecker {
-	return &HttpChecker{url: url,
+// NewHTTPChecker create a HTTPChecker object
+func NewHTTPChecker(url string, timeout int) *HTTPChecker {
+	return &HTTPChecker{url: url,
 		timeoutTime: time.Now().Add(time.Duration(timeout) * time.Second)}
 }
 
-func (hc *HttpChecker) Check() bool {
+// Check check the content of HTTP response
+func (hc *HTTPChecker) Check() bool {
 	for {
 		if hc.timeoutTime.After(time.Now()) {
 			resp, err := http.Get(hc.url)

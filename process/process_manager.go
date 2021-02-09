@@ -9,31 +9,35 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ProcessManager struct {
+// Manager manage all the process in the supervisor
+type Manager struct {
 	procs          map[string]*Process
 	eventListeners map[string]*Process
 	lock           sync.Mutex
 }
 
-func NewProcessManager() *ProcessManager {
-	return &ProcessManager{procs: make(map[string]*Process),
+// NewManager create a new Manager object
+func NewManager() *Manager {
+	return &Manager{procs: make(map[string]*Process),
 		eventListeners: make(map[string]*Process),
 	}
 }
 
-func (pm *ProcessManager) CreateProcess(supervisor_id string, config *config.ConfigEntry) *Process {
+// CreateProcess create a process (program or event listener) and add to this manager
+func (pm *Manager) CreateProcess(supervisorID string, config *config.Entry) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	if config.IsProgram() {
-		return pm.createProgram(supervisor_id, config)
+		return pm.createProgram(supervisorID, config)
 	} else if config.IsEventListener() {
-		return pm.createEventListener(supervisor_id, config)
+		return pm.createEventListener(supervisorID, config)
 	} else {
 		return nil
 	}
 }
 
-func (pm *ProcessManager) StartAutoStartPrograms() {
+// StartAutoStartPrograms start all the program if its autostart is true
+func (pm *Manager) StartAutoStartPrograms() {
 	pm.ForEachProcess(func(proc *Process) {
 		if proc.isAutoStart() {
 			proc.Start(false)
@@ -41,46 +45,47 @@ func (pm *ProcessManager) StartAutoStartPrograms() {
 	})
 }
 
-func (pm *ProcessManager) createProgram(supervisor_id string, config *config.ConfigEntry) *Process {
+func (pm *Manager) createProgram(supervisorID string, config *config.Entry) *Process {
 	procName := config.GetProgramName()
 
 	proc, ok := pm.procs[procName]
 
 	if !ok {
-		proc = NewProcess(supervisor_id, config)
+		proc = NewProcess(supervisorID, config)
 		pm.procs[procName] = proc
 	}
 	log.Info("create process:", procName)
 	return proc
 }
 
-func (pm *ProcessManager) createEventListener(supervisor_id string, config *config.ConfigEntry) *Process {
+func (pm *Manager) createEventListener(supervisorID string, config *config.Entry) *Process {
 	eventListenerName := config.GetEventListenerName()
 
 	evtListener, ok := pm.eventListeners[eventListenerName]
 
 	if !ok {
-		evtListener = NewProcess(supervisor_id, config)
+		evtListener = NewProcess(supervisorID, config)
 		pm.eventListeners[eventListenerName] = evtListener
 	}
 	log.Info("create event listener:", eventListenerName)
 	return evtListener
 }
 
-func (pm *ProcessManager) Add(name string, proc *Process) {
+// Add add the process to this process manager
+func (pm *Manager) Add(name string, proc *Process) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	pm.procs[name] = proc
 	log.Info("add process:", name)
 }
 
-// remove the process from the manager
+// Remove remove the process from the manager
 //
 // Arguments:
 // name - the name of program
 //
 // Return the process or nil
-func (pm *ProcessManager) Remove(name string) *Process {
+func (pm *Manager) Remove(name string) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	proc, _ := pm.procs[name]
@@ -89,8 +94,8 @@ func (pm *ProcessManager) Remove(name string) *Process {
 	return proc
 }
 
-// return process if found or nil if not found
-func (pm *ProcessManager) Find(name string) *Process {
+// Find find process by program name return process if found or nil if not found
+func (pm *Manager) Find(name string) *Process {
 	procs := pm.FindMatch(name)
 	if len(procs) == 1 {
 		if procs[0].GetName() == name || name == fmt.Sprintf("%s:%s", procs[0].GetGroup(), procs[0].GetName()) {
@@ -100,7 +105,11 @@ func (pm *ProcessManager) Find(name string) *Process {
 	return nil
 }
 
-func (pm *ProcessManager) FindMatch(name string) []*Process {
+// FindMatch find the program with one of following format:
+// - group:program
+// - group:*
+// - program
+func (pm *Manager) FindMatch(name string) []*Process {
 	result := make([]*Process, 0)
 	if pos := strings.Index(name, ":"); pos != -1 {
 		groupName := name[0:pos]
@@ -126,15 +135,15 @@ func (pm *ProcessManager) FindMatch(name string) []*Process {
 	return result
 }
 
-// clear all the processes
-func (pm *ProcessManager) Clear() {
+// Clear clear all the processes
+func (pm *Manager) Clear() {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 	pm.procs = make(map[string]*Process)
 }
 
-// process each process in sync mode
-func (pm *ProcessManager) ForEachProcess(procFunc func(p *Process)) {
+// ForEachProcess process each process in sync mode
+func (pm *Manager) ForEachProcess(procFunc func(p *Process)) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
@@ -144,12 +153,12 @@ func (pm *ProcessManager) ForEachProcess(procFunc func(p *Process)) {
 	}
 }
 
-// handle each process in async mode
+// AsyncForEachProcess handle each process in async mode
 // Args:
 // - procFunc, the function to handle the process
 // - done, signal the process is completed
 // Returns: number of total processes
-func (pm *ProcessManager) AsyncForEachProcess(procFunc func(p *Process), done chan *Process) int {
+func (pm *Manager) AsyncForEachProcess(procFunc func(p *Process), done chan *Process) int {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
 
@@ -166,7 +175,7 @@ func forOneProcess(proc *Process, action func(p *Process), done chan *Process) {
 	done <- proc
 }
 
-func (pm *ProcessManager) getAllProcess() []*Process {
+func (pm *Manager) getAllProcess() []*Process {
 	tmpProcs := make([]*Process, 0)
 	for _, proc := range pm.procs {
 		tmpProcs = append(tmpProcs, proc)
@@ -174,7 +183,8 @@ func (pm *ProcessManager) getAllProcess() []*Process {
 	return sortProcess(tmpProcs)
 }
 
-func (pm *ProcessManager) StopAllProcesses() {
+// StopAllProcesses stop all the processes managed by this manager
+func (pm *Manager) StopAllProcesses() {
 	var wg sync.WaitGroup
 
 	pm.ForEachProcess(func(proc *Process) {
@@ -191,16 +201,16 @@ func (pm *ProcessManager) StopAllProcesses() {
 }
 
 func sortProcess(procs []*Process) []*Process {
-	prog_configs := make([]*config.ConfigEntry, 0)
+	progConfigs := make([]*config.Entry, 0)
 	for _, proc := range procs {
 		if proc.config.IsProgram() {
-			prog_configs = append(prog_configs, proc.config)
+			progConfigs = append(progConfigs, proc.config)
 		}
 	}
 
 	result := make([]*Process, 0)
 	p := config.NewProcessSorter()
-	for _, config := range p.SortProgram(prog_configs) {
+	for _, config := range p.SortProgram(progConfigs) {
 		for _, proc := range procs {
 			if proc.config == config {
 				result = append(result, proc)

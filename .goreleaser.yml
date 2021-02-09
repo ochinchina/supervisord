@@ -1,6 +1,9 @@
+env:
+  - GO111MODULE=on
 before:
   hooks:
     - go generate ./...
+    - go mod download
 project_name: supervisord
 builds:
 - id: static
@@ -25,9 +28,9 @@ builds:
   - darwin
   - linux
   goarch:
-  - "386"
   - amd64
   - arm
+  - arm64
   goarm:
   - "6"
   - "7"
@@ -44,7 +47,6 @@ archive:
   - none*
   replacements:
     amd64: 64-bit
-    386: 32-bit
     arm: ARM
     arm64: ARM64
     darwin: macOS
@@ -57,6 +59,6 @@ release:
   github:
     owner: ochinchina
     name: supervisord
-  draft: true
-  prerelease: true
+  draft: false
+  prerelease: auto
   name_template: "{{.ProjectName}}-v{{.Version}}-{{.ShortCommit}}"

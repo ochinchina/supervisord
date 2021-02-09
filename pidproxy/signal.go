@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-func install_signal(c chan os.Signal) {
+func installSignal(c chan os.Signal) {
 	signal.Notify(c, syscall.SIGTERM,
 		syscall.SIGHUP,
 		syscall.SIGINT,

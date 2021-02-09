@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/jessevdk/go-flags"
+	ini "github.com/ochinchina/go-ini"
+	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/logger"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -14,6 +17,7 @@ import (
 	"unicode"
 )
 
+// Options the command line options
 type Options struct {
 	Configuration string `short:"c" long:"configuration" description:"the configuration file"`
 	Daemon        bool   `short:"d" long:"daemon" description:"run as daemon"`
@@ -21,7 +25,8 @@ type Options struct {
 }
 
 func init() {
-	log.SetOutput(os.Stdout)
+	nullLogger := logger.NewNullLogger(logger.NewNullLogEventEmitter())
+	log.SetOutput(nullLogger)
 	if runtime.GOOS == "windows" {
 		log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
 	} else {
@@ -45,7 +50,7 @@ func initSignals(s *Supervisor) {
 var options Options
 var parser = flags.NewParser(&options, flags.Default & ^flags.PrintErrors)
 
-func LoadEnvFile() {
+func loadEnvFile() {
 	if len(options.EnvFile) <= 0 {
 		return
 	}
@@ -104,32 +109,51 @@ func findSupervisordConf() (string, error) {
 
 	for _, file := range possibleSupervisordConf {
 		if _, err := os.Stat(file); err == nil {
-			abs_file, err := filepath.Abs(file)
+			absFile, err := filepath.Abs(file)
 			if err == nil {
-				return abs_file, nil
-			} else {
-				return file, nil
+				return absFile, nil
 			}
+			return file, nil
 		}
 	}
 
 	return "", fmt.Errorf("fail to find supervisord.conf")
 }
 
-func RunServer() {
+func runServer() {
 	// infinite loop for handling Restart ('reload' command)
-	LoadEnvFile()
+	loadEnvFile()
 	for true {
-		options.Configuration, _ = findSupervisordConf()
+		if len(options.Configuration) <= 0 {
+			options.Configuration, _ = findSupervisordConf()
+		}
 		s := NewSupervisor(options.Configuration)
 		initSignals(s)
-		if sErr, _, _, _ := s.Reload(); sErr != nil {
+		if _, _, _, sErr := s.Reload(); sErr != nil {
 			panic(sErr)
 		}
 		s.WaitForExit()
 	}
 }
 
+// Get the supervisord log file
+func getSupervisordLogFile(configFile string) string {
+	configFileDir := filepath.Dir(configFile)
+	env := config.NewStringExpression("here", configFileDir)
+	ini := ini.NewIni()
+	ini.LoadFile(configFile)
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	logFile := ini.GetValueWithDefault("supervisord", "logfile", filepath.Join(cwd, "supervisord.log"))
+	logFile, err = env.Eval(logFile)
+	if err == nil {
+		return logFile
+	} else {
+		return filepath.Join(".", "supervisord.log")
+	}
+}
 func main() {
 	ReapZombie()
 
@@ -141,10 +165,12 @@ func main() {
 				fmt.Fprintln(os.Stdout, err)
 				os.Exit(0)
 			case flags.ErrCommandRequired:
+				log.SetOutput(os.Stdout)
 				if options.Daemon {
-					Deamonize(RunServer)
+					logFile := getSupervisordLogFile(options.Configuration)
+					Deamonize(logFile, runServer)
 				} else {
-					RunServer()
+					runServer()
 				}
 			default:
 				fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)

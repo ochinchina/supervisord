@@ -8,15 +8,18 @@ import (
 	"net/http"
 )
 
+// SupervisorRestful the restful interface to control the programs defined in configuration file
 type SupervisorRestful struct {
 	router     *mux.Router
 	supervisor *Supervisor
 }
 
+// NewSupervisorRestful create a new SupervisorRestful object
 func NewSupervisorRestful(supervisor *Supervisor) *SupervisorRestful {
 	return &SupervisorRestful{router: mux.NewRouter(), supervisor: supervisor}
 }
 
+// CreateProgramHandler create http handler to process program related restful request
 func (sr *SupervisorRestful) CreateProgramHandler() http.Handler {
 	sr.router.HandleFunc("/program/list", sr.ListProgram).Methods("GET")
 	sr.router.HandleFunc("/program/start/{name}", sr.StartProgram).Methods("POST", "PUT")
@@ -27,13 +30,14 @@ func (sr *SupervisorRestful) CreateProgramHandler() http.Handler {
 	return sr.router
 }
 
+// CreateSupervisorHandler create http rest interface to control supervisor itself
 func (sr *SupervisorRestful) CreateSupervisorHandler() http.Handler {
 	sr.router.HandleFunc("/supervisor/shutdown", sr.Shutdown).Methods("PUT", "POST")
 	sr.router.HandleFunc("/supervisor/reload", sr.Reload).Methods("PUT", "POST")
 	return sr.router
 }
 
-// list the status of all the programs
+// ListProgram list the status of all the programs
 //
 // json array to present the status of all programs
 func (sr *SupervisorRestful) ListProgram(w http.ResponseWriter, req *http.Request) {
@@ -46,6 +50,7 @@ func (sr *SupervisorRestful) ListProgram(w http.ResponseWriter, req *http.Reques
 	}
 }
 
+// StartProgram start the given program through restful interface
 func (sr *SupervisorRestful) StartProgram(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	params := mux.Vars(req)
@@ -61,6 +66,7 @@ func (sr *SupervisorRestful) _startProgram(program string) (bool, error) {
 	return result.Success, err
 }
 
+// StartPrograms start one or more programs through restful interface
 func (sr *SupervisorRestful) StartPrograms(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	var b []byte
@@ -84,6 +90,7 @@ func (sr *SupervisorRestful) StartPrograms(w http.ResponseWriter, req *http.Requ
 	}
 }
 
+// StopProgram stop a program through the restful interface
 func (sr *SupervisorRestful) StopProgram(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
@@ -100,6 +107,7 @@ func (sr *SupervisorRestful) _stopProgram(programName string) (bool, error) {
 	return result.Success, err
 }
 
+// StopPrograms stop programs through the restful interface
 func (sr *SupervisorRestful) StopPrograms(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
@@ -124,9 +132,11 @@ func (sr *SupervisorRestful) StopPrograms(w http.ResponseWriter, req *http.Reque
 
 }
 
+// ReadStdoutLog read the stdout of given program
 func (sr *SupervisorRestful) ReadStdoutLog(w http.ResponseWriter, req *http.Request) {
 }
 
+// Shutdown shutdown the supervisor itself
 func (sr *SupervisorRestful) Shutdown(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
@@ -135,6 +145,7 @@ func (sr *SupervisorRestful) Shutdown(w http.ResponseWriter, req *http.Request) 
 	w.Write([]byte("Shutdown..."))
 }
 
+// Reload reload the supervisor configuration file through rest interface
 func (sr *SupervisorRestful) Reload(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 

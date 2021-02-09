@@ -3,21 +3,24 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"github.com/gorilla/rpc"
+	"github.com/ochinchina/gorilla-xmlrpc/xml"
+	"github.com/ochinchina/supervisord/process"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/gorilla/rpc"
-	"github.com/ochinchina/gorilla-xmlrpc/xml"
-	log "github.com/sirupsen/logrus"
 )
 
-type XmlRPC struct {
+// XMLRPC mange the XML RPC servers
+// start XML RPC servers to accept the XML RPC request from client side
+type XMLRPC struct {
+	// all the listeners to accept the XML RPC request
 	listeners map[string]net.Listener
-	// true if RPC is started
-	started bool
 }
 
 type httpBasicAuth struct {
@@ -26,7 +29,8 @@ type httpBasicAuth struct {
 	handler  http.Handler
 }
 
-func NewHttpBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
+// create a new HttpBasicAuth oject with user name, password and the http request handler
+func newHTTPBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
 	if user != "" && password != "" {
 		log.Debug("require authentication")
 	}
@@ -59,54 +63,69 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(401)
 }
 
-func NewXmlRPC() *XmlRPC {
-	return &XmlRPC{listeners: make(map[string]net.Listener), started: false}
+// NewXMLRPC create a new XML RPC object
+func NewXMLRPC() *XMLRPC {
+	return &XMLRPC{listeners: make(map[string]net.Listener)}
 }
 
-// stop network listening
-func (p *XmlRPC) Stop() {
+// Stop stop network listening
+func (p *XMLRPC) Stop() {
 	log.Info("stop listening")
 	for _, listener := range p.listeners {
 		listener.Close()
 	}
-	p.started = false
+	p.listeners = make(map[string]net.Listener)
 }
 
-func (p *XmlRPC) StartUnixHttpServer(user string, password string, listenAddr string, s *Supervisor) {
+// StartUnixHTTPServer start http server on unix domain socket with path listenAddr. If both user and password are not empty, the user
+// must provide user and password for basic authentication when making a XML RPC request.
+func (p *XMLRPC) StartUnixHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
 	os.Remove(listenAddr)
-	p.startHttpServer(user, password, "unix", listenAddr, s)
+	p.startHTTPServer(user, password, "unix", listenAddr, s, startedCb)
 }
 
-func (p *XmlRPC) StartInetHttpServer(user string, password string, listenAddr string, s *Supervisor) {
-	p.startHttpServer(user, password, "tcp", listenAddr, s)
+// StartInetHTTPServer start http server on tcp with path listenAddr. If both user and password are not empty, the user
+// must provide user and password for basic authentication when making a XML RPC request.
+func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
+	p.startHTTPServer(user, password, "tcp", listenAddr, s, startedCb)
 }
 
-func (p *XmlRPC) startHttpServer(user string, password string, protocol string, listenAddr string, s *Supervisor) {
-	if p.started {
+func (p *XMLRPC) isHTTPServerStartedOnProtocol(protocol string) bool {
+	_, ok := p.listeners[protocol]
+	return ok
+}
+
+func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, listenAddr string, s *Supervisor, startedCb func()) {
+	if p.isHTTPServerStartedOnProtocol(protocol) {
+		startedCb()
 		return
 	}
-	p.started = true
+	procCollector := process.NewProcCollector(s.procMgr)
+	prometheus.Register(procCollector)
 	mux := http.NewServeMux()
-	mux.Handle("/RPC2", NewHttpBasicAuth(user, password, p.createRPCServer(s)))
-	prog_rest_handler := NewSupervisorRestful(s).CreateProgramHandler()
-	mux.Handle("/program/", NewHttpBasicAuth(user, password, prog_rest_handler))
-	supervisor_rest_handler := NewSupervisorRestful(s).CreateSupervisorHandler()
-	mux.Handle("/supervisor/", NewHttpBasicAuth(user, password, supervisor_rest_handler))
-	logtail_handler := NewLogtail(s).CreateHandler()
-	mux.Handle("/logtail/", NewHttpBasicAuth(user, password, logtail_handler))
-	webgui_handler := NewSupervisorWebgui(s).CreateHandler()
-	mux.Handle("/", NewHttpBasicAuth(user, password, webgui_handler))
+	mux.Handle("/RPC2", newHTTPBasicAuth(user, password, p.createRPCServer(s)))
+	progRestHandler := NewSupervisorRestful(s).CreateProgramHandler()
+	mux.Handle("/program/", newHTTPBasicAuth(user, password, progRestHandler))
+	supervisorRestHandler := NewSupervisorRestful(s).CreateSupervisorHandler()
+	mux.Handle("/supervisor/", newHTTPBasicAuth(user, password, supervisorRestHandler))
+	logtailHandler := NewLogtail(s).CreateHandler()
+	mux.Handle("/logtail/", newHTTPBasicAuth(user, password, logtailHandler))
+	webguiHandler := NewSupervisorWebgui(s).CreateHandler()
+	mux.Handle("/", newHTTPBasicAuth(user, password, webguiHandler))
+	mux.Handle("/metrics", promhttp.Handler())
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Info("success to listen on address")
 		p.listeners[protocol] = listener
+		startedCb()
 		http.Serve(listener, mux)
 	} else {
+		startedCb()
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Fatal("fail to listen on address")
 	}
 
 }
-func (p *XmlRPC) createRPCServer(s *Supervisor) *rpc.Server {
+func (p *XMLRPC) createRPCServer(s *Supervisor) *rpc.Server {
 	RPC := rpc.NewServer()
 	xmlrpcCodec := xml.NewCodec()
 	RPC.RegisterCodec(xmlrpcCodec, "text/xml")
