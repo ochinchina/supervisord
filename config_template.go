@@ -19,8 +19,8 @@ password=thepassword
 
 [supervisord]
 logfile=%(here)s/supervisord.log
-logfile_maxbytes=50MB
-logfile_backups=10
+logfileMaxbytes=50MB
+logfileBackups=10
 loglevel=info
 pidfile=%(here)s/supervisord.pid
 #umask=not support

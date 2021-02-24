@@ -106,8 +106,8 @@ If both "inet_http_server" and "unix_http_server" are not set up in the configur
 Following parameters configured in "supervisord" section:
 
 - **logfile**. Where to put log of supervisord itself.
-- **logfile_maxbytes**. Rotate log-file after it exceeds this length.
-- **logfile_backups**. Number of rotated log-files to preserve.
+- **logfileMaxbytes**. Rotate log-file after it exceeds this length.
+- **logfileBackups**. Number of rotated log-files to preserve.
 - **loglevel**. Logging verbosity, can be trace, debug, info, warning, error, fatal and panic (according to documentation of module used for this feature). Defaults to info.
 - **pidfile**. Full path to file containing process id of current supervisord instance.
 - **minfds**. Reserve al least this amount of file descriptors on supervisord startup. (Rlimit nofiles).
