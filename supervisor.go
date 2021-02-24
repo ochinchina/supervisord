@@ -567,8 +567,8 @@ func (s *Supervisor) setSupervisordInfo() {
 		logEventEmitter := logger.NewNullLogEventEmitter()
 		s.logger = logger.NewNullLogger(logEventEmitter)
 		if err == nil {
-			logfileMaxbytes := int64(supervisordConf.GetBytes("logfileMaxbytes", 50*1024*1024))
-			logfileBackups := supervisordConf.GetInt("logfileBackups", 10)
+			logfileMaxbytes := int64(supervisordConf.GetBytes("logfile_maxbytes", 50*1024*1024))
+			logfileBackups := supervisordConf.GetInt("logfile_backups", 10)
 			loglevel := supervisordConf.GetString("loglevel", "info")
 			s.logger = logger.NewLogger("supervisord", logFile, &sync.Mutex{}, logfileMaxbytes, logfileBackups, logEventEmitter)
 			log.SetLevel(toLogLevel(loglevel))
