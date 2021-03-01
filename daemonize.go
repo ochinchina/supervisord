@@ -7,8 +7,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Deamonize run this process in daemon mode
-func Deamonize(logfile string, proc func()) {
+// Daemonize run this process in daemon mode
+func Daemonize(logfile string, proc func()) {
 	context := daemon.Context{LogFileName: logfile}
 
 	child, err := context.Reborn()

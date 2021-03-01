@@ -11,22 +11,22 @@ import (
 func isProgramBefore(entries []*Entry, program1 string, program2 string) bool {
 	order := 0
 	program1Order := -1
-	progam2Order := -1
+	program2Order := -1
 
 	for _, entry := range entries {
 		if entry.IsProgram() {
 			if entry.GetProgramName() == program1 {
 				program1Order = order
 			} else if entry.GetProgramName() == program2 {
-				progam2Order = order
+				program2Order = order
 			}
 			order++
 		}
 	}
 
-	fmt.Printf("%s Order=%d, %s Order=%d\n", program1, program1Order, program2, progam2Order)
+	fmt.Printf("%s Order=%d, %s Order=%d\n", program1, program1Order, program2, program2Order)
 
-	return program1Order >= 0 && program1Order < progam2Order
+	return program1Order >= 0 && program1Order < program2Order
 }
 func TestSortProgram(t *testing.T) {
 	entries := make([]*Entry, 0)

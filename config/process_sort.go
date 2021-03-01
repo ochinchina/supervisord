@@ -36,7 +36,7 @@ func NewProcessSorter() *ProcessSorter {
 }
 
 func (p *ProcessSorter) initDepends(programConfigs []*Entry) {
-	//sort by dependsOn
+	// sort by dependsOn
 	for _, config := range programConfigs {
 		if config.IsProgram() && config.HasParameter("depends_on") {
 			dependsOn := config.GetString("depends_on", "")
@@ -85,7 +85,7 @@ func (p *ProcessSorter) sortDepends() []string {
 	progsWithDependsInfo := p.getDependsOnInfo()
 	progsStartOrder := make([]string, 0)
 
-	//get all process without depends
+	// get all process without depends
 	for progName := range progsWithDependsInfo {
 		if _, ok := p.dependsOnGraph[progName]; !ok {
 			finishedPrograms[progName] = progName

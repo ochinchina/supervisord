@@ -43,7 +43,7 @@ func (se *StringExpression) Add(key string, value string) *StringExpression {
 // Eval evaluate the expression include "%(var)s"  and return the string after replacing the var
 func (se *StringExpression) Eval(s string) (string, error) {
 	for {
-		//find variable start indicator
+		// find variable start indicator
 		start := strings.Index(s, "%(")
 
 		if start == -1 {
@@ -53,18 +53,18 @@ func (se *StringExpression) Eval(s string) (string, error) {
 		end := start + 1
 		n := len(s)
 
-		//find variable end indicator
+		// find variable end indicator
 		for end < n && s[end] != ')' {
 			end++
 		}
 
-		//find the type of the variable
+		// find the type of the variable
 		typ := end + 1
 		for typ < n && !((s[typ] >= 'a' && s[typ] <= 'z') || (s[typ] >= 'A' && s[typ] <= 'Z')) {
 			typ++
 		}
 
-		//evaluate the variable
+		// evaluate the variable
 		if typ < n {
 			varName := s[start+2 : end]
 

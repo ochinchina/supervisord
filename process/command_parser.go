@@ -47,7 +47,7 @@ func parseCommand(command string) ([]string, error) {
 	args := make([]string, 0)
 	cmdLen := len(command)
 	for i := 0; i < cmdLen; {
-		//find the first non-space char
+		// find the first non-space char
 		j := skipSpace(command, i)
 		if j == -1 {
 			break

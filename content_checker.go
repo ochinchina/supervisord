@@ -18,7 +18,7 @@ type ContentChecker interface {
 type BaseChecker struct {
 	data     string
 	includes []string
-	//timeout in second
+	// timeout in second
 	timeoutTime   time.Time
 	notifyChannel chan string
 }
@@ -139,7 +139,7 @@ func (tc *TCPChecker) Check() bool {
 	return ret
 }
 
-// HTTPChecker implements the ContentChcker by HTTP protocol
+// HTTPChecker implements the ContentChecker by HTTP protocol
 type HTTPChecker struct {
 	url         string
 	timeoutTime time.Time

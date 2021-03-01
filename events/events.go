@@ -50,9 +50,9 @@ func (be *BaseEvent) GetType() string {
 
 // EventListenerManager manage the event listeners
 type EventListenerManager struct {
-	//mapping between the event listener name and the listener
+	// mapping between the event listener name and the listener
 	namedListeners map[string]*EventListener
-	//mapping between the event name and the event listeners
+	// mapping between the event name and the event listeners
 	eventListeners map[string]map[*EventListener]bool
 }
 
@@ -136,7 +136,7 @@ func (el *EventListener) removeFirstEvent() {
 func (el *EventListener) start() {
 	go func() {
 		for {
-			//read if it is ready
+			// read if it is ready
 			err := el.waitForReady()
 			if err != nil {
 				log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to read from event listener, the event listener may exit")
@@ -154,7 +154,7 @@ func (el *EventListener) start() {
 						log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to read result")
 						break
 					}
-					if result == "OK" { //remove the event if succeed
+					if result == "OK" { // remove the event if succeed
 						log.WithFields(log.Fields{"eventListener": el.pool}).Info("succeed to send the event")
 						el.removeFirstEvent()
 						break
@@ -191,16 +191,16 @@ func (el *EventListener) readResult() (string, error) {
 	}
 	fields := strings.Fields(s)
 	if len(fields) == 2 && fields[0] == "RESULT" {
-		//try to get the length of result
+		// try to get the length of result
 		n, err := strconv.Atoi(fields[1])
 		if err != nil {
-			//return if fail to get the length
+			// return if fail to get the length
 			return "", err
 		}
 		if n < 0 {
 			return "", fmt.Errorf("Fail to read the result because the result bytes is less than 0")
 		}
-		//read n bytes
+		// read n bytes
 		b := make([]byte, n)
 		for i := 0; i < n; i++ {
 			b[i], err = el.stdin.ReadByte()
@@ -208,7 +208,7 @@ func (el *EventListener) readResult() (string, error) {
 				return "", err
 			}
 		}
-		//ok, get the n bytes
+		// ok, get the n bytes
 		return string(b), nil
 	}
 	return "", fmt.Errorf("Fail to read the result")
@@ -230,7 +230,7 @@ func (el *EventListener) HandleEvent(event Event) {
 func (el *EventListener) encodeEvent(event Event) []byte {
 	body := []byte(event.GetBody())
 
-	//header
+	// header
 	s := fmt.Sprintf("ver:%s server:%s serial:%d pool:%s poolserial:%d eventname:%s len:%d\n",
 		EventSysVersion,
 		el.server,
@@ -239,7 +239,7 @@ func (el *EventListener) encodeEvent(event Event) []byte {
 		eventPoolSerial.nextSerial(el.pool),
 		event.GetType(),
 		len(body))
-	//write the header & body to buffer
+	// write the header & body to buffer
 	r := bytes.NewBuffer([]byte(s))
 	r.Write(body)
 
@@ -280,7 +280,7 @@ func startTickTimer() {
 		"TICK_60":   60,
 		"TICK_3600": 3600}
 
-	//start a Tick timer
+	// start a Tick timer
 	go func() {
 		lastTickSlice := make(map[string]int64)
 
@@ -318,9 +318,9 @@ func (em *EventListenerManager) registerEventListener(eventListenerName string,
 	allEvents := make(map[string]bool)
 	for _, event := range events {
 		for k, values := range eventTypeDerives {
-			if event == k { //if it is a final event
+			if event == k { // if it is a final event
 				allEvents[k] = true
-			} else { //if it is an abstract event, add all its derived events
+			} else { // if it is an abstract event, add all its derived events
 				for _, val := range values {
 					if val == event {
 						allEvents[k] = true
@@ -523,7 +523,7 @@ func (pec *ProcCommEventCapture) findBeginStr() {
 	if pec.eventBeginPos == -1 {
 		pec.eventBeginPos = strings.Index(pec.eventBuffer, ProcCommonBeginStr)
 		if pec.eventBeginPos == -1 {
-			//remove some string
+			// remove some string
 			n := len(pec.eventBuffer)
 			if n > len(ProcCommonBeginStr) {
 				pec.eventBuffer = pec.eventBuffer[n-len(ProcCommonBeginStr):]
@@ -784,7 +784,7 @@ func (pe *ProcessGroupEvent) GetBody() string {
 	return fmt.Sprintf("groupname:%s", pe.groupName)
 }
 
-// CreateProcessGroupAddedEvent create process group addded event
+// CreateProcessGroupAddedEvent create process group added event
 func CreateProcessGroupAddedEvent(groupName string) *ProcessGroupEvent {
 	r := &ProcessGroupEvent{groupName: groupName}
 

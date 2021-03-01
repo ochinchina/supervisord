@@ -54,7 +54,7 @@ func loadEnvFile() {
 	if len(options.EnvFile) <= 0 {
 		return
 	}
-	//try to open the environment file
+	// try to open the environment file
 	f, err := os.Open(options.EnvFile)
 	if err != nil {
 		log.WithFields(log.Fields{"file": options.EnvFile}).Error("Fail to open environment file")
@@ -63,26 +63,26 @@ func loadEnvFile() {
 	defer f.Close()
 	reader := bufio.NewReader(f)
 	for {
-		//for each line
+		// for each line
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			break
 		}
-		//if line starts with '#', it is a comment line, ignore it
+		// if line starts with '#', it is a comment line, ignore it
 		line = strings.TrimSpace(line)
 		if len(line) > 0 && line[0] == '#' {
 			continue
 		}
-		//if environment variable is exported with "export"
+		// if environment variable is exported with "export"
 		if strings.HasPrefix(line, "export") && len(line) > len("export") && unicode.IsSpace(rune(line[len("export")])) {
 			line = strings.TrimSpace(line[len("export"):])
 		}
-		//split the environment variable with "="
+		// split the environment variable with "="
 		pos := strings.Index(line, "=")
 		if pos != -1 {
 			k := strings.TrimSpace(line[0:pos])
 			v := strings.TrimSpace(line[pos+1:])
-			//if key and value are not empty, put it into the environment
+			// if key and value are not empty, put it into the environment
 			if len(k) > 0 && len(v) > 0 {
 				os.Setenv(k, v)
 			}
@@ -140,13 +140,13 @@ func runServer() {
 func getSupervisordLogFile(configFile string) string {
 	configFileDir := filepath.Dir(configFile)
 	env := config.NewStringExpression("here", configFileDir)
-	ini := ini.NewIni()
-	ini.LoadFile(configFile)
+	myini := ini.NewIni()
+	myini.LoadFile(configFile)
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
 	}
-	logFile := ini.GetValueWithDefault("supervisord", "logfile", filepath.Join(cwd, "supervisord.log"))
+	logFile := myini.GetValueWithDefault("supervisord", "logfile", filepath.Join(cwd, "supervisord.log"))
 	logFile, err = env.Eval(logFile)
 	if err == nil {
 		return logFile
@@ -168,7 +168,7 @@ func main() {
 				log.SetOutput(os.Stdout)
 				if options.Daemon {
 					logFile := getSupervisordLogFile(options.Configuration)
-					Deamonize(logFile, runServer)
+					Daemonize(logFile, runServer)
 				} else {
 					runServer()
 				}
