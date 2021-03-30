@@ -244,3 +244,20 @@ CMD ["/usr/local/bin/supervisord"]
 The Prometheus node exporter supported supervisord metrics are now integrated into the supervisor. So there is no need to deploy an extra node_exporter to collect the supervisord metrics. To collect the metrics, the port parameter in section "inet_http_server" must be configured and the metrics server is started on the path /metrics of the supervisor http server.
 
 For example, if the port parameter in "inet_http_server" is "127.0.0.1:9001" and then the metrics server should be accessed in url "http://127.0.0.1:9001/metrics" 
+
+
+# Register service
+
+Autostart supervisord after os started. Look up supported platforms at [kardianos/service](https://github.com/kardianos/service).
+
+```Shell
+# install
+sudo supervisord service install -c full_path_to_conf_file
+# uninstall
+sudo supervisord service uninstall
+# start
+supervisord service start
+# stop
+supervisord service stop
+```
+
