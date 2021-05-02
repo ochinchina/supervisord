@@ -327,7 +327,7 @@ func (x *CtlCommand) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, pr
 			if !x.showGroupName() {
 				processName = pinfo.Name
 			}
-			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(pinfo.Statename), processName, pinfo.Statename, description, "\x1b[0m")
+			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(strings.ToUpper(pinfo.Statename)), processName, pinfo.Statename, description, "\x1b[0m")
 		}
 	}
 }
