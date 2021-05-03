@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ochinchina/supervisord/util"
+	"supervisord/util"
 	"testing"
 )
 

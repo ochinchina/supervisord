@@ -1,7 +1,7 @@
 package process
 
 import (
-	"github.com/ochinchina/supervisord/config"
+	"supervisord/config"
 	"testing"
 )
 

@@ -2,7 +2,7 @@ package config
 
 import (
 	"bytes"
-	"github.com/ochinchina/supervisord/util"
+	"supervisord/util"
 	"strings"
 )
 
