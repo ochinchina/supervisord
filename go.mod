@@ -19,8 +19,21 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 // indirect
 	github.com/sirupsen/logrus v1.8.1
-	golang.org/x/net v0.0.0-20210502030024-e5908800b52b
-	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887 // indirect
+	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
+	golang.org/x/sys v0.0.0-20210503073744-b6777538623b // indirect
 )
 
-replace github.com/ochinchina/supervisord => ./
+replace (
+	github.com/ochinchina/supervisord/config => ./config
+        github.com/ochinchina/supervisord/events => ./events
+        github.com/ochinchina/supervisord/faults => ./faults
+        github.com/ochinchina/supervisord/logger => ./logger
+        github.com/ochinchina/supervisord/process => ./process
+        github.com/ochinchina/supervisord/signals => ./signals
+        github.com/ochinchina/supervisord/types => ./types
+        github.com/ochinchina/supervisord/util => ./util
+	github.com/ochinchina/supervisord/webgui => ./webgui
+	github.com/ochinchina/supervisord/xmlrpcclient => ./xmlrpcclient
+
+	
+)
