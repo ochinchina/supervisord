@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/ochinchina/filechangemonitor"
-	"supervisord/config"
-	"supervisord/events"
-	"supervisord/logger"
-	"supervisord/signals"
+	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/events"
+	"github.com/ochinchina/supervisord/logger"
+	"github.com/ochinchina/supervisord/signals"
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 )

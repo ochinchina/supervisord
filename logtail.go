@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/gorilla/mux"
-	logger "supervisord/logger"
+	logger "github.com/ochinchina/supervisord/logger"
 	"net/http"
 )
 
