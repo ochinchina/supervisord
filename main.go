@@ -17,6 +17,8 @@ import (
 	"unicode"
 )
 
+var BuildVersion string = ""
+
 // Options the command line options
 type Options struct {
 	Configuration string `short:"c" long:"configuration" description:"the configuration file"`
@@ -155,6 +157,7 @@ func getSupervisordLogFile(configFile string) string {
 	}
 }
 func main() {
+	if BuildVersion != "" { VERSION = BuildVersion }
 	ReapZombie()
 
 	if _, err := parser.Parse(); err != nil {
