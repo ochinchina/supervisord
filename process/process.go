@@ -158,6 +158,7 @@ func (p *Process) Start(wait bool) {
 
 	go func() {
 		for {
+			// we'll do retry start if it sets.
 			p.run(func() {
 				if wait {
 					runCond.L.Lock()
@@ -170,7 +171,7 @@ func (p *Process) Start(wait bool) {
 				time.Sleep(5 * time.Second)
 			}
 			if p.stopByUser {
-				log.WithFields(log.Fields{"program": p.GetName()}).Info("Stopped by user, don't start it again")
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("program stopped by user, don't start it again")
 				break
 			}
 			if !p.isAutoRestart() {
@@ -529,8 +530,8 @@ func (p *Process) run(finishCb func()) {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start program because it is running")
 		finishCb()
 		return
-
 	}
+
 	p.startTime = time.Now()
 	atomic.StoreInt32(p.retryTimes, 0)
 	startSecs := p.getStartSeconds()
@@ -541,6 +542,7 @@ func (p *Process) run(finishCb func()) {
 	finishCbWrapper := func() {
 		once.Do(finishCb)
 	}
+
 	//process is not expired and not stoped by user
 	for !p.stopByUser {
 		if restartPause > 0 && atomic.LoadInt32(p.retryTimes) != 0 {
@@ -605,10 +607,17 @@ func (p *Process) run(finishCb func()) {
 
 		p.lock.Lock()
 
-		// if the program still in running after startSecs
-		if p.state == Running {
-			p.changeStateTo(Exited)
-			log.WithFields(log.Fields{"program": p.GetName()}).Info("program exited")
+		// we break the restartRetry loop if:
+		// 1. process still in running after startSecs (although it's exited right now)
+		// 2. it's stopping by user (we unlocked before waitForExit, so the flag stopByUser will have a chance to change).
+		if p.state == Running || p.state == Stopping {
+			if !p.stopByUser {
+				p.changeStateTo(Exited)
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("program exited")
+			} else {
+				p.changeStateTo(Stopped)
+				log.WithFields(log.Fields{"program": p.GetName()}).Info("program stopped by user")
+			}
 			break
 		} else {
 			p.changeStateTo(Backoff)
@@ -864,7 +873,8 @@ func (p *Process) Stop(wait bool) {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("program is not running")
 		return
 	}
-	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
+	log.WithFields(log.Fields{"program": p.GetName()}).Info("stopping the program")
+	p.changeStateTo(Stopping)
 	sigs := strings.Fields(p.config.GetString("stopsignal", "TERM"))
 	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
 	stopasgroup := p.config.GetBool("stopasgroup", false)
