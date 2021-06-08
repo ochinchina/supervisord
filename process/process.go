@@ -157,7 +157,6 @@ func (p *Process) Start(wait bool) {
 	}
 
 	go func() {
-
 		for {
 			p.run(func() {
 				if wait {
@@ -866,7 +865,7 @@ func (p *Process) Stop(wait bool) {
 		return
 	}
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
-	sigs := strings.Fields(p.config.GetString("stopsignal", ""))
+	sigs := strings.Fields(p.config.GetString("stopsignal", "TERM"))
 	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
 	stopasgroup := p.config.GetBool("stopasgroup", false)
 	killasgroup := p.config.GetBool("killasgroup", stopasgroup)
