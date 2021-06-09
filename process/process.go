@@ -492,8 +492,14 @@ func (p *Process) waitForExit(startSecs int64) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.stopTime = time.Now()
-	p.StdoutLog.Close()
-	p.StderrLog.Close()
+	// FIXME: we didn't set eventlistener logger
+	// since it's stdout/stderr has been specifically managed.
+	if p.StdoutLog != nil {
+		p.StdoutLog.Close()
+	}
+	if p.StderrLog != nil {
+		p.StderrLog.Close()
+	}
 }
 
 // fail to start the program
