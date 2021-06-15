@@ -1,19 +1,20 @@
 package main
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec
 	"encoding/hex"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/gorilla/rpc"
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
 	"github.com/ochinchina/supervisord/process"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"io"
-	"net"
-	"net/http"
-	"os"
-	"strings"
 )
 
 // XMLRPC mange the XML RPC servers
@@ -29,7 +30,7 @@ type httpBasicAuth struct {
 	handler  http.Handler
 }
 
-// create a new HttpBasicAuth oject with user name, password and the http request handler
+// create a new HttpBasicAuth object with username, password and the http request handler
 func newHTTPBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
 	if user != "" && password != "" {
 		log.Debug("require authentication")
@@ -47,7 +48,7 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if ok && username == h.user {
 		if strings.HasPrefix(h.password, "{SHA}") {
 			log.Debug("auth with SHA")
-			hash := sha1.New()
+			hash := sha1.New() //nolint:gosec
 			io.WriteString(hash, password)
 			if hex.EncodeToString(hash.Sum(nil)) == h.password[5:] {
 				h.handler.ServeHTTP(w, r)
@@ -68,7 +69,7 @@ func NewXMLRPC() *XMLRPC {
 	return &XMLRPC{listeners: make(map[string]net.Listener)}
 }
 
-// Stop stop network listening
+// Stop network listening
 func (p *XMLRPC) Stop() {
 	log.Info("stop listening")
 	for _, listener := range p.listeners {
@@ -78,14 +79,14 @@ func (p *XMLRPC) Stop() {
 }
 
 // StartUnixHTTPServer start http server on unix domain socket with path listenAddr. If both user and password are not empty, the user
-// must provide user and password for basic authentication when making a XML RPC request.
+// must provide user and password for basic authentication when making an XML RPC request.
 func (p *XMLRPC) StartUnixHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
 	os.Remove(listenAddr)
 	p.startHTTPServer(user, password, "unix", listenAddr, s, startedCb)
 }
 
 // StartInetHTTPServer start http server on tcp with path listenAddr. If both user and password are not empty, the user
-// must provide user and password for basic authentication when making a XML RPC request.
+// must provide user and password for basic authentication when making an XML RPC request.
 func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
 	p.startHTTPServer(user, password, "tcp", listenAddr, s, startedCb)
 }

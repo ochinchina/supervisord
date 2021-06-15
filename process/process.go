@@ -60,7 +60,7 @@ func init() {
 	scheduler.Start()
 }
 
-// String convert State to human readable string
+// String convert State to human-readable string
 func (p State) String() string {
 	switch p {
 	case Stopped:
@@ -101,7 +101,7 @@ type Process struct {
 	StderrLog  logger.Logger
 }
 
-// NewProcess create a new Process
+// NewProcess creates new Process object
 func NewProcess(supervisorID string, config *config.Entry) *Process {
 	proc := &Process{supervisorID: supervisorID,
 		config:     config,
@@ -134,7 +134,7 @@ func (p *Process) addToCron() {
 
 }
 
-// Start start the process
+// Start process
 // Args:
 //  wait - true, wait the program started or failed
 func (p *Process) Start(wait bool) {
@@ -190,7 +190,7 @@ func (p *Process) Start(wait bool) {
 	}
 }
 
-// GetName get the name of program or event listener
+// GetName returns name of program or event listener
 func (p *Process) GetName() string {
 	if p.config.IsProgram() {
 		return p.config.GetProgramName()
@@ -201,12 +201,12 @@ func (p *Process) GetName() string {
 	}
 }
 
-// GetGroup which group the program belongs to
+// GetGroup returns group the program belongs to
 func (p *Process) GetGroup() string {
 	return p.config.Group
 }
 
-// GetDescription get the process status description
+// GetDescription returns process status description
 func (p *Process) GetDescription() string {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -225,7 +225,7 @@ func (p *Process) GetDescription() string {
 	return ""
 }
 
-// GetExitstatus get the exit status of the process if the program exit
+// GetExitstatus returns exit status of the process if the program exit
 func (p *Process) GetExitstatus() int {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -242,7 +242,7 @@ func (p *Process) GetExitstatus() int {
 	return 0
 }
 
-// GetPid get the pid of running process or 0 it is not in running status
+// GetPid returns pid of running process or 0 it is not in running status
 func (p *Process) GetPid() int {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -253,17 +253,17 @@ func (p *Process) GetPid() int {
 	return p.cmd.Process.Pid
 }
 
-// GetState Get the process state
+// GetState returns process state
 func (p *Process) GetState() State {
 	return p.state
 }
 
-// GetStartTime get the process start time
+// GetStartTime returns process start time
 func (p *Process) GetStartTime() time.Time {
 	return p.startTime
 }
 
-// GetStopTime get the process stop time
+// GetStopTime returns process stop time
 func (p *Process) GetStopTime() time.Time {
 	switch p.state {
 	case Starting:
@@ -277,7 +277,7 @@ func (p *Process) GetStopTime() time.Time {
 	}
 }
 
-// GetStdoutLogfile get the program stdout log file
+// GetStdoutLogfile returns program stdout log filename
 func (p *Process) GetStdoutLogfile() string {
 	fileName := p.config.GetStringExpression("stdout_logfile", "/dev/null")
 	expandFile, err := PathExpand(fileName)
@@ -287,7 +287,7 @@ func (p *Process) GetStdoutLogfile() string {
 	return expandFile
 }
 
-// GetStderrLogfile get the program stderr log file
+// GetStderrLogfile returns program stderr log filename
 func (p *Process) GetStderrLogfile() string {
 	fileName := p.config.GetStringExpression("stderr_logfile", "/dev/null")
 	expandFile, err := PathExpand(fileName)
@@ -313,7 +313,7 @@ func (p *Process) isAutoStart() bool {
 	return p.config.GetString("autostart", "true") == "true"
 }
 
-// GetPriority get the program priority
+// GetPriority returns program priority (as it set in config) with default value of 999
 func (p *Process) GetPriority() int {
 	return p.config.GetInt("priority", 999)
 }
@@ -322,7 +322,7 @@ func (p *Process) getNumberProcs() int {
 	return p.config.GetInt("numprocs", 1)
 }
 
-// SendProcessStdin send data to process stdin
+// SendProcessStdin sends data to process stdin
 func (p *Process) SendProcessStdin(chars string) error {
 	if p.stdin != nil {
 		_, err := p.stdin.Write([]byte(chars))
@@ -656,11 +656,11 @@ func (p *Process) changeStateTo(procState State) {
 	p.state = procState
 }
 
-// Signal send signal to the process
+// Signal sends signal to the process
 //
 // Args:
 //   sig - the signal to the process
-//   sigChildren - true: send the signal to the process and its children proess
+//   sigChildren - if true, sends the same signal to the process and its children
 //
 func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
 	p.lock.RLock()
@@ -687,7 +687,7 @@ func (p *Process) sendSignals(sigs []string, sigChildren bool) {
 //
 // Args:
 //    sig - the signal to be sent
-//    sigChildren - true if the signal also need to be sent to children process
+//    sigChildren - if true, the signal also will be sent to children processes too
 //
 func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
 	if p.cmd != nil && p.cmd.Process != nil {
@@ -855,7 +855,7 @@ func (p *Process) setUser() error {
 	return nil
 }
 
-//Stop send signal to process to stop it
+//Stop sends signal to process to make it quit
 func (p *Process) Stop(wait bool) {
 	p.lock.Lock()
 	p.stopByUser = true
@@ -908,7 +908,7 @@ func (p *Process) Stop(wait bool) {
 	}
 }
 
-// GetStatus get the status of program in string
+// GetStatus returns status of program as a string
 func (p *Process) GetStatus() string {
 	if p.cmd.ProcessState.Exited() {
 		return p.cmd.ProcessState.String()
