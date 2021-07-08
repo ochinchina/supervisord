@@ -868,6 +868,7 @@ func (p *Process) Stop(wait bool) {
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
 	sigs := strings.Fields(p.config.GetString("stopsignal", ""))
 	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
+	killwaitsecs := time.Duration(p.config.GetInt("killwaitsecs", 2)) * time.Second
 	stopasgroup := p.config.GetBool("stopasgroup", false)
 	killasgroup := p.config.GetBool("killasgroup", stopasgroup)
 	if stopasgroup && !killasgroup {
@@ -898,6 +899,15 @@ func (p *Process) Stop(wait bool) {
 		if atomic.LoadInt32(&stopped) == 0 {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
 			p.Signal(syscall.SIGKILL, killasgroup)
+			killEndTime := time.Now().Add(killwaitsecs)
+			for killEndTime.After(time.Now()) {
+				//if it exits
+				if p.state != Starting && p.state != Running && p.state != Stopping {
+					atomic.StoreInt32(&stopped, 1)
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
 			atomic.StoreInt32(&stopped, 1)
 		}
 	}()
