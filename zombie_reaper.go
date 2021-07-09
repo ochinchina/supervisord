@@ -3,7 +3,7 @@
 package main
 
 import (
-	reaper "github.com/ochinchina/go-reaper"
+	"github.com/ochinchina/go-reaper"
 )
 
 // ReapZombie reap the zombie child process

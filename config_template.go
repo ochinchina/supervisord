@@ -127,7 +127,9 @@ func (x *InitTemplateCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
 	return GenTemplate(f)
 }
 

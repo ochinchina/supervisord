@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// NewSysLogger create a local syslog
+// NewSysLogger creates local syslog
 func NewSysLogger(name string, logEventEmitter LogEventEmitter) *SysLogger {
 	writer, err := syslog.New(syslog.LOG_DEBUG, name)
 	logger := &SysLogger{logEventEmitter: logEventEmitter}
@@ -29,7 +29,7 @@ type BackendSysLogWriter struct {
 	logChannel chan []byte
 }
 
-// NewBackendSysLogWriter create a background running syslog writer
+// NewBackendSysLogWriter creates background syslog writer
 func NewBackendSysLogWriter(network, raddr string, priority syslog.Priority, tag string) *BackendSysLogWriter {
 	bs := &BackendSysLogWriter{network: network, raddr: raddr, priority: priority, tag: tag, logChannel: make(chan []byte)}
 	bs.start()
@@ -60,24 +60,23 @@ func (bs *BackendSysLogWriter) start() {
 	}()
 }
 
-// Write write data to the backend syslog writer
+// Write data to the backend syslog writer
 func (bs *BackendSysLogWriter) Write(b []byte) (int, error) {
 	bs.logChannel <- b
 	return len(b), nil
 }
 
-// Close close the backgroup write channel
+// Close background write channel
 func (bs *BackendSysLogWriter) Close() error {
 	close(bs.logChannel)
 	return nil
 }
 
-// parse the configuration for syslog
-// the configure should be in following format:
+// parse the configuration for syslog, it should be in following format:
 // [protocol:]host[:port]
 //
-// - protocol, should be tcp or udp
-// - port, if missing, for tcp it should be 6514 and for udp it should be 514
+// - protocol, could be tcp or udp, assuming udp as default
+// - port, if missing, by default for tcp is 6514 and for udp - 514
 //
 func parseSysLogConfig(config string) (protocol string, host string, port int, err error) {
 	fields := strings.Split(config, ":")
@@ -122,7 +121,7 @@ func parseSysLogConfig(config string) (protocol string, host string, port int, e
 
 }
 
-// NewRemoteSysLogger create a network syslog
+// NewRemoteSysLogger creates network syslog logger object
 func NewRemoteSysLogger(name string, config string, logEventEmitter LogEventEmitter) *SysLogger {
 	if len(config) <= 0 {
 		return NewSysLogger(name, logEventEmitter)

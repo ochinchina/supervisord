@@ -24,7 +24,7 @@ func pathSplit(path string) []string {
 	return r
 }
 
-// PathExpand replace the ~ with user home directory
+// PathExpand replaces the ~ with user home directory
 func PathExpand(path string) (string, error) {
 	pathList := pathSplit(path)
 

@@ -3,11 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/jessevdk/go-flags"
-	ini "github.com/ochinchina/go-ini"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/logger"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,6 +10,12 @@ import (
 	"strings"
 	"syscall"
 	"unicode"
+
+	"github.com/jessevdk/go-flags"
+	"github.com/ochinchina/go-ini"
+	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/logger"
+	log "github.com/sirupsen/logrus"
 )
 
 // Options the command line options
@@ -123,7 +124,7 @@ func findSupervisordConf() (string, error) {
 func runServer() {
 	// infinite loop for handling Restart ('reload' command)
 	loadEnvFile()
-	for true {
+	for {
 		if len(options.Configuration) <= 0 {
 			options.Configuration, _ = findSupervisordConf()
 		}
@@ -154,6 +155,7 @@ func getSupervisordLogFile(configFile string) string {
 		return filepath.Join(".", "supervisord.log")
 	}
 }
+
 func main() {
 	ReapZombie()
 

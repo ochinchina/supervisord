@@ -58,7 +58,7 @@ const (
 	CantReRead = 92
 )
 
-// NewFault create a Fault object as xml rpc result
+// NewFault creates Fault object as xml rpc result
 func NewFault(code int, desc string) error {
 	return &xmlrpc.Fault{Code: code, String: desc}
 }

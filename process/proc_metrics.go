@@ -14,7 +14,7 @@ type procCollector struct {
 	procMgr        *Manager
 }
 
-// NewProcCollector returns a new Collector exposing supervisord statistics.
+// NewProcCollector returns new Collector exposing supervisord statistics.
 func NewProcCollector(mgr *Manager) *procCollector {
 	var (
 		subsystem  = "supervisord"
@@ -50,6 +50,7 @@ func NewProcCollector(mgr *Manager) *procCollector {
 	}
 }
 
+// Describe generates prometheus metric description
 func (c *procCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.upDesc
 	ch <- c.stateDesc
@@ -57,6 +58,7 @@ func (c *procCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.startTimeDesc
 }
 
+// Collect gathers prometheus metrics for all supervised processes
 func (c *procCollector) Collect(ch chan<- prometheus.Metric) {
 	c.procMgr.ForEachProcess(func(proc *Process) {
 		c.collectProcessMetrics(proc, ch)

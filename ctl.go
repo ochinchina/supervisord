@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
-	"net/http"
-	"os"
-	"strings"
 )
 
 // CtlCommand the entry of ctl command
@@ -55,7 +56,7 @@ type SignalCommand struct {
 type LogtailCommand struct {
 }
 
-// CmdCheckWrapperCommand A wrapper can be use to check whether
+// CmdCheckWrapperCommand A wrapper can be used to check whether
 // number of parameters is valid or not
 type CmdCheckWrapperCommand struct {
 	// Original cmd

@@ -40,7 +40,7 @@ type BooleanReply struct {
 	Success bool
 }
 
-// GetFullName get the full name of program includes group and name
+// GetFullName returns full name of program including group and name
 func (pi ProcessInfo) GetFullName() string {
 	if len(pi.Group) > 0 {
 		return fmt.Sprintf("%s:%s", pi.Group, pi.Name)

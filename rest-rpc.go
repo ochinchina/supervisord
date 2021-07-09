@@ -136,7 +136,7 @@ func (sr *SupervisorRestful) StopPrograms(w http.ResponseWriter, req *http.Reque
 func (sr *SupervisorRestful) ReadStdoutLog(w http.ResponseWriter, req *http.Request) {
 }
 
-// Shutdown shutdown the supervisor itself
+// Shutdown the supervisor itself
 func (sr *SupervisorRestful) Shutdown(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
@@ -145,7 +145,7 @@ func (sr *SupervisorRestful) Shutdown(w http.ResponseWriter, req *http.Request) 
 	w.Write([]byte("Shutdown..."))
 }
 
-// Reload reload the supervisor configuration file through rest interface
+// Reload the supervisor configuration file through rest interface
 func (sr *SupervisorRestful) Reload(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 

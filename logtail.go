@@ -1,23 +1,24 @@
 package main
 
 import (
-	"github.com/gorilla/mux"
-	logger "github.com/ochinchina/supervisord/logger"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/ochinchina/supervisord/logger"
 )
 
-// Logtail tail the process log through http interface
+// Logtail tails the process log through http interface
 type Logtail struct {
 	router     *mux.Router
 	supervisor *Supervisor
 }
 
-// NewLogtail create a Logtail object
+// NewLogtail creates a Logtail object
 func NewLogtail(supervisor *Supervisor) *Logtail {
 	return &Logtail{router: mux.NewRouter(), supervisor: supervisor}
 }
 
-// CreateHandler create http handlers to process the program stdout and stderr through http interface
+// CreateHandler creates http handlers to process the program stdout and stderr through http interface
 func (lt *Logtail) CreateHandler() http.Handler {
 	lt.router.HandleFunc("/logtail/{program}/stdout", lt.getStdoutLog).Methods("GET")
 	lt.router.HandleFunc("/logtail/{program}/stderr", lt.getStderrLog).Methods("GET")
@@ -66,7 +67,7 @@ func (lt *Logtail) getLog(logType string, w http.ResponseWriter, req *http.Reque
 				flusher.Flush()
 			}
 			compositeLogger.RemoveLogger(chanLogger)
-			chanLogger.Close()
+			_ = chanLogger.Close()
 		}
 	}
 
