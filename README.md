@@ -211,6 +211,20 @@ Multiple log files can be configured for the stdout_logfile and stderr_logfile w
 stdout_logfile = test.log, /dev/stdout
 ```
 
+### syslog settings
+
+if write the log to the syslog, following additional parameter can be set like:
+```ini
+syslog_facility=local0
+syslog_tag=test
+syslog_stdout_priority=info
+syslog_stderr_priority=err
+```
+- **syslog_facility**, can be one of(case insensitive): KERNEL, USER, MAIL, DAEMON, AUTH, SYSLOG, LPR, NEWS, UUCP, CRON, AUTHPRIV, FTP, LOCAL0~LOCAL7
+- **syslog_stdout_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
+- **syslog_stderr_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
+
+
 # Web GUI
 
 Supervisord has builtin web GUI: you can start, stop & check the status of program from the GUI. Following picture shows the default web GUI:
