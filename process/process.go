@@ -716,10 +716,7 @@ func (p *Process) setDir() {
 
 func (p *Process) setLog() {
 	if p.config.IsProgram() {
-		p.StdoutLog = p.createLogger(p.GetStdoutLogfile(),
-			int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024)),
-			p.config.GetInt("stdout_logfile_backups", 10),
-			p.createStdoutLogEventEmitter())
+		p.StdoutLog = p.createStdoutLogger()
 		captureBytes := p.config.GetBytes("stdout_capture_maxbytes", 0)
 		if captureBytes > 0 {
 			log.WithFields(log.Fields{"program": p.config.GetProgramName()}).Info("capture stdout process communication")
@@ -735,10 +732,7 @@ func (p *Process) setLog() {
 		if p.config.GetBool("redirect_stderr", false) {
 			p.StderrLog = p.StdoutLog
 		} else {
-			p.StderrLog = p.createLogger(p.GetStderrLogfile(),
-				int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024)),
-				p.config.GetInt("stderr_logfile_backups", 10),
-				p.createStderrLogEventEmitter())
+			p.StderrLog = p.createStderrLogger()
 		}
 
 		captureBytes = p.config.GetBytes("stderr_capture_maxbytes", 0)
@@ -812,8 +806,50 @@ func (p *Process) unregisterEventListener(eventListenerName string) {
 	events.UnregisterEventListener(eventListenerName)
 }
 
-func (p *Process) createLogger(logFile string, maxBytes int64, backups int, logEventEmitter logger.LogEventEmitter) logger.Logger {
-	return logger.NewLogger(p.GetName(), logFile, logger.NewNullLocker(), maxBytes, backups, logEventEmitter)
+func (p *Process) createStdoutLogger() logger.Logger {
+	logFile := p.GetStdoutLogfile()
+	maxBytes := int64(p.config.GetBytes("stdout_logfile_maxbytes", 50*1024*1024))
+	backups := p.config.GetInt("stdout_logfile_backups", 10)
+	logEventEmitter := p.createStdoutLogEventEmitter()
+	props := make(map[string]string)
+	syslog_facility := p.config.GetString("syslog_facility", "")
+	syslog_tag := p.config.GetString("syslog_tag", "")
+	syslog_priority := p.config.GetString("syslog_stdout_priority", "")
+
+	if len(syslog_facility) > 0 {
+		props["syslog_facility"] = syslog_facility
+	}
+	if len(syslog_tag) > 0 {
+		props["syslog_tag"] = syslog_tag
+	}
+	if len(syslog_priority) > 0 {
+		props["syslog_priority"] = syslog_priority
+	}
+
+	return logger.NewLogger(p.GetName(), logFile, logger.NewNullLocker(), maxBytes, backups, props, logEventEmitter)
+}
+
+func (p *Process) createStderrLogger() logger.Logger {
+	logFile := p.GetStderrLogfile()
+	maxBytes := int64(p.config.GetBytes("stderr_logfile_maxbytes", 50*1024*1024))
+	backups := p.config.GetInt("stderr_logfile_backups", 10)
+	logEventEmitter := p.createStderrLogEventEmitter()
+	props := make(map[string]string)
+	syslog_facility := p.config.GetString("syslog_facility", "")
+	syslog_tag := p.config.GetString("syslog_tag", "")
+	syslog_priority := p.config.GetString("syslog_stderr_priority", "")
+
+	if len(syslog_facility) > 0 {
+		props["syslog_facility"] = syslog_facility
+	}
+	if len(syslog_tag) > 0 {
+		props["syslog_tag"] = syslog_tag
+	}
+	if len(syslog_priority) > 0 {
+		props["syslog_priority"] = syslog_priority
+	}
+
+	return logger.NewLogger(p.GetName(), logFile, logger.NewNullLocker(), maxBytes, backups, props, logEventEmitter)
 }
 
 func (p *Process) setUser() error {

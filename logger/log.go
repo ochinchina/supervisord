@@ -665,15 +665,15 @@ func (cl *CompositeLogger) ClearAllLogFile() error {
 }
 
 // NewLogger creates logger for a program with parameters
-func NewLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
+func NewLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, props map[string]string, logEventEmitter LogEventEmitter) Logger {
 	files := splitLogFile(logFile)
 	loggers := make([]Logger, 0)
 	for i, f := range files {
 		var lr Logger
 		if i == 0 {
-			lr = createLogger(programName, f, locker, maxBytes, backups, logEventEmitter)
+			lr = createLogger(programName, f, locker, maxBytes, backups, props, logEventEmitter)
 		} else {
-			lr = createLogger(programName, f, NewNullLocker(), maxBytes, backups, NewNullLogEventEmitter())
+			lr = createLogger(programName, f, NewNullLocker(), maxBytes, backups, props, NewNullLogEventEmitter())
 		}
 		loggers = append(loggers, lr)
 	}
@@ -688,7 +688,7 @@ func splitLogFile(logFile string) []string {
 	return files
 }
 
-func createLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, logEventEmitter LogEventEmitter) Logger {
+func createLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, props map[string]string, logEventEmitter LogEventEmitter) Logger {
 	if logFile == "/dev/stdout" {
 		return NewStdoutLogger(logEventEmitter)
 	}
@@ -700,14 +700,14 @@ func createLogger(programName string, logFile string, locker sync.Locker, maxByt
 	}
 
 	if logFile == "syslog" {
-		return NewSysLogger(programName, logEventEmitter)
+		return NewSysLogger(programName, props, logEventEmitter)
 	}
 	if strings.HasPrefix(logFile, "syslog") {
 		fields := strings.Split(logFile, "@")
 		fields[0] = strings.TrimSpace(fields[0])
 		fields[1] = strings.TrimSpace(fields[1])
 		if len(fields) == 2 && fields[0] == "syslog" {
-			return NewRemoteSysLogger(programName, fields[1], logEventEmitter)
+			return NewRemoteSysLogger(programName, fields[1], props, logEventEmitter)
 		}
 	}
 	if len(logFile) > 0 {
