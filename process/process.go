@@ -158,6 +158,7 @@ func (p *Process) Start(wait bool) {
 
 	go func() {
 
+		atomic.StoreInt32(p.retryTimes, 0)
 		for {
 			p.run(func() {
 				if wait {
@@ -453,7 +454,7 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 		})
 	}
 	dirMonitor := p.config.GetString("restart_directory_monitor", "")
-	filePattern := p.config.GetString("restart_filePattern", "*")
+	filePattern := p.config.GetString("restart_file_pattern", "*")
 	if dirMonitor != "" {
 		absDir, err := filepath.Abs(dirMonitor)
 		if err != nil {
@@ -537,7 +538,6 @@ func (p *Process) run(finishCb func()) {
 
 	}
 	p.startTime = time.Now()
-	atomic.StoreInt32(p.retryTimes, 0)
 	startSecs := p.getStartSeconds()
 	restartPause := p.getRestartPause()
 	var once sync.Once
