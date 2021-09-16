@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package main
@@ -9,7 +10,7 @@ import (
 
 // Daemonize run this process in daemon mode
 func Daemonize(logfile string, proc func()) {
-	context := daemon.Context{LogFileName: logfile}
+	context := daemon.Context{LogFileName: logfile, PidFileName: "supervisord.pid"}
 
 	child, err := context.Reborn()
 	if err != nil {
