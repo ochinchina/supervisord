@@ -1,3 +1,4 @@
+//go:build windows || plan9 || nacl
 // +build windows plan9 nacl
 
 package logger
@@ -7,5 +8,5 @@ func NewSysLogger(name string, props map[string]string, logEventEmitter LogEvent
 }
 
 func NewRemoteSysLogger(name string, config string, props map[string]string, logEventEmitter LogEventEmitter) *SysLogger {
-	return NewSysLogger(name, logEventEmitter)
+	return NewSysLogger(name, props, logEventEmitter)
 }
