@@ -197,7 +197,7 @@ func (r *XMLRPCClient) GetVersion() (reply VersionReply, err error) {
 	r.post("supervisor.getVersion", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
-			err = xml.DecodeClientResponse(body, reply)
+			err = xml.DecodeClientResponse(body, &reply)
 		}
 	})
 	return
