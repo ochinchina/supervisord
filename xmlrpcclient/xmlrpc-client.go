@@ -345,3 +345,83 @@ func (r *XMLRPCClient) GetProcessInfo(process string) (reply types.ProcessInfo, 
 
 	return
 }
+
+// StartProcess Start a process
+func (r *XMLRPCClient) StartProcess(process string, wait bool) (reply types.BooleanReply, err error) {
+	ins := struct{
+		Name string
+		Wait bool
+	}{
+		Name: process,
+		Wait: wait,
+	}
+	r.post("supervisor.startProcess", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+			if err == nil {
+				return
+			}
+			ee, ok := err.(xml.Fault)
+			if !ok {
+				return
+			}
+			if ee.Code == ALREADY_STARTED {
+				err = nil
+			}
+		}
+	})
+	return
+}
+
+// StopProcess Stop a process named by name
+func (r *XMLRPCClient) StopProcess(process string, wait bool) (reply types.BooleanReply, err error) {
+	ins := struct{
+		Name string
+		Wait bool
+	}{
+		Name: process,
+		Wait: wait,
+	}
+	r.post("supervisor.stopProcess", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+			if err == nil {
+				return
+			}
+			ee, ok := err.(xml.Fault)
+			if !ok {
+				return
+			}
+			if ee.Code == NOT_RUNNING {
+				err = nil
+			}
+		}
+	})
+	return
+}
+
+// StartAllProcesses Start all processes listed in the configuration file
+func (r *XMLRPCClient) StartAllProcesses(wait bool) (reply AllProcStatusInfoReply, err error) {
+	ins := struct{ Wait bool }{ wait }
+	r.post("supervisor.startAllProcesses", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+	return
+}
+
+// StopAllProcesses Stop all processes in the process list
+func (r *XMLRPCClient) StopAllProcesses(wait bool) (reply AllProcStatusInfoReply, err error) {
+	ins := struct{ Wait bool }{ wait }
+	r.post("supervisor.stopAllProcesses", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+	return
+}
