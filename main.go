@@ -159,23 +159,31 @@ func getSupervisordLogFile(configFile string) string {
 func main() {
 	ReapZombie()
 
+	// when execute `supervisord` without sub-command, it should start the server
+	parser.Command.SubcommandsOptional = true
+	parser.CommandHandler = func(command flags.Commander, args []string) error {
+		if command == nil {
+			log.SetOutput(os.Stdout)
+			if options.Daemon {
+				logFile := getSupervisordLogFile(options.Configuration)
+				Daemonize(logFile, runServer)
+			} else {
+				runServer()
+			}
+			os.Exit(0)
+		}
+		return command.Execute(args)
+	}
+
 	if _, err := parser.Parse(); err != nil {
 		flagsErr, ok := err.(*flags.Error)
 		if ok {
 			switch flagsErr.Type {
 			case flags.ErrHelp:
-				fmt.Fprintln(os.Stdout, err)
+				_, _ = fmt.Fprintln(os.Stdout, err)
 				os.Exit(0)
-			case flags.ErrCommandRequired:
-				log.SetOutput(os.Stdout)
-				if options.Daemon {
-					logFile := getSupervisordLogFile(options.Configuration)
-					Daemonize(logFile, runServer)
-				} else {
-					runServer()
-				}
 			default:
-				fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)
 				os.Exit(1)
 			}
 		}
