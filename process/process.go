@@ -453,7 +453,7 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 		})
 	}
 	dirMonitor := p.config.GetString("restart_directory_monitor", "")
-	filePattern := p.config.GetString("restart_filePattern", "*")
+	filePattern := p.config.GetString("restart_file_pattern", "*")
 	if dirMonitor != "" {
 		absDir, err := filepath.Abs(dirMonitor)
 		if err != nil {
