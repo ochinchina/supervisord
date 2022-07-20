@@ -579,19 +579,17 @@ func (p *Process) run(finishCb func()) {
 		}
 
 		// logger.CompositeLogger is not `os.File`, so `cmd.Wait()` will wait for the logger to close
-		// we need to close the logger manually when `p.stopByUser` is set
+		// if parent process passes its FD to child process, the logger will not close even when parent process exits
+		// we need to make sure the logger is closed when the process stops running
 		go func() {
-			// the sleep time must be less than `stopwaitsecs` (here I set half of `stopwaitsecs`)
+			// the sleep time must be less than `stopwaitsecs`, here I set half of `stopwaitsecs`
 			// otherwise the logger will not be closed before SIGKILL is sent
-			waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)/2) * time.Second
+			halfWaitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)/2) * time.Second
 			for {
-				p.lock.RLock()
-				stopByUser := p.stopByUser
-				p.lock.RUnlock()
-				if stopByUser {
+				if !p.isRunning() {
 					break
 				}
-				time.Sleep(waitsecs)
+				time.Sleep(halfWaitsecs)
 			}
 			if p.StdoutLog != nil {
 				p.StdoutLog.Close()
