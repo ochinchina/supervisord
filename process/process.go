@@ -90,9 +90,9 @@ type Process struct {
 	startTime    time.Time
 	stopTime     time.Time
 	state        State
-	//true if process is starting
+	// true if process is starting
 	inStart bool
-	//true if the process is stopped by user
+	// true if the process is stopped by user
 	stopByUser bool
 	retryTimes *int32
 	lock       sync.RWMutex
@@ -166,7 +166,7 @@ func (p *Process) Start(wait bool) {
 					runCond.L.Unlock()
 				}
 			})
-			//avoid print too many logs if fail to start program too quickly
+			// avoid print too many logs if fail to start program too quickly
 			if time.Now().Unix()-p.startTime.Unix() < 2 {
 				time.Sleep(5 * time.Second)
 			}
@@ -344,9 +344,9 @@ func (p *Process) isAutoRestart() bool {
 		defer p.lock.RUnlock()
 		if p.cmd != nil && p.cmd.ProcessState != nil {
 			exitCode, err := p.getExitCode()
-			//If unexpected, the process will be restarted when the program exits
-			//with an exit code that is not one of the exit codes associated with
-			//this process’ configuration (see exitcodes).
+			// If unexpected, the process will be restarted when the program exits
+			// with an exit code that is not one of the exit codes associated with
+			// this process’ configuration (see exitcodes).
 			return err == nil && !p.inExitCodes(exitCode)
 		}
 	}
@@ -492,12 +492,6 @@ func (p *Process) waitForExit(startSecs int64) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.stopTime = time.Now()
-	if p.StdoutLog != nil {
-		p.StdoutLog.Close()
-	}
-	if p.StderrLog != nil {
-		p.StderrLog.Close()
-	}
 }
 
 // fail to start the program
@@ -546,10 +540,10 @@ func (p *Process) run(finishCb func()) {
 	finishCbWrapper := func() {
 		once.Do(finishCb)
 	}
-	//process is not expired and not stoped by user
+	// process is not expired and not stoped by user
 	for !p.stopByUser {
 		if restartPause > 0 && atomic.LoadInt32(p.retryTimes) != 0 {
-			//pause
+			// pause
 			p.lock.Unlock()
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("don't restart the program, start it after ", restartPause, " seconds")
 			time.Sleep(time.Duration(restartPause) * time.Second)
@@ -584,10 +578,31 @@ func (p *Process) run(finishCb func()) {
 			p.StderrLog.SetPid(p.cmd.Process.Pid)
 		}
 
+		// logger.CompositeLogger is not `os.File`, so `cmd.Wait()` will wait for the logger to close
+		// if parent process passes its FD to child process, the logger will not close even when parent process exits
+		// we need to make sure the logger is closed when the process stops running
+		go func() {
+			// the sleep time must be less than `stopwaitsecs`, here I set half of `stopwaitsecs`
+			// otherwise the logger will not be closed before SIGKILL is sent
+			halfWaitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)/2) * time.Second
+			for {
+				if !p.isRunning() {
+					break
+				}
+				time.Sleep(halfWaitsecs)
+			}
+			if p.StdoutLog != nil {
+				p.StdoutLog.Close()
+			}
+			if p.StderrLog != nil {
+				p.StderrLog.Close()
+			}
+		}()
+
 		monitorExited := int32(0)
 		programExited := int32(0)
-		//Set startsec to 0 to indicate that the program needn't stay
-		//running for any particular amount of time.
+		// Set startsec to 0 to indicate that the program needn't stay
+		// running for any particular amount of time.
 		if startSecs <= 0 {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 			p.changeStateTo(Running)
@@ -862,7 +877,7 @@ func (p *Process) setUser() error {
 		return nil
 	}
 
-	//check if group is provided
+	// check if group is provided
 	pos := strings.Index(userName, ":")
 	groupName := ""
 	if pos != -1 {
@@ -895,7 +910,7 @@ func (p *Process) setUser() error {
 	return nil
 }
 
-//Stop sends signal to process to make it quit
+// Stop sends signal to process to make it quit
 func (p *Process) Stop(wait bool) {
 	p.lock.Lock()
 	p.stopByUser = true
@@ -906,7 +921,7 @@ func (p *Process) Stop(wait bool) {
 		return
 	}
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stop the program")
-	sigs := strings.Fields(p.config.GetString("stopsignal", ""))
+	sigs := strings.Fields(p.config.GetString("stopsignal", "SIGTERM"))
 	waitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)) * time.Second
 	killwaitsecs := time.Duration(p.config.GetInt("killwaitsecs", 2)) * time.Second
 	stopasgroup := p.config.GetBool("stopasgroup", false)
@@ -926,9 +941,9 @@ func (p *Process) Stop(wait bool) {
 			log.WithFields(log.Fields{"program": p.GetName(), "signal": sigs[i]}).Info("send stop signal to program")
 			p.Signal(sig, stopasgroup)
 			endTime := time.Now().Add(waitsecs)
-			//wait at most "stopwaitsecs" seconds for one signal
+			// wait at most "stopwaitsecs" seconds for one signal
 			for endTime.After(time.Now()) {
-				//if it already exits
+				// if it already exits
 				if p.state != Starting && p.state != Running && p.state != Stopping {
 					atomic.StoreInt32(&stopped, 1)
 					break
@@ -941,7 +956,7 @@ func (p *Process) Stop(wait bool) {
 			p.Signal(syscall.SIGKILL, killasgroup)
 			killEndTime := time.Now().Add(killwaitsecs)
 			for killEndTime.After(time.Now()) {
-				//if it exits
+				// if it exits
 				if p.state != Starting && p.state != Running && p.state != Stopping {
 					atomic.StoreInt32(&stopped, 1)
 					break
