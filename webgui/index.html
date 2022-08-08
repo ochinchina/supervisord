@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-	<meta charset="utf-8"> 
+	<meta charset="utf-8">
     <title>Go-Supervisor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <link rel="stylesheet" href="css/bootstrap.min.css"/>
@@ -13,8 +13,8 @@
     <script src='js/bootstrap-table.min.js'></script>
     <script src='js/bootstrap-dialog.min.js'></script>
   </head>
-  
-        
+
+
   <script type="text/javascript">
   var columns = [{
         field: 'name',
@@ -53,7 +53,7 @@
     $.ajax( {
     type: "POST",
     dataType: "json",
-    url: "/program/start/" + name, 
+    url: "/program/start/" + name,
     success: function( data, status, jqXHR  ) {
         if( data['success'] ) {
             changeProgramState( name, "RUNNING" );
@@ -83,49 +83,66 @@
   };
 
   function stopProgram( programName ) {
-      confirm_dialog( { 'title': "Stop confirmation",
-                        'message': "Do you really want to stop program?",
-                        'cancel-text': "Cancel",
-                        'confirm-text': "Stop",
-                        'confirm-onclick': function() {
-                            doStopProgram( programName );
-                        }
-                        } );
+      return new Promise((resolve, reject) =>{
+          confirm_dialog( { 'title': "Stop confirmation",
+              'message': "Do you really want to stop program?",
+              'cancel-text': "Cancel",
+              'confirm-text': "Stop",
+              'confirm-onclick': async function() {
+                  await doStopProgram( programName );
+                  resolve("success");
+              }
+          } );
+
+      })
   }
+
+ async function restartProgram( programName ){
+      await stopProgram(programName)
+      startProgram(programName)
+  }
+
   function doStopProgram( name ) {
-      $.ajax( {
-      type: "POST",
-      dataType: "json",
-      url: "/program/stop/" + name,
-      success: function( data, status, jqXHR  ) {
-          if( data['success'] ) {
-              changeProgramState( name, 'STOPPED' );
-              refreshDisplay();
-          } else {
-              confirm_dialog( { 'title': "Information",
-                                'message': "Fail to stop program, please check the log of supervisord",
-                                'cancel-text': "Cancel",
-                                'cancel-hide': true,
-                                'confirm-text': "Ok",
-                                'confirm-onclick': function() {
-                                }
-                                } );
+      return new Promise(
+          (resolve, reject) =>{
+              $.ajax( {
+                  type: "POST",
+                  dataType: "json",
+                  url: "/program/stop/" + name,
+                  async:false,
+                  success: function( data, status, jqXHR  ) {
+                      if( data['success'] ) {
+                          changeProgramState( name, 'STOPPED' );
+                          refreshDisplay();
+                      } else {
+                          confirm_dialog( { 'title': "Information",
+                              'message': "Fail to stop program, please check the log of supervisord",
+                              'cancel-text': "Cancel",
+                              'cancel-hide': true,
+                              'confirm-text': "Ok",
+                              'confirm-onclick': function() {
+                              }
+                          } );
 
-          }
-      },
-      error: function( jqXHR, status, errorThrown ) {
-		confirm_dialog( { 'title': "Information",
-                        'message': "Fail to stop program, please check if supervisord is running",
-                        'cancel-text': "Cancel",
-                        'cancel-hide': true,
-                        'confirm-text': "Ok",
-                        'confirm-onclick': function() {
-                        }
-                        } );
+                      }
+                  },
+                  error: function( jqXHR, status, errorThrown ) {
+                      confirm_dialog( { 'title': "Information",
+                          'message': "Fail to stop program, please check if supervisord is running",
+                          'cancel-text': "Cancel",
+                          'cancel-hide': true,
+                          'confirm-text': "Ok",
+                          'confirm-onclick': function() {
+                          }
+                      } );
 
-      }
+                      // reject()
+                  }
 
-      });
+              });
+              resolve("success")
+          })
+
   }
 
   function reformatPrograms( programs ) {
@@ -135,14 +152,16 @@
           var color = "";
           if( statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf( "starting") >= 0 ) {
             action = '<button type="button" disabled class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
-            action = action + '<button type="button" class="btn btn-primary" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
+            action = action + '<button type="button" class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
+            action = action + '<button type="button" class="btn btn-primary" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
             color = "green";
           } else {
               action = '<button type="button" class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
-              action = action + '<button type="button" disabled class="btn btn-primary" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
+              action = action + '<button type="button" disabled class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
+              action = action + '<button type="button" disabled class="btn btn-primary" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
               color = "red";
-
           }
+
 
           programs[i]['action'] = action;
           programs[i]['statename'] = '<div style="background-color:' + color + ';">' + statename + '</div>';
@@ -232,7 +251,7 @@
           data: JSON.stringify( programs ),
           dataType: "text",
           success: function( data, status, jqXHR ) {
-            list_programs();           
+            list_programs();
           },
           error: function( jqXHR, textStatus, errorThrown ) {
               list_programs();
@@ -279,7 +298,7 @@
 
   $(document).ready(function() {
       list_programs();
-  });    
+  });
   </script>
   <body>
     <H1 class="text-center text-success">Go-Supervisor</H1>
@@ -293,7 +312,7 @@
               <input type="button" class="btn btn-primary float-right mr-1" value="Start Select" onclick='start_select();'>
           </div>
       </div>
-      <div class="table-responsive mt-3">          
+      <div class="table-responsive mt-3">
        <table id="programs"
            data-toggle="table"
            data-click-to-select="true" >
