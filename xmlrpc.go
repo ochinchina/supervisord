@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha1" //nolint:gosec
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -101,6 +102,20 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 		startedCb()
 		return
 	}
+
+	conf := s.config
+	m := conf.GetPrograms()
+	for _, c := range m {
+		fmt.Println("Name:", c.Name)
+		//pro := s.procMgr.Find(val.Name)
+		//cfg := pro.GetConfig()
+		//realName := c.GetProgramName()
+		res := c.GetString("stdout_logfile", "")
+		//res := cfg.GetString(val.Name, "")
+		fmt.Println("res:", res)
+		fmt.Println("ConfigDir:", c.ConfigDir)
+	}
+
 	procCollector := process.NewProcCollector(s.procMgr)
 	prometheus.Register(procCollector)
 	mux := http.NewServeMux()
