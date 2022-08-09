@@ -38,6 +38,7 @@ func (lt *Logtail) getLog(logType string, w http.ResponseWriter, req *http.Reque
 	program := vars["program"]
 	procMgr := lt.supervisor.GetManager()
 	proc := procMgr.Find(program)
+
 	if proc == nil {
 		w.WriteHeader(http.StatusBadRequest)
 	} else {
@@ -48,6 +49,8 @@ func (lt *Logtail) getLog(logType string, w http.ResponseWriter, req *http.Reque
 		} else {
 			compositeLogger, ok = proc.StderrLog.(*logger.CompositeLogger)
 		}
+		compositeLogger.ReadLog(0, 0)
+
 		if ok {
 			w.Header().Set("Transfer-Encoding", "chunked")
 			w.WriteHeader(http.StatusOK)

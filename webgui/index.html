@@ -300,9 +300,10 @@
 <body>
 <H1 class="text-center text-success">Go-Supervisor</H1>
 <div class="container">
-    <H2>Programs</H2>
     <div class='row'>
         <div class="col-12">
+            <a href="http://10.234.254.27:9996/graph" class="text-decoration-none mr-3" target="_blank">Prometheus</a>
+            <a href="http://127.0.0.1:3000" class="text-decoration-none" target="_blank">Grafana</a>
             <input type="button" class="btn btn-primary float-right mr-1" value="Shutdown" onclick='shutdown_supervisor();'>
             <input type="button" class="btn btn-primary float-right mr-1" value="Reload" onclick='reload_supervisor();'>
             <input type="button" class="btn btn-primary float-right mr-1" value="Stop Select" onclick='stop_select();'>
