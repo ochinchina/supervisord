@@ -57,19 +57,19 @@ func (xp *XMLPath) String() string {
 // XMLLeafProcessor the XML leaf element process function
 type XMLLeafProcessor func(value string)
 
-// XMLNonLeafProcessor the non-leaf element process function
-type XMLNonLeafProcessor func()
+// XMLSwitchTypeProcessor the switch type process function
+type XMLSwitchTypeProcessor func()
 
 // XMLProcessorManager the xml processor based on the XMLPath
 type XMLProcessorManager struct {
-	leafProcessors    map[string]XMLLeafProcessor
-	nonLeafProcessors map[string]XMLNonLeafProcessor
+	leafProcessors       map[string]XMLLeafProcessor
+	switchTypeProcessors map[string]XMLSwitchTypeProcessor
 }
 
 // NewXMLProcessorManager creates new XMLProcessorManager object
 func NewXMLProcessorManager() *XMLProcessorManager {
 	return &XMLProcessorManager{leafProcessors: make(map[string]XMLLeafProcessor),
-		nonLeafProcessors: make(map[string]XMLNonLeafProcessor)}
+		switchTypeProcessors: make(map[string]XMLSwitchTypeProcessor)}
 }
 
 // AddLeafProcessor adds leaf processor for the xml path
@@ -77,9 +77,9 @@ func (xpm *XMLProcessorManager) AddLeafProcessor(path string, processor XMLLeafP
 	xpm.leafProcessors[path] = processor
 }
 
-// AddNonLeafProcessor adds non-leaf processor for the xml path
-func (xpm *XMLProcessorManager) AddNonLeafProcessor(path string, processor XMLNonLeafProcessor) {
-	xpm.nonLeafProcessors[path] = processor
+// AddSwitchTypeProcessor adds switch type processor for the xml path
+func (xpm *XMLProcessorManager) AddSwitchTypeProcessor(path string, processor XMLSwitchTypeProcessor) {
+	xpm.switchTypeProcessors[path] = processor
 }
 
 // ProcessLeafNode processes leaf element with xml path and its value
@@ -89,9 +89,9 @@ func (xpm *XMLProcessorManager) ProcessLeafNode(path string, data string) {
 	}
 }
 
-// ProcessNonLeafNode processes non-leaf element based on the xml path
-func (xpm *XMLProcessorManager) ProcessNonLeafNode(path string) {
-	if processor, ok := xpm.nonLeafProcessors[path]; ok {
+// ProcessSwitchTypeNode processes switch type based on the xml path
+func (xpm *XMLProcessorManager) ProcessSwitchTypeNode(path string) {
+	if processor, ok := xpm.switchTypeProcessors[path]; ok {
 		processor()
 	}
 }
@@ -119,9 +119,8 @@ func (xpm *XMLProcessorManager) ProcessXML(reader io.Reader) {
 		case xml.EndElement:
 			if curData != nil {
 				xpm.ProcessLeafNode(curPath.String(), string(curData))
-			} else {
-				xpm.ProcessNonLeafNode(curPath.String())
 			}
+			xpm.ProcessSwitchTypeNode(curPath.String())
 			curPath.RemoveLast()
 		}
 	}
