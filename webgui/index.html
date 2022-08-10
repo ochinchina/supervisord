@@ -150,15 +150,17 @@
             if( statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf( "starting") >= 0 ) {
                 action = '<button type="button" disabled class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
                 action = action + '<button type="button" class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
-                action = action + '<button type="button" class="btn btn-primary" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
+                action = action + '<button type="button" class="btn btn-primary mr-1" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
                 color = "green";
             } else {
                 action = '<button type="button" class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
                 action = action + '<button type="button" disabled class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
-                action = action + '<button type="button" disabled class="btn btn-primary" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
+                action = action + '<button type="button" disabled class="btn btn-primary mr-1" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
                 color = "red";
             }
+            let logLabel = '<a href=/log?name=' + programs[i]['name'] + '>日志列表 </a>';
 
+            action = action + logLabel;
 
             programs[i]['action'] = action;
             programs[i]['statename'] = '<div style="background-color:' + color + ';">' + statename + '</div>';
@@ -302,8 +304,10 @@
 <div class="container">
     <div class='row'>
         <div class="col-12">
+
             <a href="http://10.234.254.27:9996/graph" class="text-decoration-none mr-3" target="_blank">Prometheus</a>
             <a href="http://127.0.0.1:3000" class="text-decoration-none" target="_blank">Grafana</a>
+
             <input type="button" class="btn btn-primary float-right mr-1" value="Shutdown" onclick='shutdown_supervisor();'>
             <input type="button" class="btn btn-primary float-right mr-1" value="Reload" onclick='reload_supervisor();'>
             <input type="button" class="btn btn-primary float-right mr-1" value="Stop Select" onclick='stop_select();'>

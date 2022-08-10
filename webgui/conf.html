@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Demo of ACE Editor</title>
+    <!--导入js库-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js" type="text/javascript"
+            charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ext-language_tools.js" type="text/javascript"
+            charset="utf-8"></script>
+    <script src="js/axios.min.js"></script>
+    <script src='js/jquery-3.3.1.min.js'></script>
+    <link rel="stylesheet" href="css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="css/bootstrap-table.css"/>
+    <link rel="stylesheet" href="css/bootstrap-dialog.min.css"/>
+</head>
+
+<body>
+<!--代码输入框（注意请务必设置高度，否则无法显示）-->
+<pre id="code" class="ace_editor" style="min-height:400px">
+    <textarea id="text_conf" class="ace_text-input">
+[inet_http_server]
+port = :9001
+
+[program:linx-test]
+directory = /export/home/maguozhi/code/go/test_prometheus
+command = ./test
+
+[program:ddc]
+directory = /export/home/maguozhi/unrealddc
+command = ./unreal_httpddc_server
+stdout_logfile = /export/home/maguozhi/unrealddc/logs/console.log
+stderr_logfile = /export/home/maguozhi/unrealddc/logs/console.log
+    </textarea>
+</pre>
+<button class="btn btn-primary">
+    Save
+</button>
+<script>
+    //初始化对象
+    editor = ace.edit("code");
+
+    //设置风格和语言（更多风格和语言，请到github上相应目录查看）
+    theme = "crimson_editor"
+    language = "java"
+    editor.setTheme("ace/theme/" + theme);
+    editor.session.setMode("ace/mode/" + language);
+
+    //字体大小
+    editor.setFontSize(18);
+
+    //设置只读（true时只读，用于展示代码）
+    editor.setReadOnly(false);
+
+    //自动换行,设置为off关闭
+    editor.setOption("wrap", "free")
+
+</script>
+
+</body>
+</html>

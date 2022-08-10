@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gorilla/rpc"
@@ -97,25 +99,46 @@ func (p *XMLRPC) isHTTPServerStartedOnProtocol(protocol string) bool {
 	return ok
 }
 
+func readFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func getProgramConfigPath(programName string, s *Supervisor) string {
+	c := s.config.GetProgram(programName)
+	if c == nil {
+		return ""
+	}
+
+	res := c.GetString("conf_file", "")
+	return res
+}
+
+func readLogHtml(writer http.ResponseWriter, request *http.Request) {
+	b, err := readFile("webgui/log.html")
+	if err != nil {
+		writer.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
+	writer.Write(b)
+}
+
 func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, listenAddr string, s *Supervisor, startedCb func()) {
 	if p.isHTTPServerStartedOnProtocol(protocol) {
 		startedCb()
 		return
 	}
-
-	conf := s.config
-	m := conf.GetPrograms()
-	for _, c := range m {
-		fmt.Println("Name:", c.Name)
-		//pro := s.procMgr.Find(val.Name)
-		//cfg := pro.GetConfig()
-		//realName := c.GetProgramName()
-		res := c.GetString("stdout_logfile", "")
-		//res := cfg.GetString(val.Name, "")
-		fmt.Println("res:", res)
-		fmt.Println("ConfigDir:", c.ConfigDir)
-	}
-
 	procCollector := process.NewProcCollector(s.procMgr)
 	prometheus.Register(procCollector)
 	mux := http.NewServeMux()
@@ -127,13 +150,38 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	supervisorRestHandler := NewSupervisorRestful(s).CreateSupervisorHandler()
 	mux.Handle("/supervisor/", newHTTPBasicAuth(user, password, supervisorRestHandler))
 
+	// 有bug已弃用
 	logtailHandler := NewLogtail(s).CreateHandler()
 	mux.Handle("/logtail/", newHTTPBasicAuth(user, password, logtailHandler))
 
 	webguiHandler := NewSupervisorWebgui(s).CreateHandler()
 	mux.Handle("/", newHTTPBasicAuth(user, password, webguiHandler))
 
+	// conf 文件
+	confHandler := NewConfApi(s).CreateHandler()
+	mux.Handle("/conf/", newHTTPBasicAuth(user, password, confHandler))
+
+	// 读log.html文件
+	mux.HandleFunc("/log", readLogHtml)
+
 	mux.Handle("/metrics", promhttp.Handler())
+
+	// 注册日志路由,可以查看日志目录
+	entryList := s.config.GetPrograms()
+	for _, c := range entryList {
+		realName := c.GetProgramName()
+		if realName == "" {
+			continue
+		}
+
+		filePath := c.GetString("stdout_logfile", "")
+		if filePath == "" {
+			continue
+		}
+		dir := filepath.Dir(filePath)
+		fmt.Println(dir)
+		mux.Handle("/log/"+realName+"/", http.StripPrefix("/log/"+realName+"/", http.FileServer(http.Dir(dir))))
+	}
 
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
