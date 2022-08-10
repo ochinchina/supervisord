@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Demo of ACE Editor</title>
+    <meta charset="UTF-8">
+    <title>ConfFile</title>
     <!--导入js库-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js" type="text/javascript"
             charset="utf-8"></script>
@@ -9,6 +10,7 @@
             charset="utf-8"></script>
     <script src="js/axios.min.js"></script>
     <script src='js/jquery-3.3.1.min.js'></script>
+    <script src="js/common.js"></script>
     <link rel="stylesheet" href="css/bootstrap.min.css"/>
     <link rel="stylesheet" href="css/bootstrap-table.css"/>
     <link rel="stylesheet" href="css/bootstrap-dialog.min.css"/>
@@ -16,21 +18,9 @@
 
 <body>
 <!--代码输入框（注意请务必设置高度，否则无法显示）-->
-<pre id="code" class="ace_editor" style="min-height:400px">
-    <textarea id="text_conf" class="ace_text-input">
-[inet_http_server]
-port = :9001
-
-[program:linx-test]
-directory = /export/home/maguozhi/code/go/test_prometheus
-command = ./test
-
-[program:ddc]
-directory = /export/home/maguozhi/unrealddc
-command = ./unreal_httpddc_server
-stdout_logfile = /export/home/maguozhi/unrealddc/logs/console.log
-stderr_logfile = /export/home/maguozhi/unrealddc/logs/console.log
-    </textarea>
+<pre id="code" class="ace_editor" style="min-height:600px">
+ <textarea id="text_conf" class="ace_text-input">
+</textarea>
 </pre>
 <button class="btn btn-primary">
     Save
@@ -53,6 +43,26 @@ stderr_logfile = /export/home/maguozhi/unrealddc/logs/console.log
 
     //自动换行,设置为off关闭
     editor.setOption("wrap", "free")
+
+    $(document).ready(function () {
+        console.log("hello world!")
+        let name = getUrlVars()["name"]
+        getConfFile(name)
+    });
+
+    function getConfFile(name) {
+        if (name === undefined || name.length === 0){
+            alert("need url variable name")
+            return
+        }
+        axios.get("/conf/" + name).then(function (response) {
+            console.log(response.data)
+            editor.setValue(response.data)
+        }).catch(function (err){
+            alert("ERROR:此程序未配置conf文件，如需配置参考conf_file")
+        })
+
+    }
 
 </script>
 

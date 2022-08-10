@@ -160,6 +160,16 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	// conf 文件
 	confHandler := NewConfApi(s).CreateHandler()
 	mux.Handle("/conf/", newHTTPBasicAuth(user, password, confHandler))
+	mux.HandleFunc("/confFile", func(writer http.ResponseWriter, request *http.Request) {
+		b, err := readFile("webgui/conf.html")
+		if err != nil {
+			writer.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		writer.WriteHeader(http.StatusOK)
+		writer.Write(b)
+	})
 
 	// 读log.html文件
 	mux.HandleFunc("/log", readLogHtml)
