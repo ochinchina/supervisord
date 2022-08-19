@@ -118,6 +118,10 @@ func NewProcess(supervisorID string, config *config.Entry) *Process {
 	return proc
 }
 
+func (p *Process) GetConfig() *config.Entry {
+	return p.config
+}
+
 // add this process to crontab
 func (p *Process) addToCron() {
 	s := p.config.GetString("cron", "")

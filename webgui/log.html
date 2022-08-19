@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LOG</title>
+</head>
+<body>
+<script src="js/axios.min.js"></script>
+<script src='js/jquery-3.3.1.min.js'></script>
+<script src="js/common.js"></script>
+<link rel="stylesheet" href="css/bootstrap.min.css"/>
+<link rel="stylesheet" href="css/bootstrap-table.css"/>
+<link rel="stylesheet" href="css/bootstrap-dialog.min.css"/>
+<div id="app">
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        let name = getUrlVars()["name"];
+        console.log(name)
+        getLogDir(name);
+    });
+
+    function getLogDir(name) {
+        if (name === undefined || name.length === 0){
+            $("#app").html("need url variable name")
+            return
+        }
+
+        axios.get("/log/" + name).then(function (response) {
+            console.log(response.data)
+            $("#app").html(response.data)
+
+            $("a").each(function(){
+                $old_url = $(this).attr('href');
+                $new_url = '/log/' + name +"/" +$old_url;
+                $(this).attr('href',$new_url);//changed this line
+                console.log($new_url)
+            });
+
+            $("a").addClass("text-success")
+            $("a").addClass("font-weight-bold")
+            $("a").css("font-size","20px")
+            $("a").css("line-height","30px")
+        }).catch(function (err){
+           alert("ERROR:此程序未配置日志，如需配置参考stdout_logfile")
+        })
+
+    }
+
+
+</script>
+</body>
+</html>

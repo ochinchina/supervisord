@@ -101,7 +101,7 @@ func loadEnvFile() {
 // 6. ../supervisord.conf (Relative to the executable)
 func findSupervisordConf() (string, error) {
 	possibleSupervisordConf := []string{options.Configuration,
-		"./supervisord.conf",
+		"./supervisord.ini",
 		"./etc/supervisord.conf",
 		"/etc/supervisord.conf",
 		"/etc/supervisor/supervisord.conf",
