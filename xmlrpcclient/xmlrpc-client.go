@@ -272,18 +272,11 @@ func (r *XMLRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 	reply.AddedGroup = make([]string, 0)
 	reply.ChangedGroup = make([]string, 0)
 	reply.RemovedGroup = make([]string, 0)
-	i := -1
-	hasValue := false
-	xmlProcMgr.AddNonLeafProcessor("methodResponse/params/param/value/array/data", func() {
-		if hasValue {
-			hasValue = false
-		} else {
-			i++
-		}
+	i := 0
+	xmlProcMgr.AddSwitchTypeProcessor("methodResponse/params/param/value/array/data", func() {
+		i++
 	})
 	xmlProcMgr.AddLeafProcessor("methodResponse/params/param/value/array/data/value", func(value string) {
-		hasValue = true
-		i++
 		switch i {
 		case 0:
 			reply.AddedGroup = append(reply.AddedGroup, value)
@@ -348,7 +341,7 @@ func (r *XMLRPCClient) GetProcessInfo(process string) (reply types.ProcessInfo, 
 
 // StartProcess Start a process
 func (r *XMLRPCClient) StartProcess(process string, wait bool) (reply types.BooleanReply, err error) {
-	ins := struct{
+	ins := struct {
 		Name string
 		Wait bool
 	}{
@@ -376,7 +369,7 @@ func (r *XMLRPCClient) StartProcess(process string, wait bool) (reply types.Bool
 
 // StopProcess Stop a process named by name
 func (r *XMLRPCClient) StopProcess(process string, wait bool) (reply types.BooleanReply, err error) {
-	ins := struct{
+	ins := struct {
 		Name string
 		Wait bool
 	}{
@@ -404,7 +397,7 @@ func (r *XMLRPCClient) StopProcess(process string, wait bool) (reply types.Boole
 
 // StartAllProcesses Start all processes listed in the configuration file
 func (r *XMLRPCClient) StartAllProcesses(wait bool) (reply AllProcStatusInfoReply, err error) {
-	ins := struct{ Wait bool }{ wait }
+	ins := struct{ Wait bool }{wait}
 	r.post("supervisor.startAllProcesses", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
@@ -416,7 +409,7 @@ func (r *XMLRPCClient) StartAllProcesses(wait bool) (reply AllProcStatusInfoRepl
 
 // StopAllProcesses Stop all processes in the process list
 func (r *XMLRPCClient) StopAllProcesses(wait bool) (reply AllProcStatusInfoReply, err error) {
-	ins := struct{ Wait bool }{ wait }
+	ins := struct{ Wait bool }{wait}
 	r.post("supervisor.stopAllProcesses", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
