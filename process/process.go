@@ -619,7 +619,25 @@ func (p *Process) run(finishCb func()) {
 		}
 		log.WithFields(log.Fields{"program": p.GetName()}).Debug("wait program exit")
 		p.lock.Unlock()
-		p.waitForExit(startSecs)
+
+		procExitC := make(chan struct{})
+		go func() {
+			p.waitForExit(startSecs)
+			close(procExitC)
+		}()
+
+	LOOP:
+		for {
+			select {
+			case <-procExitC:
+				break LOOP
+			default:
+				if !p.isRunning() {
+					break LOOP
+				}
+			}
+			time.Sleep(time.Duration(100) * time.Millisecond)
+		}
 
 		atomic.StoreInt32(&programExited, 1)
 		// wait for monitor thread exit
