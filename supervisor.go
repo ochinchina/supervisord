@@ -32,7 +32,8 @@ type Supervisor struct {
 	procMgr    *process.Manager // process manager
 	xmlRPC     *XMLRPC          // XMLRPC interface
 	logger     logger.Logger    // logger manager
-	restarting bool             // if supervisor is in restarting state
+	lock       sync.Mutex
+	restarting bool // if supervisor is in restarting state
 }
 
 // StartProcessArgs arguments for starting a process
@@ -227,7 +228,7 @@ func (s *Supervisor) GetProcessInfo(r *http.Request, args *struct{ Name string }
 	log.Info("Get process info of: ", args.Name)
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("no process named %s", args.Name)
+		return fmt.Errorf("BAD_NAME no process named %s", args.Name)
 	}
 
 	reply.ProcInfo = *getProcessInfo(proc)
@@ -431,7 +432,9 @@ func (s *Supervisor) SendRemoteCommEvent(r *http.Request, args *RemoteCommEvent,
 }
 
 // Reload supervisord configuration.
-func (s *Supervisor) Reload() (addedGroup []string, changedGroup []string, removedGroup []string, err error) {
+func (s *Supervisor) Reload(restart bool) (addedGroup []string, changedGroup []string, removedGroup []string, err error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	// get the previous loaded programs
 	prevPrograms := s.config.GetProgramNames()
 	prevProgGroup := s.config.ProgramGroup.Clone()
@@ -447,7 +450,9 @@ func (s *Supervisor) Reload() (addedGroup []string, changedGroup []string, remov
 		s.setSupervisordInfo()
 		s.startEventListeners()
 		s.createPrograms(prevPrograms)
-		s.startHTTPServer()
+		if restart {
+			s.startHTTPServer()
+		}
 		s.startAutoStartPrograms()
 	}
 	removedPrograms := util.Sub(prevPrograms, loadedPrograms)
@@ -604,7 +609,7 @@ func toLogLevel(level string) log.Level {
 // ReloadConfig reloads supervisord configuration file
 func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *types.ReloadConfigResult) error {
 	log.Info("start to reload config")
-	addedGroup, changedGroup, removedGroup, err := s.Reload()
+	addedGroup, changedGroup, removedGroup, err := s.Reload(false)
 	if len(addedGroup) > 0 {
 		log.WithFields(log.Fields{"groups": strings.Join(addedGroup, ",")}).Info("added groups")
 	}
