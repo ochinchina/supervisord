@@ -7,3 +7,5 @@ debug
 go-debug.json
 vendor
 supervisord_linux_amd64
+upx
+dist
