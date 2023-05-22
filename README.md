@@ -136,7 +136,8 @@ Supervised program settings configured in [program:programName] section and incl
 - **stderr_logfile**. Where STDERR of supervised command should be redirected. (Particular values described lower in this file).
 - **stderr_logfile_maxbytes**. Log size after exceed which log will be rotated.
 - **stderr_logfile_backups**. Number of rotated log-files to preserve.
-- **environment**. List of VARIABLE=value to be passed to supervised program.
+- **environment**. List of VARIABLE=value to be passed to supervised program. It has higher priority than `envFiles`.
+- **envFiles**. List of .env files to be loaded and passed to supervised program. 
 - **priority**. The relative priority of the program in the start and shutdown ordering
 - **user**. Sudo to this USER or USER:GROUP right before exec supervised command.
 - **directory**. Jump to this path and exec supervised command there.
@@ -171,6 +172,7 @@ In example below the VAR1 and VAR2 environment variables apply to both test1 and
 ```ini
 [program-default]
 environment=VAR1="value1",VAR2="value2"
+envFiles=global.env,prod.env
 
 [program:test1]
 ...
