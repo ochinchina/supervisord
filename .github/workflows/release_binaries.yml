@@ -1,0 +1,46 @@
+---
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install cross-compiler for linux/arm64
+        run: sudo apt-get update -q && sudo apt-get -y install gcc-aarch64-linux-gnu
+
+      - name: Install UPX
+        env:
+          UPXVER: "4.0.2"
+        run: |
+          if [[ ! -f "upx/${UPXVER}/upx" ]]; then
+            echo "Installing upx .."
+            curl -OL "https://github.com/upx/upx/releases/download/v${UPXVER}/upx-${UPXVER}-amd64_linux.tar.xz"
+            tar xvf "upx-${UPXVER}-amd64_linux.tar.xz"
+            mkdir -p upx
+            mv "upx-${UPXVER}-amd64_linux" "upx/${UPXVER}"
+            rm -f "upx-${UPXVER}-amd64_linux.tar.xz"
+          fi
+          export PATH="./upx/${UPXVER}/:${PATH}"
+          upx --version | grep -E '^upx'
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GA_TOKEN }}
