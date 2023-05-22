@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
-	"github.com/ochinchina/supervisord/types"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/ochinchina/supervisord/types"
 )
 
 // SupervisorRestful the restful interface to control the programs defined in configuration file
@@ -150,7 +151,7 @@ func (sr *SupervisorRestful) Reload(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
 	reply := struct{ Ret bool }{false}
-	sr.supervisor.Reload()
+	sr.supervisor.Reload(false)
 	r := map[string]bool{"success": reply.Ret}
 	json.NewEncoder(w).Encode(&r)
 }
