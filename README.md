@@ -17,6 +17,11 @@ To compile supervisord for **linux**, run following commands:
 1. go generate
 2. GOOS=linux go build -tags release -a -ldflags "-linkmode external -extldflags -static" -o supervisord
 
+To compile supervisord for **windows**, run following commands on one `Windows PC`:
+
+1. go mod tidy
+2. go build -tags release -o supervisord.exe
+
 # Run the supervisord
 
 After a supervisord binary has been generated, create a supervisord configuration file and start the supervisord like this:
