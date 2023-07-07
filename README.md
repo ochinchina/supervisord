@@ -165,7 +165,7 @@ depends_on = B, C
 
 ## Set default parameters for all supervised programs
 
-All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omited in all other program sections.
+All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omitted in all other program sections.
 
 In example below the VAR1 and VAR2 environment variables apply to both test1 and test2 supervised programs:
 
