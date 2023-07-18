@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mitchellh/go-ps"
 	"github.com/ochinchina/filechangemonitor"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
@@ -396,7 +397,7 @@ func (p *Process) getExitCodes() []int {
 func (p *Process) isRunning() bool {
 	if p.cmd != nil && p.cmd.Process != nil {
 		if runtime.GOOS == "windows" {
-			proc, err := os.FindProcess(p.cmd.Process.Pid)
+			proc, err := ps.FindProcess(p.cmd.Process.Pid)
 			return proc != nil && err == nil
 		}
 		return p.cmd.Process.Signal(syscall.Signal(0)) == nil
@@ -523,6 +524,13 @@ func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited *int3
 	}
 }
 
+// 这个函数可能有以下几种执行完成的情况：
+//
+// 1. 程序正在运行中，因此函数直接返回。
+// 2. 程序尚未运行，函数开始尝试多次启动程序，直到启动成功。
+// 3. 程序成功启动并正在运行中，函数启动了一个后台监视程序来监视程序运行情况，并向 `finishCb` 函数传递一个标记告知程序已停止，函数直接返回。
+// 4. 程序启动失败，超出了尝试次数，函数将程序状态标记为 `FATAL`，并向 `finishCb` 函数传递一个标记告知程序已停止，函数直接返回。
+// 5. 程序被终止或运行失败，超出了重试次数，函数将程序状态标记为 `EXITED`，并向 `finishCb` 函数传递一个标记告知程序已停止，函数直接返回。
 func (p *Process) run(finishCb func()) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
