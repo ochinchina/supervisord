@@ -608,6 +608,7 @@ func (p *Process) run(finishCb func()) {
 		// Set startsec to 0 to indicate that the program needn't stay
 		// running for any particular amount of time.
 		if startSecs <= 0 {
+			atomic.StoreInt32(&monitorExited, 1)
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("success to start program")
 			p.changeStateTo(Running)
 			go finishCbWrapper()
@@ -998,6 +999,9 @@ func (p *Process) Stop(wait bool) {
 
 // GetStatus returns status of program as a string
 func (p *Process) GetStatus() string {
+	if p.cmd.ProcessState == nil {
+		return "<nil>"
+	}
 	if p.cmd.ProcessState.Exited() {
 		return p.cmd.ProcessState.String()
 	}
