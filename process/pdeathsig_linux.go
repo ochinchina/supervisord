@@ -8,5 +8,4 @@ import (
 
 func setDeathsig(sysProcAttr *syscall.SysProcAttr) {
 	sysProcAttr.Setpgid = true
-	sysProcAttr.Pdeathsig = syscall.SIGKILL
 }
