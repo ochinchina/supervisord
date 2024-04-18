@@ -224,7 +224,9 @@ func (p *Process) GetDescription() string {
 		}
 		return fmt.Sprintf("pid %d, uptime %d:%02d:%02d", p.cmd.Process.Pid, hours%24, minutes%60, seconds%60)
 	} else if p.state != Stopped {
-		return p.stopTime.String()
+                if p.stopTime.Unix() > 0 {
+			return p.stopTime.String()
+		}
 	}
 	return ""
 }
