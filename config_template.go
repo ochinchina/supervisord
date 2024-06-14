@@ -62,6 +62,7 @@ stderr_logfile_backups=10
 stderr_capture_maxbytes=0
 stderr_events_enabled=false
 environment=KEY="val",KEY2="val2"
+envFiles=global.env,prod.env
 directory=/tmp
 #umask=not support
 serverurl=AUTO
@@ -100,6 +101,7 @@ stderr_logfile_backups=10
 stderr_capture_maxbytes=0
 stderr_events_enabled=false
 environment=KEY="val",KEY2="val2"
+envFiles=global.env,prod.env
 directory=/tmp
 #umask=not support
 serverurl=AUTO

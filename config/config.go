@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-envparse"
 	"github.com/ochinchina/go-ini"
 	log "github.com/sirupsen/logrus"
 )
@@ -376,6 +377,33 @@ func parseEnv(s string) *map[string]string {
 	return &result
 }
 
+func parseEnvFiles(s string) *map[string]string {
+	result := make(map[string]string)
+	for _, envFilePath := range strings.Split(s, ",") {
+		envFilePath = strings.TrimSpace(envFilePath)
+		f, err := os.Open(envFilePath)
+		if err != nil {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"file":       envFilePath,
+			}).Error("Read file failed: " + envFilePath)
+			continue
+		}
+		r, err := envparse.Parse(f)
+		if err != nil {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"file":       envFilePath,
+			}).Error("Parse env file failed: " + envFilePath)
+			continue
+		}
+		for k, v := range r {
+			result[k] = v
+		}
+	}
+	return &result
+}
+
 // GetEnv returns slice of strings with keys separated from values by single "=". An environment string example:
 //  environment = A="env 1",B="this is a test"
 func (c *Entry) GetEnv(key string) []string {
@@ -384,6 +412,29 @@ func (c *Entry) GetEnv(key string) []string {
 
 	if ok {
 		for k, v := range *parseEnv(value) {
+			tmp, err := NewStringExpression("program_name", c.GetProgramName(),
+				"process_num", c.GetString("process_num", "0"),
+				"group_name", c.GetGroupName(),
+				"here", c.ConfigDir).Eval(fmt.Sprintf("%s=%s", k, v))
+			if err == nil {
+				result = append(result, tmp)
+			}
+		}
+	}
+
+	return result
+}
+
+// GetEnvFromFiles returns slice of strings with keys separated from values by single "=". An envFile example:
+//  envFiles = global.env,prod.env
+// cat global.env
+// varA=valueA
+func (c *Entry) GetEnvFromFiles(key string) []string {
+	value, ok := c.keyValues[key]
+	result := make([]string, 0)
+
+	if ok {
+		for k, v := range *parseEnvFiles(value) {
 			tmp, err := NewStringExpression("program_name", c.GetProgramName(),
 				"process_num", c.GetString("process_num", "0"),
 				"group_name", c.GetGroupName(),

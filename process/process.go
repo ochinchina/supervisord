@@ -740,9 +740,10 @@ func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
 }
 
 func (p *Process) setEnv() {
+	envFromFiles := p.config.GetEnvFromFiles("envFiles")
 	env := p.config.GetEnv("environment")
-	if len(env) != 0 {
-		p.cmd.Env = append(os.Environ(), env...)
+	if len(env)+len(envFromFiles) != 0 {
+		p.cmd.Env = append(append(os.Environ(), envFromFiles...), env...)
 	} else {
 		p.cmd.Env = os.Environ()
 	}
