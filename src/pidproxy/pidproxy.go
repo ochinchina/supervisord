@@ -108,6 +108,7 @@ func printUsage() {
 	fmt.Println("Usage: pidproxy [-exit-daemon-stop] <pidfile> <command> [args...]")
 	fmt.Println("exit-daemon-stop  exit this pidproxy if the started daemon exits")
 }
+
 func main() {
 	var args []string
 	exitIfDaemonStopped := false

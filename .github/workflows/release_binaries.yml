@@ -11,7 +11,7 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install cross-compiler for linux/arm64
         run: sudo apt-get update -q && sudo apt-get -y install gcc-aarch64-linux-gnu
@@ -34,7 +34,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.22
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4
