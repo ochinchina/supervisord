@@ -1,3 +1,5 @@
+version: 2
+
 project_name: supervisord
 
 env:
@@ -92,7 +94,7 @@ archives:
 
 release:
   github:
-    owner: ochinchina
+    owner: cyralinc
     name: supervisord
   draft: false
   prerelease: auto
