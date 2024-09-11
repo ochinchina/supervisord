@@ -93,9 +93,6 @@ archives:
       - none*
 
 release:
-  github:
-    owner: cyralinc
-    name: supervisord
   draft: false
   prerelease: auto
   name_template: "{{.ProjectName}}-v{{.Version}}"
