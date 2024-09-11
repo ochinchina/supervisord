@@ -1,6 +1,6 @@
 module github.com/ochinchina/supervisord/xmlrpcclient
 
-go 1.16
+go 1.22
 
 require (
 	github.com/gorilla/rpc v1.2.0 // indirect

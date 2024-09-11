@@ -1,6 +1,6 @@
 deployment:
-  master:
-    branch: [master]
+  main:
+    branch: [main]
     commands:
       - go version
       - go get github.com/mitchellh/gox

@@ -2,9 +2,9 @@
 #
 # Build with:
 #
-# docker build . -f Dockerfile.github -t ochinchina/supervisord:latest
+# docker build . -f Dockerfile.github -t cyralinc/supervisord:latest
 #
-FROM golang:alpine as builder
+FROM golang:1.22-alpine3.20 AS builder
 
 RUN apk add --no-cache --update git
 
@@ -14,9 +14,9 @@ RUN mkdir -p $GOPATH/src/golang.org/x && \
     git clone https://github.com/golang/sys
 
 # Exit 0 to ignore meta tag complaints
-RUN go get -v -u github.com/ochinchina/supervisord; exit 0
+RUN go get -v -u github.com/cyralinc/supervisord; exit 0
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-extldflags -static" -o /usr/local/bin/supervisord github.com/ochinchina/supervisord
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-extldflags -static" -o /usr/local/bin/supervisord github.com/cyralinc/supervisord
 
 FROM scratch
 

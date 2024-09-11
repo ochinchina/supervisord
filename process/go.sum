@@ -41,6 +41,8 @@ github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/gorilla/rpc v1.2.0 h1:WvvdC2lNeT1SP32zrIce5l0ECBfbAlmrmSBsuc57wfk=
 github.com/gorilla/rpc v1.2.0/go.mod h1:V4h9r+4sF5HnzqbwIez0fKSpANP0zlYd3qR7p36jkTQ=
+github.com/hashicorp/go-envparse v0.1.0 h1:bE++6bhIsNCPLvgDZkYqo3nA+/PFI51pkrHdmPSDFPY=
+github.com/hashicorp/go-envparse v0.1.0/go.mod h1:OHheN1GoygLlAkTlXLXvAdnXdZxy8JUweQ1rAXx1xnc=
 github.com/jpillora/backoff v1.0.0/go.mod h1:J/6gKK9jxlEcS3zixgDgUAsiuZ7yrSoa/FX5e0EB2j4=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.10/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
@@ -67,18 +69,6 @@ github.com/ochinchina/go-ini v1.0.1 h1:qrKGrgxJjY+4H8aV7B2HPohShzHGrymW+/X1Gx933
 github.com/ochinchina/go-ini v1.0.1/go.mod h1:Tqs5+JmccLSNMX1KXbbyG/B3ro4J9uXVYC5U5VOeRE8=
 github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c h1:6xgMUqscagnZicBedm1h4T3q6IQHbrrZp7bker+toOI=
 github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c/go.mod h1:/gFmJ8Das0jFgYxzt/RkvAO62T/ZPcyTaZlOkEBu/jw=
-github.com/ochinchina/supervisord/config v0.0.0-20220721095143-c2527852d28f h1:gIHtOgmQQPYdXAXlNWzuS5F2QIGVO2I5FCy002QcQTs=
-github.com/ochinchina/supervisord/config v0.0.0-20220721095143-c2527852d28f/go.mod h1:jMN/SL0T6GCWWG/dD7Les9iPqjQ2OjEVyBWx8c9RJqI=
-github.com/ochinchina/supervisord/events v0.0.0-20220721095143-c2527852d28f h1:4lMzp4SZ74EPwBHHB4yXj4F8ZiYlMZBIoUcXY9aaRvI=
-github.com/ochinchina/supervisord/events v0.0.0-20220721095143-c2527852d28f/go.mod h1:I+vx/d8jVSVe0nmhaJUPuouUnhpfUUiUbDciSDViL5I=
-github.com/ochinchina/supervisord/faults v0.0.0-20220721095143-c2527852d28f h1:LVTLViuwGGKrIELAwjbrF9hqTlLH1GuMdGUpUWTH62s=
-github.com/ochinchina/supervisord/faults v0.0.0-20220721095143-c2527852d28f/go.mod h1:kReR3fnUfV2OHFESJ9IDriCTg/VU1D0cFfNPNOnMQCs=
-github.com/ochinchina/supervisord/logger v0.0.0-20220721095143-c2527852d28f h1:y4rKKo9PCNXONiz8O9StGV0M9zvdiKICoT46Sseh+7k=
-github.com/ochinchina/supervisord/logger v0.0.0-20220721095143-c2527852d28f/go.mod h1:DPIKvK0KqJdneJKrAqfLNgONWZ3m4cRAi96PG0A7deg=
-github.com/ochinchina/supervisord/signals v0.0.0-20220721095143-c2527852d28f h1:VMEbkgaQtcXv4TXpJx2j0ROHKrNX5vkmFTMVNNd/7Ek=
-github.com/ochinchina/supervisord/signals v0.0.0-20220721095143-c2527852d28f/go.mod h1:o2x4RZxVWzKvgbSOv7G8z94pITwuweY+ZkITvp/VqGY=
-github.com/ochinchina/supervisord/util v0.0.0-20220721095143-c2527852d28f h1:onQeBQXBdsGR9+tbuGveT+Zlfy6K7CBhCZCB2gg0j30=
-github.com/ochinchina/supervisord/util v0.0.0-20220721095143-c2527852d28f/go.mod h1:V/yb0hfd2ax3Pzn83yoxBxww4HLJ5AXYH+rQBCieqcU=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
