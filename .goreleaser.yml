@@ -1,3 +1,5 @@
+version: 2
+
 project_name: supervisord
 
 env:
@@ -91,9 +93,6 @@ archives:
       - none*
 
 release:
-  github:
-    owner: ochinchina
-    name: supervisord
   draft: false
   prerelease: auto
   name_template: "{{.ProjectName}}-v{{.Version}}"
