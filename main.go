@@ -48,7 +48,7 @@ func initSignals(s *Supervisor) {
 		sig := <-sigs
 		log.WithFields(log.Fields{"signal": sig}).Info("receive a signal to stop all process & exit")
 		s.procMgr.StopAllProcesses()
-		os.Exit(-1)
+		os.Exit(0)
 	}()
 
 }
