@@ -1,26 +1,57 @@
----
 name: CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ main ]
+    paths-ignore:
+      - "*.md"
+
   pull_request:
-    branches: [ "master" ]
+    branches: [ main ]
+    paths-ignore:
+      - "*.md"
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BUILDKIT_PROGRESS: "plain"  # Full logs for CI build.
+  REGISTRY_URL: "docker.io"  # docker.io or other target registry URL: where to push images to.
+  REGISTRY_SRC: "docker.io"  # For BASE_NAMESPACE of images: where to pull base images from.
+  # DOCKER_REGISTRY_USERNAME and DOCKER_REGISTRY_PASSWORD is required for docker image push, they should be set in CI secrets.
+  DOCKER_REGISTRY_USERNAME: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+  DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+  # used to sync image to mirror registry
+  DOCKER_MIRROR_REGISTRY_USERNAME: ${{ secrets.DOCKER_MIRROR_REGISTRY_USERNAME }}
+  DOCKER_MIRROR_REGISTRY_PASSWORD: ${{ secrets.DOCKER_MIRROR_REGISTRY_PASSWORD }}
 
 jobs:
-
-  build:
+  build_docker_image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.18
+          go-version: 1.22
+      - uses: actions/checkout@v4
 
-      - name: Build
-        run: go build -v ./...
+      - name: Build Docker
+        run: |
+          source ./tool.sh && build_image supervisord latest src/supervisord.Dockerfile && push_image
 
-      - name: Test
-        run: go test -v ./...
+  build_binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Binary
+        run: |
+          set -eux
+          pwd && ls -alh *
+          cd src/supervisord
+          go mod tidy
+          go test -v
+          go build -v -o ../../build/
+          cd ../../
+          mv src/etc src/webgui ./build/
+          ls -alh build

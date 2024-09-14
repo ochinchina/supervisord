@@ -1,6 +1,0 @@
-github.com/gorilla/rpc v1.2.0 h1:WvvdC2lNeT1SP32zrIce5l0ECBfbAlmrmSBsuc57wfk=
-github.com/gorilla/rpc v1.2.0/go.mod h1:V4h9r+4sF5HnzqbwIez0fKSpANP0zlYd3qR7p36jkTQ=
-github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c h1:6xgMUqscagnZicBedm1h4T3q6IQHbrrZp7bker+toOI=
-github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c/go.mod h1:/gFmJ8Das0jFgYxzt/RkvAO62T/ZPcyTaZlOkEBu/jw=
-github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 h1:DE4LcMKyqAVa6a0CGmVxANbnVb7stzMmPkQiieyNmfQ=
-github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31/go.mod h1:qgYeAmZ5ZIpBWTGllZSQnw97Dj+woV0toclVaRGI8pc=

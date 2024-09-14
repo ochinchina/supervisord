@@ -1,6 +1,8 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/ochinchina/supervisord)](https://goreportcard.com/report/github.com/ochinchina/supervisord)
+# Go Implementation of Supervisord
 
-# Why this project?
+[![Go Report Card](https://goreportcard.com/badge/github.com/QPod/supervisord)](https://goreportcard.com/report/github.com/QPod/supervisord)
+
+## Why this project?
 
 The python script supervisord is a powerful tool used by a lot of guys to manage the processes. I like  supervisord too.
 
@@ -8,7 +10,7 @@ But this tool requires that the big python environment be installed in target sy
 
 This project re-implements supervisord in go-lang. Compiled supervisord is very suitable for environments where python is not installed.
 
-# Building the supervisord
+## Building the supervisord
 
 Before compiling the supervisord, make sure the go-lang 1.11+ is installed in your environment.
 
@@ -17,7 +19,7 @@ To compile supervisord for **linux**, run following commands:
 1. go generate
 2. GOOS=linux go build -tags release -a -ldflags "-linkmode external -extldflags -static" -o supervisord
 
-# Run the supervisord
+## Run the supervisord
 
 After a supervisord binary has been generated, create a supervisord configuration file and start the supervisord like this:
 
@@ -37,8 +39,7 @@ Please note that config-file location autodetected in this order:
 5. ../etc/supervisord.conf (Relative to the executable)
 6. ../supervisord.conf (Relative to the executable)
 
-
-# Run as daemon with web-ui
+### Run as daemon with web-ui
 
 Add the inet interface in your configuration:
 
@@ -50,27 +51,27 @@ port=127.0.0.1:9001
 then run
 
 ```shell
-$ supervisord -c supervisor.conf -d
+supervisord -c supervisor.conf -d
 ```
 
 In order to manage the daemon, you can use `supervisord ctl` subcommand, available subcommands are: `status`, `start`, `stop`, `shutdown`, `reload`.
 
 ```shell
-$ supervisord ctl status
-$ supervisord ctl status program-1 program-2...
-$ supervisord ctl status group:*
-$ supervisord ctl stop program-1 program-2...
-$ supervisord ctl stop group:*
-$ supervisord ctl stop all
-$ supervisord ctl start program-1 program-2...
-$ supervisord ctl start group:*
-$ supervisord ctl start all
-$ supervisord ctl shutdown
-$ supervisord ctl reload
-$ supervisord ctl signal <signal_name> <process_name> <process_name> ...
-$ supervisord ctl signal all
-$ supervisord ctl pid <process_name>
-$ supervisord ctl fg <process_name>
+supervisord ctl status
+supervisord ctl status program-1 program-2...
+supervisord ctl status group:*
+supervisord ctl stop program-1 program-2...
+supervisord ctl stop group:*
+supervisord ctl stop all
+supervisord ctl start program-1 program-2...
+supervisord ctl start group:*
+supervisord ctl start all
+supervisord ctl shutdown
+supervisord ctl reload
+supervisord ctl signal <signal_name> <process_name> <process_name> ...
+supervisord ctl signal all
+supervisord ctl pid <process_name>
+supervisord ctl fg <process_name>
 ```
 
 Please note that `supervisor ctl` subcommand works correctly only if http server is enabled in [inet_http_server], and **serverurl** correctly set. Unix domain socket is not currently supported for this pupose.
@@ -82,17 +83,17 @@ Serverurl parameter detected in the following order:
 - check if "serverurl" in section "supervisorctl" is defined in autodetected supervisord.conf-file location and if it is - use found value
 - use http://localhost:9001
 
-# Check the version
+## Check the version
 
 Command "version" will show the current supervisord binary version.
 
 ```shell
-$ supervisord version
+supervisord version
 ```
 
-# Supported features
+## Supported features
 
-## Http server
+### Http server
 
 Http server can work via both unix domain socket and TCP. Basic auth is optional and supported too.
 
@@ -101,7 +102,7 @@ The TCP http server setting is in "inet_http_server" section.
 
 If both "inet_http_server" and "unix_http_server" are not set up in the configuration file, no http server will be started.
 
-## Supervisord daemon settings
+### Supervisord daemon settings
 
 Following parameters configured in "supervisord" section:
 
@@ -114,7 +115,7 @@ Following parameters configured in "supervisord" section:
 - **minprocs**. Reserve at least this amount of processes resource on supervisord startup. (Rlimit noproc).
 - **identifier**. Identifier of this supervisord instance. Required if there is more than one supervisord run on one machine in same namespace.
 
-## Supervised program settings
+### Supervised program settings
 
 Supervised program settings configured in [program:programName] section and include these options:
 
@@ -163,7 +164,7 @@ depends_on = B, C
 ...
 ```
 
-## Set default parameters for all supervised programs
+### Set default parameters for all supervised programs
 
 All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omitted in all other program sections.
 
@@ -182,11 +183,11 @@ envFiles=global.env,prod.env
 
 ```
 
-## Group
+### Group
 
 Section "group" is supported and you can set "programs" item
 
-## Events
+### Events
 
 Supervisord 3.x defined events are supported partially. Now it supports following events:
 
@@ -196,7 +197,7 @@ Supervisord 3.x defined events are supported partially. Now it supports followin
 - tick related events
 - process log related events
 
-## Logs
+### Logs
 
 Supervisord can redirect stdout and stderr ( fields stdout_logfile, stderr_logfile ) of supervised programs to:
 
@@ -213,25 +214,26 @@ Multiple log files can be configured for the stdout_logfile and stderr_logfile w
 stdout_logfile = test.log, /dev/stdout
 ```
 
-### syslog settings
+#### syslog settings
 
 if write the log to the syslog, following additional parameter can be set like:
+
 ```ini
 syslog_facility=local0
 syslog_tag=test
 syslog_stdout_priority=info
 syslog_stderr_priority=err
 ```
+
 - **syslog_facility**, can be one of(case insensitive): KERNEL, USER, MAIL, DAEMON, AUTH, SYSLOG, LPR, NEWS, UUCP, CRON, AUTHPRIV, FTP, LOCAL0~LOCAL7
 - **syslog_stdout_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
 - **syslog_stderr_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
 
-
-# Web GUI
+## Web GUI
 
 Supervisord has builtin web GUI: you can start, stop & check the status of program from the GUI. Following picture shows the default web GUI:
 
-![alt text](https://github.com/ochinchina/supervisord/blob/master/go_supervisord_gui.png)
+![screenshot of webui](https://raw.githubusercontent.com/QPod/supervisord/main/doc/go_supervisord_gui.png)
 
 Please note that in order to see|use Web GUI you should configure it in /etc/supervisord.conf both in [inet_http_server] (and|or [unix_http_server] if you prefer unix domain socket) and [supervisorctl]:
 
@@ -245,24 +247,24 @@ port=127.0.0.1:9001
 serverurl=http://127.0.0.1:9001
 ```
 
-# Usage from a Docker container
+## Usage from a Docker container
 
 supervisord is compiled inside a Docker image to be used directly inside another image, from the Docker Hub version.
 
 ```Dockerfile
 FROM debian:latest
-COPY --from=ochinchina/supervisord:latest /usr/local/bin/supervisord /usr/local/bin/supervisord
-CMD ["/usr/local/bin/supervisord"]
+COPY --from=QPod/supervisord:latest /opt/supervisord /opt/supervisord
+CMD ["/opt/supervisord/supervisord"]
 ```
 
-# Integrate with Prometheus
+## Integrate with Prometheus
 
 The Prometheus node exporter supported supervisord metrics are now integrated into the supervisor. So there is no need to deploy an extra node_exporter to collect the supervisord metrics. To collect the metrics, the port parameter in section "inet_http_server" must be configured and the metrics server is started on the path /metrics of the supervisor http server.
 
 For example, if the port parameter in "inet_http_server" is "127.0.0.1:9001" and then the metrics server should be accessed in url "http://127.0.0.1:9001/metrics" 
 
 
-# Register service
+## Register service
 
 Autostart supervisord after os started. Look up supported platforms at [kardianos/service](https://github.com/kardianos/service).
 
@@ -276,4 +278,3 @@ supervisord service start
 # stop
 supervisord service stop
 ```
-
