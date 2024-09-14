@@ -1,18 +1,15 @@
-name: CI
+name: Build Go
 
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - "*.md"
+    tags: [ "v*" ]
 
   pull_request:
-    branches: [ main ]
-    paths-ignore:
-      - "*.md"
+    branches: [ "main" ]
+    paths-ignore: [ "*.md" ]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,28 +27,68 @@ jobs:
   build_docker_image:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.22
       - uses: actions/checkout@v4
-
       - name: Build Docker
         run: |
-          source ./tool.sh && build_image supervisord latest src/supervisord.Dockerfile && push_image
+          source ./tool.sh
+          VER=$(date +%Y.%m%d.%H%M)${TAG_SUFFIX};
+          build_image_no_tag supervisord "ubuntu-${VER}" src/supervisord.Dockerfile --build-arg "BASE_NAMESPACE=library" --build-arg "BUILD_IMG=golang:alpine" --build-arg "BASE_IMG=alpine"
+          build_image_no_tag supervisord "alpine-${VER}" src/supervisord.Dockerfile --build-arg "BASE_NAMESPACE=qpod"    --build-arg "BUILD_IMG=go:latest"     --build-arg "BASE_IMG=ubuntu"
+          docker tag "${IMG_PREFIX}/supervisord:ubuntu-${VER}" "${IMG_PREFIX}/supervisord:latest" ;
+          push_image supervisord
 
   build_binary:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
       - name: Build Binary
         run: |
           set -eux
           pwd && ls -alh *
+          mkdir -pv build && mv src/etc src/webgui ./build/
           cd src/supervisord
-          go mod tidy
-          go test -v
+          go mod tidy && go test -v
           go build -v -o ../../build/
-          cd ../../
-          mv src/etc src/webgui ./build/
+          cd ../../  
           ls -alh build
+
+  build_goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+
+      - name: Install cross-compiler for linux/arm64, UPX
+        env:
+          VER_UPX: "4.2.4"
+        run: |
+          sudo apt-get update -q && sudo apt-get -y install gcc-aarch64-linux-gnu ;
+
+          URL_UPX="https://github.com/upx/upx/releases/download/v${VER_UPX}/upx-${VER_UPX}-amd64_linux.tar.xz" ;
+          echo "Installing upx ${VER_UPX} from: ${URL_UPX}" ;
+          curl -o /tmp/TMP.txz -sL $URL_UPX && tar -C /opt/ -xJf /tmp/TMP.txz && rm /tmp/TMP.txz ;
+          ln -sf /opt/upx-${VER_UPX}-amd64_linux /opt/upx
+          export PATH="/opt/upx/:${PATH}"
+          upx --version | grep -E '^upx'
+
+          cd src/supervisord && go mod tidy -e
+
+      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        # if not on a `tags/v*` git push, add `--snapshot` to flags
+        run: echo "flags=--snapshot" >> $GITHUB_ENV
+
+      - uses: goreleaser/goreleaser-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GA_TOKEN }}
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --verbose --clean ${{ env.flags }}
+          workdir: src/supervisord

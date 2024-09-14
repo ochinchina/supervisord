@@ -1,7 +1,7 @@
 #!/bin/bash
 set -xu
 
-CI_PROJECT_NAME=${GITHUB_REPOSITORY:-"QPod/lab-dev"}
+CI_PROJECT_NAME=${CI_PROJECT_NAME:-$GITHUB_REPOSITORY}
 CI_PROJECT_BRANCH=${GITHUB_HEAD_REF:-"main"}
 CI_PROJECT_SPACE=$(echo "${CI_PROJECT_BRANCH}" | cut -f1 -d'/')
 
@@ -9,15 +9,16 @@ if [ "${CI_PROJECT_BRANCH}" = "main" ] ; then
     # If on the main branch, docker images namespace will be same as CI_PROJECT_NAME's name space
     export CI_PROJECT_NAMESPACE="$(dirname ${CI_PROJECT_NAME})" ;
 else
-    # not main branch, docker namespace = {CI_PROJECT_NAME's name space} + "0" + {1st substr before / in CI_PROJECT_SPACE}
+    # not main branch, docker namespace = {CI_PROJECT_NAME's name space} + "-" + {1st substr before / in CI_PROJECT_SPACE}
     export CI_PROJECT_NAMESPACE="$(dirname ${CI_PROJECT_NAME})0${CI_PROJECT_SPACE}" ;
 fi
 
+export SRC_NAMESPACE="${REGISTRY_SRC:-docker.io}"
 export IMG_NAMESPACE=$(echo "${CI_PROJECT_NAMESPACE}" | awk '{print tolower($0)}')
 export IMG_PREFIX=$(echo "${REGISTRY_URL:-"docker.io"}/${IMG_NAMESPACE}" | awk '{print tolower($0)}')
 export TAG_SUFFIX="-$(git rev-parse --short HEAD)"
 
-echo "--------> CI_PROJECT_NAMESPACE=${CI_PROJECT_NAMESPACE}"
+echo "--------> CI_PROJECT_NAMESPACE=${CI_PROJECT_NAMESPACE}"  # use different namespace for dev/prd
 echo "--------> DOCKER_IMG_NAMESPACE=${IMG_NAMESPACE}"
 echo "--------> DOCKER_IMG_PREFIX=${IMG_PREFIX}"
 echo "--------> DOCKER_TAG_SUFFIX=${TAG_SUFFIX}"
@@ -31,21 +32,21 @@ docker info
 
 build_image() {
     echo "$@" ;
-    IMG=$1; TAG=$2; FILE=$3; shift 3; VER=$(date +%Y.%m%d.%H%M)${TAG_SUFFIX}; WORKDIR="$(dirname $FILE)";
-    docker build --compress --force-rm=true -t "${IMG_PREFIX}/${IMG}:${TAG}" -f "$FILE" --build-arg "BASE_NAMESPACE=${IMG_PREFIX}" "$@" "${WORKDIR}" ;
+    IMG=$1; TAG=$2; FILE=$3; shift 3; VER=$(date +%Y.%m%d.%H%M)${TAG_SUFFIX}; WORKDIR="$(pwd)";
+    docker build --compress --force-rm=true -t "${IMG_PREFIX}/${IMG}:${TAG}" -f "$FILE" --build-arg "BASE_NAMESPACE=${SRC_NAMESPACE}" "$@" "${WORKDIR}" ;
     docker tag "${IMG_PREFIX}/${IMG}:${TAG}" "${IMG_PREFIX}/${IMG}:${VER}" ;
 }
 
 build_image_no_tag() {
     echo "$@" ;
-    IMG=$1; TAG=$2; FILE=$3; shift 3; WORKDIR="$(dirname $FILE)";
-    docker build --compress --force-rm=true -t "${IMG_PREFIX}/${IMG}:${TAG}" -f "$FILE" --build-arg "BASE_NAMESPACE=${IMG_PREFIX}" "$@" "${WORKDIR}" ;
+    IMG=$1; TAG=$2; FILE=$3; shift 3; WORKDIR="$(pwd)";
+    docker build --compress --force-rm=true -t "${IMG_PREFIX}/${IMG}:${TAG}" -f "$FILE" --build-arg "BASE_NAMESPACE=${SRC_NAMESPACE}" "$@" "${WORKDIR}" ;
 }
 
 build_image_common() {
     echo "$@" ;
-    IMG=$1; TAG=$2; FILE=$3; shift 3; VER=$(date +%Y.%m%d.%H%M)${TAG_SUFFIX}; WORKDIR="$(dirname $FILE)";
-    docker build --compress --force-rm=true -t "${IMG_PREFIX}/${IMG}:${TAG}" -f "$FILE" --build-arg "BASE_NAMESPACE=${IMG_PREFIX}" "$@" "${WORKDIR}" ;
+    IMG=$1; TAG=$2; FILE=$3; shift 3; VER=$(date +%Y.%m%d.%H%M)${TAG_SUFFIX}; WORKDIR="$(pwd)";
+    docker build --compress --force-rm=true -t "${IMG_PREFIX}/${IMG}:${TAG}" -f "$FILE" --build-arg "BASE_NAMESPACE=${SRC_NAMESPACE}" "$@" "${WORKDIR}" ;
     docker tag "${IMG_PREFIX}/${IMG}:${TAG}" "${IMG_PREFIX}/${IMG}:${VER}" ;
 }
 
@@ -88,6 +89,5 @@ remove_folder() {
 free_diskspace() {
     remove_folder /usr/share/dotnet
     remove_folder /usr/local/lib/android
-    # remove_folder /var/lib/docker
     df -h
 }
