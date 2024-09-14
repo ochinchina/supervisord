@@ -5,7 +5,7 @@ import (
 )
 
 // VERSION the version of supervisor
-const VERSION = "v0.7.3"
+const VERSION = "v1.0.1"
 
 // VersionCommand implement the flags.Commander interface
 type VersionCommand struct {

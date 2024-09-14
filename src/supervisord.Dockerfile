@@ -31,6 +31,7 @@ ARG BASE_IMG="atom"
 FROM ${BASE_IMG}
 LABEL maintainer="haobibo@gmail.com"
 COPY --from=builder /opt/supervisord /opt/supervisord
-EXPOSE 9001
 WORKDIR /opt/supervisord/
-CMD ["/opt/supervisord/supervisord", "-c", "etc/supervisor.conf"]
+EXPOSE 9001
+VOLUME ["/var/log/supervisord/"]
+CMD ["/opt/supervisord/supervisord", "-c", "/opt/etc/supervisord.conf"]

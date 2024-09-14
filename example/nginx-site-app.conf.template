@@ -1,0 +1,56 @@
+# ------------------------------------------------------------
+# /etc/nginx/templates/site-app.conf.templates
+# site: app
+# ------------------------------------------------------------
+
+upstream upstream-app {
+  zone upstreams 64K;
+  server localhost:9999 max_fails=1 fail_timeout=2s;
+  keepalive 2;
+}
+
+server {
+  listen 80;
+  listen [::]:80;
+  # listen 443 ssl;
+  # listen [::]:443 ssl;
+  http2 on;
+
+  # server_name localhost;
+
+  access_log /var/log/nginx/site-app-access.log proxy;
+  error_log  /var/log/nginx/site-app-error.log  warn;
+
+  location ~* ^/.*\.(css|js|jpe?g|gif|png|webp|woff|woff2|eot|ttf|svg|ico|css\.map|js\.map|txt)$ {
+    set $forward_scheme http;
+    set $server         "app";
+    set $port           9999;
+    add_header Cache-Control "public, max-age=33730";
+    include /etc/nginx/conf.d/include/cache.conf;
+    include /etc/nginx/conf.d/include/proxy.conf;
+    proxy_pass http://upstream-app$request_uri;
+  }
+  location / {
+    set $forward_scheme http;
+    set $server         "app";
+    set $port           9999;
+    include /etc/nginx/conf.d/include/proxy.conf;
+    proxy_pass http://upstream-app$request_uri;
+  }
+
+  # Block Exploits
+  include /etc/nginx/conf.d/include/block-exploits.conf;  
+  # Let's Encrypt SSL
+  include /etc/nginx/conf.d/include/letsencrypt-acme-challenge.conf;
+  
+  # Custom Configs
+  # ssl_certificate     /etc/letsencrypt/live/certs/fullchain.pem;
+  # ssl_certificate_key /etc/letsencrypt/live/certs/privkey.pem;
+  # include /etc/nginx/conf.d/include/ssl-ciphers.conf;
+
+  # Dynamically generated resolvers file
+  include /etc/nginx/conf.d/include/resolvers.conf;
+
+  # Custom
+  include /etc/nginx/custom/server_proxy[.]conf;
+}
