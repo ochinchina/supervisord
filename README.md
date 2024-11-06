@@ -38,6 +38,7 @@ After a supervisord binary has been generated, create a supervisord configuratio
 $ cat supervisor.conf
 [program:test]
 command = /your/program args
+
 $ supervisord -c supervisor.conf
 ```
 

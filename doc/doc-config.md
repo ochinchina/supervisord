@@ -9,7 +9,7 @@ Following parameters configured in "supervisord" section:
 - **logfile_backups**. Number of rotated log-files to preserve.
 - **loglevel**. Logging verbosity, can be trace, debug, info, warning, error, fatal and panic (according to documentation of module used for this feature). Defaults to info.
 - **pidfile**. Full path to file containing process id of current supervisord instance.
-- **minfds**. Reserve al least this amount of file descriptors on supervisord startup. (Rlimit nofiles).
+- **minfds**. Reserve at least this amount of file descriptors on supervisord startup. (Rlimit nofiles).
 - **minprocs**. Reserve at least this amount of processes resource on supervisord startup. (Rlimit noproc).
 - **identifier**. Identifier of this supervisord instance. Required if there is more than one supervisord run on one machine in same namespace.
 
@@ -17,10 +17,10 @@ Following parameters configured in "supervisord" section:
 
 Supervised program settings configured in [program:programName] section and include these options:
 
-- **command**. Command to supervise. It can be given as full path to executable or can be calculated via PATH variable. Command line parameters also should be supplied in this string. 
+- **command**. Command for supervision. It can be given as full path to executable or can be calculated via PATH variable. Command line parameters also should be supplied in this string.
 - **process_name**. the process name
 - **numprocs**. number of process
-- **numprocs_start**. ??
+- **numprocs_start**. ?? (not supported)
 - **autostart**. Should be supervised command run on supervisord start? Defaults to **true**.
 - **startsecs**. The total number of seconds which the program needs to stay running after a startup to consider the start successful (moving the process from the STARTING state to the RUNNING state). Set to 0 to indicate that the program needn’t stay running for any particular amount of time.
 - **startretries**. The number of serial failure attempts that supervisord will allow when attempting to start the program before giving up and putting the process into an FATAL state. See Process States for explanation of the FATAL state.
@@ -42,7 +42,7 @@ Supervised program settings configured in [program:programName] section and incl
 - **directory**. Jump to this path and exec supervised command there.
 - **stopasgroup**. Also stop this program when stopping group of programs where this program is listed.
 - **killasgroup**. Also kill this program when stopping group of programs where this program is listed.
-- **restartpause**. Wait (at least) this amount of seconds after stpping suprevised program before strt it again.
+- **restartpause**. Wait (at least) this amount of seconds after stopping suprevised program before start it again.
 - **restart_when_binary_changed**. Boolean value (false or true) to control if the supervised command should be restarted when its executable binary changes. Defaults to false.
 - **restart_cmd_when_binary_changed**. The command to restart the program if the program binary itself is changed.
 - **restart_signal_when_binary_changed**. The signal sent to the program for restarting if the program binary is changed.
@@ -114,7 +114,7 @@ stdout_logfile = test.log, /dev/stdout
 
 ### syslog settings
 
-if write the log to the syslog, following additional parameter can be set like:
+To write the log to syslog, following additional parameter can be set like:
 
 ```ini
 syslog_facility=local0
@@ -159,7 +159,7 @@ CMD ["/opt/supervisord/supervisord"]
 
 The Prometheus node exporter supported supervisord metrics are now integrated into the supervisor. So there is no need to deploy an extra node_exporter to collect the supervisord metrics. To collect the metrics, the port parameter in section "inet_http_server" must be configured and the metrics server is started on the path /metrics of the supervisor http server.
 
-For example, if the port parameter in "inet_http_server" is "127.0.0.1:9001" and then the metrics server should be accessed in url "http://127.0.0.1:9001/metrics" 
+For example, if the port parameter in "inet_http_server" is "127.0.0.1:9001" and then the metrics server should be accessed in url "http://127.0.0.1:9001/metrics"
 
 ## Register service
 
