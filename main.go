@@ -3,11 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/jessevdk/go-flags"
-	ini "github.com/ochinchina/go-ini"
-	"github.com/ochinchina/supervisord/config"
-	"github.com/ochinchina/supervisord/logger"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,6 +10,12 @@ import (
 	"strings"
 	"syscall"
 	"unicode"
+
+	"github.com/jessevdk/go-flags"
+	"github.com/ochinchina/go-ini"
+	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/logger"
+	log "github.com/sirupsen/logrus"
 )
 
 // Options the command line options
@@ -27,10 +28,15 @@ type Options struct {
 func init() {
 	nullLogger := logger.NewNullLogger(logger.NewNullLogEventEmitter())
 	log.SetOutput(nullLogger)
-	if runtime.GOOS == "windows" {
-		log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
+	logFormat := os.Getenv("LOG_FORMAT")
+	if logFormat == "json" {
+		log.SetFormatter(&log.JSONFormatter{})
 	} else {
-		log.SetFormatter(&log.TextFormatter{DisableColors: false, FullTimestamp: true})
+		if runtime.GOOS == "windows" {
+			log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
+		} else {
+			log.SetFormatter(&log.TextFormatter{DisableColors: false, FullTimestamp: true})
+		}
 	}
 	log.SetLevel(log.DebugLevel)
 }
@@ -100,12 +106,13 @@ func loadEnvFile() {
 // 6. ../supervisord.conf (Relative to the executable)
 func findSupervisordConf() (string, error) {
 	possibleSupervisordConf := []string{options.Configuration,
-		"./supervisord.conf",
+		"./supervisord.ini",
 		"./etc/supervisord.conf",
 		"/etc/supervisord.conf",
 		"/etc/supervisor/supervisord.conf",
 		"../etc/supervisord.conf",
-		"../supervisord.conf"}
+		"../supervisord.conf",
+		"./supervisord.conf"}
 
 	for _, file := range possibleSupervisordConf {
 		if _, err := os.Stat(file); err == nil {
@@ -123,13 +130,13 @@ func findSupervisordConf() (string, error) {
 func runServer() {
 	// infinite loop for handling Restart ('reload' command)
 	loadEnvFile()
-	for true {
+	for {
 		if len(options.Configuration) <= 0 {
 			options.Configuration, _ = findSupervisordConf()
 		}
 		s := NewSupervisor(options.Configuration)
 		initSignals(s)
-		if _, _, _, sErr := s.Reload(); sErr != nil {
+		if _, _, _, sErr := s.Reload(true); sErr != nil {
 			panic(sErr)
 		}
 		s.WaitForExit()
@@ -154,26 +161,35 @@ func getSupervisordLogFile(configFile string) string {
 		return filepath.Join(".", "supervisord.log")
 	}
 }
+
 func main() {
 	ReapZombie()
+
+	// when execute `supervisord` without sub-command, it should start the server
+	parser.Command.SubcommandsOptional = true
+	parser.CommandHandler = func(command flags.Commander, args []string) error {
+		if command == nil {
+			log.SetOutput(os.Stdout)
+			if options.Daemon {
+				logFile := getSupervisordLogFile(options.Configuration)
+				Daemonize(logFile, runServer)
+			} else {
+				runServer()
+			}
+			os.Exit(0)
+		}
+		return command.Execute(args)
+	}
 
 	if _, err := parser.Parse(); err != nil {
 		flagsErr, ok := err.(*flags.Error)
 		if ok {
 			switch flagsErr.Type {
 			case flags.ErrHelp:
-				fmt.Fprintln(os.Stdout, err)
+				_, _ = fmt.Fprintln(os.Stdout, err)
 				os.Exit(0)
-			case flags.ErrCommandRequired:
-				log.SetOutput(os.Stdout)
-				if options.Daemon {
-					logFile := getSupervisordLogFile(options.Configuration)
-					Daemonize(logFile, runServer)
-				} else {
-					runServer()
-				}
 			default:
-				fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)
 				os.Exit(1)
 			}
 		}

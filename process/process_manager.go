@@ -16,14 +16,14 @@ type Manager struct {
 	lock           sync.Mutex
 }
 
-// NewManager create a new Manager object
+// NewManager creates new Manager object
 func NewManager() *Manager {
 	return &Manager{procs: make(map[string]*Process),
 		eventListeners: make(map[string]*Process),
 	}
 }
 
-// CreateProcess create a process (program or event listener) and add to this manager
+// CreateProcess creates process (program or event listener) and adds to Manager object
 func (pm *Manager) CreateProcess(supervisorID string, config *config.Entry) *Process {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
@@ -36,7 +36,7 @@ func (pm *Manager) CreateProcess(supervisorID string, config *config.Entry) *Pro
 	}
 }
 
-// StartAutoStartPrograms start all the program if its autostart is true
+// StartAutoStartPrograms starts all programs that set as should be autostarted
 func (pm *Manager) StartAutoStartPrograms() {
 	pm.ForEachProcess(func(proc *Process) {
 		if proc.isAutoStart() {
@@ -71,7 +71,7 @@ func (pm *Manager) createEventListener(supervisorID string, config *config.Entry
 	return evtListener
 }
 
-// Add add the process to this process manager
+// Add process to Manager object
 func (pm *Manager) Add(name string, proc *Process) {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
@@ -79,7 +79,7 @@ func (pm *Manager) Add(name string, proc *Process) {
 	log.Info("add process:", name)
 }
 
-// Remove remove the process from the manager
+// Remove process from Manager object
 //
 // Arguments:
 // name - the name of program
@@ -94,7 +94,7 @@ func (pm *Manager) Remove(name string) *Process {
 	return proc
 }
 
-// Find find process by program name return process if found or nil if not found
+// Find process by program name. Returns process or nil if process is not listed in Manager object
 func (pm *Manager) Find(name string) *Process {
 	procs := pm.FindMatch(name)
 	if len(procs) == 1 {
@@ -105,7 +105,7 @@ func (pm *Manager) Find(name string) *Process {
 	return nil
 }
 
-// FindMatch find the program with one of following format:
+// FindMatch lookup program with one of following format:
 // - group:program
 // - group:*
 // - program
@@ -135,7 +135,7 @@ func (pm *Manager) FindMatch(name string) []*Process {
 	return result
 }
 
-// Clear clear all the processes
+// Clear all the processes from Manager object
 func (pm *Manager) Clear() {
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
@@ -183,7 +183,7 @@ func (pm *Manager) getAllProcess() []*Process {
 	return sortProcess(tmpProcs)
 }
 
-// StopAllProcesses stop all the processes managed by this manager
+// StopAllProcesses stop all the processes listed in Manager object
 func (pm *Manager) StopAllProcesses() {
 	var wg sync.WaitGroup
 

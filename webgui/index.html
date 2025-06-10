@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
-  <head>
-	<meta charset="utf-8"> 
+<head>
+    <meta charset="utf-8">
     <title>Go-Supervisor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <link rel="stylesheet" href="css/bootstrap.min.css"/>
@@ -12,11 +12,11 @@
     <script src='js/bootstrap.min.js'></script>
     <script src='js/bootstrap-table.min.js'></script>
     <script src='js/bootstrap-dialog.min.js'></script>
-  </head>
-  
-        
-  <script type="text/javascript">
-  var columns = [{
+</head>
+
+
+<script type="text/javascript">
+    var columns = [{
         field: 'name',
         title: 'Program'
     }, {
@@ -26,130 +26,148 @@
         field: 'description',
         title: 'Description'
     }, {
-       field: 'action',
-       title: 'Action'
+        field: 'action',
+        title: 'Action'
     }];
 
-  var programs = []
+    var programs = []
 
-  function changeProgramState( name, statename ) {
-      for( var i = 0; i < programs.length; i++ ) {
-          if( name == programs[i]['name'] ) {
-              programs[i]['statename'] = statename;
-          }
-      }
-  }
+    function changeProgramState( name, statename ) {
+        for( var i = 0; i < programs.length; i++ ) {
+            if( name == programs[i]['name'] ) {
+                programs[i]['statename'] = statename;
+            }
+        }
+    }
 
-  function refreshDisplay() {
-      reformatPrograms( programs );
-      $("#programs").bootstrapTable('destroy');
-      $("#programs").bootstrapTable({
-                   data: programs
-                   });
-
-  }
-
-  function startProgram( name ) {
-    $.ajax( {
-    type: "POST",
-    dataType: "json",
-    url: "/program/start/" + name, 
-    success: function( data, status, jqXHR  ) {
-        if( data['success'] ) {
-            changeProgramState( name, "RUNNING" );
-            refreshDisplay();
-          } else {
-            confirm_dialog( { 'title': "Information",
-                              'message': "Fail to start program, please check the log of supervisord to find reason",
-                              'cancel-text': "Cancel",
-                              'cancel-hide': true,
-                              'confirm-text': "Ok",
-                              'confirm-onclick': function() {}
-                              } );
-
-          }
-    },
-    error: function( jqXHR, status, errorThrown ) {
-           confirm_dialog( { 'title': "Information",
-                             'message': "Fail to start program, please check if supervisord is started or not",
-                             'cancel-text': "Cancel",
-                             'cancel-hide': true,
-                             'confirm-text': "Ok",
-                             'confirm-onclick': function() {}
-                             } );
+    function refreshDisplay() {
+        reformatPrograms( programs );
+        $("#programs").bootstrapTable('destroy');
+        $("#programs").bootstrapTable({
+            data: programs
+        });
 
     }
-    });
-  };
 
-  function stopProgram( programName ) {
-      confirm_dialog( { 'title': "Stop confirmation",
-                        'message': "Do you really want to stop program?",
+    function startProgram( name ) {
+        $.ajax( {
+            type: "POST",
+            dataType: "json",
+            url: "/program/start/" + name,
+            success: function( data, status, jqXHR  ) {
+                if( data['success'] ) {
+                    changeProgramState( name, "RUNNING" );
+                    refreshDisplay();
+                } else {
+                    confirm_dialog( { 'title': "Information",
+                        'message': "Fail to start program, please check the log of supervisord to find reason",
                         'cancel-text': "Cancel",
-                        'confirm-text': "Stop",
-                        'confirm-onclick': function() {
-                            doStopProgram( programName );
-                        }
-                        } );
-  }
-  function doStopProgram( name ) {
-      $.ajax( {
-      type: "POST",
-      dataType: "json",
-      url: "/program/stop/" + name,
-      success: function( data, status, jqXHR  ) {
-          if( data['success'] ) {
-              changeProgramState( name, 'STOPPED' );
-              refreshDisplay();
-          } else {
-              confirm_dialog( { 'title': "Information",
+                        'cancel-hide': true,
+                        'confirm-text': "Ok",
+                        'confirm-onclick': function() {}
+                    } );
+
+                }
+            },
+            error: function( jqXHR, status, errorThrown ) {
+                confirm_dialog( { 'title': "Information",
+                    'message': "Fail to start program, please check if supervisord is started or not",
+                    'cancel-text': "Cancel",
+                    'cancel-hide': true,
+                    'confirm-text': "Ok",
+                    'confirm-onclick': function() {}
+                } );
+
+            }
+        });
+    };
+
+    function stopProgram( programName ) {
+        return new Promise((resolve, reject) =>{
+            confirm_dialog( { 'title': "Stop confirmation",
+                'message': "Do you really want to stop program?",
+                'cancel-text': "Cancel",
+                'confirm-text': "Stop",
+                'confirm-onclick': async function() {
+                    await doStopProgram( programName );
+                    resolve("success");
+                }
+            } );
+        })
+    }
+
+    async function restartProgram( programName ){
+        await stopProgram(programName)
+        startProgram(programName)
+
+    }
+
+    function doStopProgram( name ) {
+        return new Promise(
+            (resolve, reject) =>{
+                $.ajax( {
+                    type: "POST",
+                    dataType: "json",
+                    url: "/program/stop/" + name,
+                    success: function( data, status, jqXHR  ) {
+                        if( data['success'] ) {
+                            changeProgramState( name, 'STOPPED' );
+                            refreshDisplay();
+                        } else {
+                            confirm_dialog( { 'title': "Information",
                                 'message': "Fail to stop program, please check the log of supervisord",
                                 'cancel-text': "Cancel",
                                 'cancel-hide': true,
                                 'confirm-text': "Ok",
                                 'confirm-onclick': function() {
                                 }
-                                } );
-
-          }
-      },
-      error: function( jqXHR, status, errorThrown ) {
-		confirm_dialog( { 'title': "Information",
-                        'message': "Fail to stop program, please check if supervisord is running",
-                        'cancel-text': "Cancel",
-                        'cancel-hide': true,
-                        'confirm-text': "Ok",
-                        'confirm-onclick': function() {
+                            } );
                         }
+                        resolve("success")
+                    },
+                    error: function( jqXHR, status, errorThrown ) {
+                        confirm_dialog( { 'title': "Information",
+                            'message': "Fail to stop program, please check if supervisord is running",
+                            'cancel-text': "Cancel",
+                            'cancel-hide': true,
+                            'confirm-text': "Ok",
+                            'confirm-onclick': function() {
+                            }
                         } );
+                        reject("err")
 
-      }
+                    }
+                });
+            })
 
-      });
-  }
+    }
 
-  function reformatPrograms( programs ) {
-      for( var i in programs ) {
-          var statename = programs[i]['statename'];
-          var action = "";
-          var color = "";
-          if( statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf( "starting") >= 0 ) {
-            action = '<button type="button" disabled class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
-            action = action + '<button type="button" class="btn btn-primary" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
-            color = "green";
-          } else {
-              action = '<button type="button" class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
-              action = action + '<button type="button" disabled class="btn btn-primary" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
-              color = "red";
+    function reformatPrograms( programs ) {
+        for( var i in programs ) {
+            var statename = programs[i]['statename'];
+            var action = "";
+            var color = "";
+            if( statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf( "starting") >= 0 ) {
+                action = '<button type="button" disabled class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
+                action = action + '<button type="button" class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
+                action = action + '<button type="button" class="btn btn-primary mr-1" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
+                color = "green";
+            } else {
+                action = '<button type="button" class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
+                action = action + '<button type="button" disabled class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
+                action = action + '<button type="button" disabled class="btn btn-primary mr-1" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
+                color = "red";
+            }
+            let logLabel = '<a href=/log?name=' + programs[i]['name'] + '>日志列表 </a>';
 
-          }
+            action = action + logLabel;
 
-          programs[i]['action'] = action;
-          programs[i]['statename'] = '<div style="background-color:' + color + ';">' + statename + '</div>';
-      }
-  };
+            programs[i]['action'] = action;
+            programs[i]['statename'] = '<div style="background-color:' + color + ';">' + statename + '</div>';
+        }
+    };
 
-  function confirm_dialog( confirm ) {
+    function confirm_dialog( confirm ) {
         $('#my-modal-title').text(confirm['title'] );
         $('#my-modal-message').text( confirm['message'] );
         $('#my-modal-cancel-btn').text( confirm['cancel-text'] );
@@ -163,171 +181,174 @@
         $('#my-modal-confirm-btn').click( confirm['confirm-onclick'] );
         $("#myModal").modal('show');
 
-  }
+    }
 
-  function shutdown_supervisor() {
-      confirm_dialog( { 'title': "Shutdown confirmation",
-                        'message': "Do you really want to shutdown supervisor?",
-                        'cancel-text': "Cancel",
-                        'confirm-text': "Shutdown",
-                        'confirm-onclick': function() {
-                            $.ajax( {
-                                     type: "PUT",
-                                     url: "/supervisor/shutdown",
-                                     contentType: "application/json",
-                                     dataType: "text",
-                                     success: function( data, status, jqXHR ) {
-                                     },
-                                     error: function( jqXHR, textStatus, errorThrown ) {
-                                     }
-                            });
+    function shutdown_supervisor() {
+        confirm_dialog( { 'title': "Shutdown confirmation",
+            'message': "Do you really want to shutdown supervisor?",
+            'cancel-text': "Cancel",
+            'confirm-text': "Shutdown",
+            'confirm-onclick': function() {
+                $.ajax( {
+                    type: "PUT",
+                    url: "/supervisor/shutdown",
+                    contentType: "application/json",
+                    dataType: "text",
+                    success: function( data, status, jqXHR ) {
+                    },
+                    error: function( jqXHR, textStatus, errorThrown ) {
+                    }
+                });
 
-                        }
-                        } );
+            }
+        } );
 
-  };
+    };
 
-  function reload_supervisor() {
-      confirm_dialog( { 'title': "Reload confirmation",
-                        'message': "Do you really want to reload supervisor?",
-                        'cancel-text': "Cancel",
-                        'confirm-text': "Reload",
-                        'confirm-onclick': function() {
-                            $.ajax( {
-                                      type: "POST",
-                                      url: "/supervisor/reload",
-                                      contentType: "application/json",
-                                      dataType: "text",
-                                      success: function( data, status, jqXHR ) {
-                                          list_programs();
-                                      },
-                                      error: function( jqXHR, textStatus, errorThrown ) {
-                                          list_programs();
-                                      }
-                            });
+    function reload_supervisor() {
+        confirm_dialog( { 'title': "Reload confirmation",
+            'message': "Do you really want to reload supervisor?",
+            'cancel-text': "Cancel",
+            'confirm-text': "Reload",
+            'confirm-onclick': function() {
+                $.ajax( {
+                    type: "POST",
+                    url: "/supervisor/reload",
+                    contentType: "application/json",
+                    dataType: "text",
+                    success: function( data, status, jqXHR ) {
+                        list_programs();
+                    },
+                    error: function( jqXHR, textStatus, errorThrown ) {
+                        list_programs();
+                    }
+                });
 
-                        }
-                        } );
-  }
+            }
+        } );
+    }
 
-  function get_selected_programs() {
-      selected = $("#programs").bootstrapTable('getSelections');
-      programs = [];
-      for(i in selected) {
-          programs.push( selected[i]['name'] );
-      }
-      return programs;
+    function get_selected_programs() {
+        selected = $("#programs").bootstrapTable('getSelections');
+        programs = [];
+        for(i in selected) {
+            programs.push( selected[i]['name'] );
+        }
+        return programs;
 
-  }
-  function start_select() {
-      programs = get_selected_programs();
-      if( programs.length <= 0 ) {
-          alert( "no program selected" );
-          return;
-      }
-      $.ajax( {
-          type: "POST",
-          url: "/program/startPrograms",
-          contentType: "application/json",
-          data: JSON.stringify( programs ),
-          dataType: "text",
-          success: function( data, status, jqXHR ) {
-            list_programs();           
-          },
-          error: function( jqXHR, textStatus, errorThrown ) {
-              list_programs();
-          }
-      });
-  }
+    }
+    function start_select() {
+        programs = get_selected_programs();
+        if( programs.length <= 0 ) {
+            alert( "no program selected" );
+            return;
+        }
+        $.ajax( {
+            type: "POST",
+            url: "/program/startPrograms",
+            contentType: "application/json",
+            data: JSON.stringify( programs ),
+            dataType: "text",
+            success: function( data, status, jqXHR ) {
+                list_programs();
+            },
+            error: function( jqXHR, textStatus, errorThrown ) {
+                list_programs();
+            }
+        });
+    }
 
-  function stop_select() {
-      programs = get_selected_programs();
-      if( programs.length <= 0 ) {
-          alert( "no program selected" );
-          return;
-      }
-      $.ajax( {
-          type: "POST",
-          url: "/program/stopPrograms",
-          contentType: "application/json",
-          data: JSON.stringify( programs ),
-          dataType: "text",
-          success: function( data, status, jqXHR ) {
-              list_programs();
-          },
-          error: function( jqXHR, textStatus, errorThrown ) {
-              list_programs();
-          }
-      });
+    function stop_select() {
+        programs = get_selected_programs();
+        if( programs.length <= 0 ) {
+            alert( "no program selected" );
+            return;
+        }
+        $.ajax( {
+            type: "POST",
+            url: "/program/stopPrograms",
+            contentType: "application/json",
+            data: JSON.stringify( programs ),
+            dataType: "text",
+            success: function( data, status, jqXHR ) {
+                list_programs();
+            },
+            error: function( jqXHR, textStatus, errorThrown ) {
+                list_programs();
+            }
+        });
 
-  }
+    }
 
-  function list_programs() {
-      $.ajax({
-              type: "GET",
-              url: "/program/list",
-              dataType: "json",
-              success: function( data, status, jqXHR ) {
+    function list_programs() {
+        $.ajax({
+            type: "GET",
+            url: "/program/list",
+            dataType: "json",
+            success: function( data, status, jqXHR ) {
                 programs = data;
                 refreshDisplay();
-              },
-              error: function( jqXHR, textStatus, errorThrown ) {
+            },
+            error: function( jqXHR, textStatus, errorThrown ) {
                 alert( textStatus );
-              }
-              });
-  }
+            }
+        });
+    }
 
-  $(document).ready(function() {
-      list_programs();
-  });    
-  </script>
-  <body>
-    <H1 class="text-center text-success">Go-Supervisor</H1>
-    <div class="container">
-      <H2>Programs</H2>
-      <div class='row'>
-          <div class="col-12">
-              <input type="button" class="btn btn-primary float-right mr-1" value="Shutdown" onclick='shutdown_supervisor();'>
-              <input type="button" class="btn btn-primary float-right mr-1" value="Reload" onclick='reload_supervisor();'>
-              <input type="button" class="btn btn-primary float-right mr-1" value="Stop Select" onclick='stop_select();'>
-              <input type="button" class="btn btn-primary float-right mr-1" value="Start Select" onclick='start_select();'>
-          </div>
-      </div>
-      <div class="table-responsive mt-3">          
-       <table id="programs"
-           data-toggle="table"
-           data-click-to-select="true" >
-           <thead>
-               <th data-field="id" data-checkbox="true"></th>
-               <th data-field="name">Program</th>
-               <th data-field="statename">State</th>
-               <th data-field="description">Description</th>
-               <th data-field="action">Action</th>
-           </thead>
-       </table>
-      </div>
+    $(document).ready(function() {
+        list_programs();
+    });
+</script>
+<body>
+<H1 class="text-center text-success">Go-Supervisor</H1>
+<div class="container">
+    <div class='row'>
+        <div class="col-12">
+
+            <a href="http://10.234.254.27:9996/graph" class="text-decoration-none mr-3" target="_blank">Prometheus</a>
+            <a href="http://127.0.0.1:3000" class="text-decoration-none" target="_blank">Grafana</a>
+
+            <input type="button" class="btn btn-primary float-right mr-1" value="Shutdown" onclick='shutdown_supervisor();'>
+            <input type="button" class="btn btn-primary float-right mr-1" value="Reload" onclick='reload_supervisor();'>
+            <input type="button" class="btn btn-primary float-right mr-1" value="Stop Select" onclick='stop_select();'>
+            <input type="button" class="btn btn-primary float-right mr-1" value="Start Select" onclick='start_select();'>
+        </div>
     </div>
+    <div class="table-responsive mt-3">
+        <table id="programs"
+               data-toggle="table"
+               data-click-to-select="true" >
+            <thead>
+            <th data-field="id" data-checkbox="true"></th>
+            <th data-field="name">Program</th>
+            <th data-field="statename">State</th>
+            <th data-field="description">Description</th>
+            <th data-field="action">Action</th>
+            </thead>
+        </table>
+    </div>
+</div>
 
 
-    <div id="myModal" class="modal fade">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                    <h4 class="modal-title" id="my-modal-title">Confirmation</h4>
-                </div>
-                <div class="modal-body">
-                    <p id="my-modal-message">Do you want to save changes you made to document before closing?</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-dismiss="modal" id='my-modal-cancel-btn'>Cancel</button>
-                    <button type="button" class="btn btn-primary" data-dismiss="modal" id='my-modal-confirm-btn'>Shutdown</button>
-                </div>
+<div id="myModal" class="modal fade">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title" id="my-modal-title">Confirmation</h4>
+            </div>
+            <div class="modal-body">
+                <p id="my-modal-message">Do you want to save changes you made to document before closing?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal" id='my-modal-cancel-btn'>Cancel</button>
+                <button type="button" class="btn btn-primary" data-dismiss="modal" id='my-modal-confirm-btn'>Shutdown</button>
             </div>
         </div>
     </div>
+</div>
 
 
-  </body>
+</body>
 
 </html>

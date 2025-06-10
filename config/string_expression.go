@@ -34,13 +34,13 @@ func NewStringExpression(envs ...string) *StringExpression {
 
 }
 
-// Add add the environment variable (key,value)
+// Add adds environment variable (key,value)
 func (se *StringExpression) Add(key string, value string) *StringExpression {
 	se.env[key] = value
 	return se
 }
 
-// Eval evaluate the expression include "%(var)s"  and return the string after replacing the var
+// Eval substitutes "%(var)s" in given string with evaluated values, and returns resulting string
 func (se *StringExpression) Eval(s string) (string, error) {
 	for {
 		// find variable start indicator
@@ -88,5 +88,4 @@ func (se *StringExpression) Eval(s string) (string, error) {
 			return "", fmt.Errorf("invalid string expression format")
 		}
 	}
-
 }

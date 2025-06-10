@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ConfFile</title>
+    <!--导入js库-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js" type="text/javascript"
+            charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ext-language_tools.js" type="text/javascript"
+            charset="utf-8"></script>
+    <script src="js/axios.min.js"></script>
+    <script src='js/jquery-3.3.1.min.js'></script>
+    <script src="js/common.js"></script>
+    <link rel="stylesheet" href="css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="css/bootstrap-table.css"/>
+    <link rel="stylesheet" href="css/bootstrap-dialog.min.css"/>
+</head>
+
+<body>
+<!--代码输入框（注意请务必设置高度，否则无法显示）-->
+<pre id="code" class="ace_editor" style="min-height:600px">
+ <textarea id="text_conf" class="ace_text-input">
+</textarea>
+</pre>
+<button class="btn btn-primary">
+    Save
+</button>
+<script>
+    //初始化对象
+    editor = ace.edit("code");
+
+    //设置风格和语言（更多风格和语言，请到github上相应目录查看）
+    theme = "crimson_editor"
+    language = "java"
+    editor.setTheme("ace/theme/" + theme);
+    editor.session.setMode("ace/mode/" + language);
+
+    //字体大小
+    editor.setFontSize(18);
+
+    //设置只读（true时只读，用于展示代码）
+    editor.setReadOnly(false);
+
+    //自动换行,设置为off关闭
+    editor.setOption("wrap", "free")
+
+    $(document).ready(function () {
+        console.log("hello world!")
+        let name = getUrlVars()["name"]
+        getConfFile(name)
+    });
+
+    function getConfFile(name) {
+        if (name === undefined || name.length === 0){
+            alert("need url variable name")
+            return
+        }
+        axios.get("/conf/" + name).then(function (response) {
+            console.log(response.data)
+            editor.setValue(response.data)
+        }).catch(function (err){
+            alert("ERROR:此程序未配置conf文件，如需配置参考conf_file")
+        })
+
+    }
+
+</script>
+
+</body>
+</html>

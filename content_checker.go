@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// ContentChecker define the check interface
+// ContentChecker defines check interface
 type ContentChecker interface {
 	Check() bool
 }
@@ -23,7 +23,7 @@ type BaseChecker struct {
 	notifyChannel chan string
 }
 
-// NewBaseChecker create a BaseChecker object
+// NewBaseChecker creates BaseChecker object
 func NewBaseChecker(includes []string, timeout int) *BaseChecker {
 	return &BaseChecker{data: "",
 		includes:      includes,
@@ -31,24 +31,22 @@ func NewBaseChecker(includes []string, timeout int) *BaseChecker {
 		notifyChannel: make(chan string, 1)}
 }
 
-// Write write the data to the checker
+// Write data to the checker
 func (bc *BaseChecker) Write(b []byte) (int, error) {
 	bc.notifyChannel <- string(b)
 	return len(b), nil
 }
 
 func (bc *BaseChecker) isReady() bool {
-	allFound := true
 	for _, include := range bc.includes {
 		if strings.Index(bc.data, include) == -1 {
-			allFound = false
-			break
+			return false
 		}
 	}
-	return allFound
+	return true
 }
 
-// Check check the content of input data
+// Check content of the input data
 func (bc *BaseChecker) Check() bool {
 	d := bc.timeoutTime.Sub(time.Now())
 	if d < 0 {
@@ -69,18 +67,17 @@ func (bc *BaseChecker) Check() bool {
 	}
 }
 
-// ScriptChecker implement ContentChecker by calling external script
+// ScriptChecker implements ContentChecker by calling external script
 type ScriptChecker struct {
 	args []string
 }
 
-// NewScriptChecker create a ScriptChecker object
+// NewScriptChecker creates ScriptChecker object
 func NewScriptChecker(args []string) *ScriptChecker {
 	return &ScriptChecker{args: args}
 }
 
-// Check check the the return code of script. If the return code is 0, the
-// check is success
+// Check return code of the script. If return code is 0, check is successful
 func (sc *ScriptChecker) Check() bool {
 	cmd := exec.Command(sc.args[0])
 	if len(sc.args) > 1 {
@@ -98,7 +95,7 @@ type TCPChecker struct {
 	baseChecker *BaseChecker
 }
 
-// NewTCPChecker create a TCPChecker object
+// NewTCPChecker creates TCPChecker object
 func NewTCPChecker(host string, port int, includes []string, timeout int) *TCPChecker {
 	checker := &TCPChecker{host: host,
 		port:        port,
@@ -130,7 +127,7 @@ func (tc *TCPChecker) start() {
 	}()
 }
 
-// Check check if it is ready by reading the tcp data
+// Check if it is ready by reading the tcp data
 func (tc *TCPChecker) Check() bool {
 	ret := tc.baseChecker.Check()
 	if tc.conn != nil {
@@ -145,13 +142,13 @@ type HTTPChecker struct {
 	timeoutTime time.Time
 }
 
-// NewHTTPChecker create a HTTPChecker object
+// NewHTTPChecker creates HTTPChecker object
 func NewHTTPChecker(url string, timeout int) *HTTPChecker {
 	return &HTTPChecker{url: url,
 		timeoutTime: time.Now().Add(time.Duration(timeout) * time.Second)}
 }
 
-// Check check the content of HTTP response
+// Check content of HTTP response
 func (hc *HTTPChecker) Check() bool {
 	for {
 		if hc.timeoutTime.After(time.Now()) {
