@@ -3,6 +3,7 @@ module github.com/ochinchina/supervisord/process
 go 1.16
 
 require (
+	github.com/mitchellh/go-ps v1.0.0
 	github.com/ochinchina/filechangemonitor v0.3.1
 	github.com/ochinchina/supervisord/config v0.0.0-20220721095143-c2527852d28f
 	github.com/ochinchina/supervisord/events v0.0.0-20220721095143-c2527852d28f
