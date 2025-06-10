@@ -140,7 +140,8 @@ func (p *Process) addToCron() {
 
 // Start process
 // Args:
-//  wait - true, wait the program started or failed
+//
+//	wait - true, wait the program started or failed
 func (p *Process) Start(wait bool) {
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("try to start program")
 	p.lock.Lock()
@@ -392,7 +393,6 @@ func (p *Process) getExitCodes() []int {
 }
 
 // check if the process is running or not
-//
 func (p *Process) isRunning() bool {
 	if p.cmd != nil && p.cmd.Process != nil {
 		if runtime.GOOS == "windows" {
@@ -506,7 +506,6 @@ func (p *Process) failToStartProgram(reason string, finishCb func()) {
 }
 
 // monitor if the program is in running before endTime
-//
 func (p *Process) monitorProgramIsRunning(endTime time.Time, monitorExited *int32, programExited *int32) {
 	// if time is not expired
 	for time.Now().Before(endTime) && atomic.LoadInt32(programExited) == 0 {
@@ -700,9 +699,9 @@ func (p *Process) changeStateTo(procState State) {
 // Signal sends signal to the process
 //
 // Args:
-//   sig - the signal to the process
-//   sigChildren - if true, sends the same signal to the process and its children
 //
+//	sig - the signal to the process
+//	sigChildren - if true, sends the same signal to the process and its children
 func (p *Process) Signal(sig os.Signal, sigChildren bool) error {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -727,9 +726,9 @@ func (p *Process) sendSignals(sigs []string, sigChildren bool) {
 // send signal to the process
 //
 // Args:
-//    sig - the signal to be sent
-//    sigChildren - if true, the signal also will be sent to children processes too
 //
+//	sig - the signal to be sent
+//	sigChildren - if true, the signal also will be sent to children processes too
 func (p *Process) sendSignal(sig os.Signal, sigChildren bool) error {
 	if p.cmd != nil && p.cmd.Process != nil {
 		log.WithFields(log.Fields{"program": p.GetName(), "signal": sig}).Info("Send signal to program")
@@ -743,10 +742,35 @@ func (p *Process) setEnv() {
 	envFromFiles := p.config.GetEnvFromFiles("envFiles")
 	env := p.config.GetEnv("environment")
 	if len(env)+len(envFromFiles) != 0 {
-		p.cmd.Env = append(append(os.Environ(), envFromFiles...), env...)
+		p.cmd.Env = mergeKeyValueArrays(p.cmd.Env, append(append(os.Environ(), envFromFiles...), env...))
 	} else {
-		p.cmd.Env = os.Environ()
+		p.cmd.Env = mergeKeyValueArrays(p.cmd.Env, os.Environ())
 	}
+}
+
+// 辅助函数：带覆盖的环境变量追加
+func mergeKeyValueArrays(arr1, arr2 []string) []string {
+	keySet := make(map[string]bool)
+	result := make([]string, 0, len(arr1)+len(arr2))
+
+	// 处理第一个数组，保留所有元素
+	for _, item := range arr1 {
+		if key := strings.SplitN(item, "=", 2)[0]; key != "" {
+			keySet[key] = true
+		}
+		result = append(result, item)
+	}
+
+	// 处理第二个数组，跳过已存在的键
+	for _, item := range arr2 {
+		if key := strings.SplitN(item, "=", 2)[0]; key != "" {
+			if !keySet[key] {
+				result = append(result, item)
+			}
+		}
+	}
+
+	return result
 }
 
 func (p *Process) setDir() {
@@ -930,7 +954,66 @@ func (p *Process) setUser() error {
 		}
 	}
 	setUserID(p.cmd.SysProcAttr, uint32(uid), uint32(gid))
+
+	// 强制设置关键环境变量
+	p.cmd.Env = appendEnvWithOverride(p.cmd.Env,
+		"HOME", u.HomeDir, // 强制HOME目录
+		"USER", u.Username, // 用户名
+		"LOGNAME", u.Username, // 登录名
+		"PATH", defaultPath(u), // 安全PATH
+	)
+
+	// 删除root残留的环境变量
+	filterRootEnv(&p.cmd.Env)
+
 	return nil
+}
+
+// 辅助函数：带覆盖的环境变量追加
+func appendEnvWithOverride(env []string, pairs ...string) []string {
+	newEnv := make([]string, 0, len(env)+len(pairs)/2)
+	set := make(map[string]bool)
+
+	// 先添加新变量
+	for i := 0; i < len(pairs); i += 2 {
+		key := pairs[i]
+		value := pairs[i+1]
+		newEnv = append(newEnv, fmt.Sprintf("%s=%s", key, value))
+		set[key] = true
+	}
+
+	// 保留未覆盖的旧变量
+	for _, e := range env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) < 2 || set[parts[0]] {
+			continue
+		}
+		newEnv = append(newEnv, e)
+	}
+
+	return newEnv
+}
+
+// 辅助函数：生成安全PATH
+func defaultPath(u *user.User) string {
+	// 根据用户类型返回不同PATH
+	if u.Uid == "0" {
+		return "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	}
+	return "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
+}
+
+// 辅助函数：过滤危险的环境变量
+func filterRootEnv(env *[]string) {
+	filtered := make([]string, 0, len(*env))
+	for _, e := range *env {
+		if strings.HasPrefix(e, "SUDO_") ||
+			strings.HasPrefix(e, "XDG_RUNTIME_DIR=") {
+			continue
+		}
+		filtered = append(filtered, e)
+	}
+	*env = filtered
 }
 
 // Stop sends signal to process to make it quit
