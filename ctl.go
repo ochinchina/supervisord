@@ -187,6 +187,7 @@ func (x *CtlCommand) status(rpcc *xmlrpcclient.XMLRPCClient, processes []string)
 	if reply, err := rpcc.GetAllProcessInfo(); err == nil {
 		x.showProcessInfo(&reply, processesMap)
 	} else {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 }
@@ -246,6 +247,7 @@ func (x *CtlCommand) shutdown(rpcc *xmlrpcclient.XMLRPCClient) {
 			fmt.Printf("Hmmm! Something gone wrong?!\n")
 		}
 	} else {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 }
@@ -264,6 +266,7 @@ func (x *CtlCommand) reload(rpcc *xmlrpcclient.XMLRPCClient) {
 			fmt.Printf("Removed Groups: %s\n", strings.Join(reply.RemovedGroup, ","))
 		}
 	} else {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 }
