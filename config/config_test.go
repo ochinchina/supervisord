@@ -2,12 +2,13 @@ package config
 
 import (
 	"fmt"
-	"supervisord/util"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"github.com/ochinchina/supervisord/util"
 )
 
 func createTmpFile() (string, error) {
