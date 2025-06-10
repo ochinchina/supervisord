@@ -346,6 +346,11 @@ func parseEnv(s string) *map[string]string {
 		for i = start; i < n && s[i] != '='; {
 			i++
 		}
+
+		if start >= n || i+1 >= n {
+			break
+		}
+
 		key := s[start:i]
 		start = i + 1
 		if s[start] == '"' {
