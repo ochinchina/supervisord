@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha1" //nolint:gosec
 	"encoding/hex"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -189,7 +188,6 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 			continue
 		}
 		dir := filepath.Dir(filePath)
-		fmt.Println(dir)
 		mux.Handle("/log/"+realName+"/", http.StripPrefix("/log/"+realName+"/", http.FileServer(http.Dir(dir))))
 	}
 
