@@ -5,10 +5,12 @@ import (
 )
 
 // VERSION the version of supervisor
+
 var (
 	VERSION = "v0.7.3"
 	COMMIT  = ""
 )
+
 
 // VersionCommand implement the flags.Commander interface
 type VersionCommand struct {

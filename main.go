@@ -18,6 +18,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var BuildVersion string = ""
+
 // Options the command line options
 type Options struct {
 	Configuration string `short:"c" long:"configuration" description:"the configuration file"`
@@ -163,6 +165,7 @@ func getSupervisordLogFile(configFile string) string {
 }
 
 func main() {
+	if BuildVersion != "" { VERSION = BuildVersion }
 	ReapZombie()
 
 	// when execute `supervisord` without sub-command, it should start the server
