@@ -143,7 +143,7 @@ Supervised program settings configured in [program:programName] section and incl
 - **directory**. Jump to this path and exec supervised command there.
 - **stopasgroup**. Also stop this program when stopping group of programs where this program is listed.
 - **killasgroup**. Also kill this program when stopping group of programs where this program is listed.
-- **restartpause**. Wait (at least) this amount of seconds after stpping suprevised program before strt it again.
+- **restartPause**. Wait (at least) this amount of seconds after stopping supervised program before starts it again.
 - **restart_when_binary_changed**. Boolean value (false or true) to control if the supervised command should be restarted when its executable binary changes. Defaults to false.
 - **restart_cmd_when_binary_changed**. The command to restart the program if the program binary itself is changed.
 - **restart_signal_when_binary_changed**. The signal sent to the program for restarting if the program binary is changed.
