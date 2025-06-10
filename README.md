@@ -17,6 +17,11 @@ To compile supervisord for **linux**, run following commands:
 1. go generate
 2. GOOS=linux go build -tags release -a -ldflags "-linkmode external -extldflags -static" -o supervisord
 
+To compile supervisord for **windows**, run following commands on one `Windows PC`:
+
+1. go mod tidy
+2. go build -tags release -o supervisord.exe
+
 # Run the supervisord
 
 After a supervisord binary has been generated, create a supervisord configuration file and start the supervisord like this:
@@ -136,13 +141,14 @@ Supervised program settings configured in [program:programName] section and incl
 - **stderr_logfile**. Where STDERR of supervised command should be redirected. (Particular values described lower in this file).
 - **stderr_logfile_maxbytes**. Log size after exceed which log will be rotated.
 - **stderr_logfile_backups**. Number of rotated log-files to preserve.
-- **environment**. List of VARIABLE=value to be passed to supervised program.
+- **environment**. List of VARIABLE=value to be passed to supervised program. It has higher priority than `envFiles`.
+- **envFiles**. List of .env files to be loaded and passed to supervised program. 
 - **priority**. The relative priority of the program in the start and shutdown ordering
 - **user**. Sudo to this USER or USER:GROUP right before exec supervised command.
 - **directory**. Jump to this path and exec supervised command there.
 - **stopasgroup**. Also stop this program when stopping group of programs where this program is listed.
 - **killasgroup**. Also kill this program when stopping group of programs where this program is listed.
-- **restartpause**. Wait (at least) this amount of seconds after stpping suprevised program before strt it again.
+- **restartPause**. Wait (at least) this amount of seconds after stopping supervised program before starts it again.
 - **restart_when_binary_changed**. Boolean value (false or true) to control if the supervised command should be restarted when its executable binary changes. Defaults to false.
 - **restart_cmd_when_binary_changed**. The command to restart the program if the program binary itself is changed.
 - **restart_signal_when_binary_changed**. The signal sent to the program for restarting if the program binary is changed.
@@ -164,13 +170,14 @@ depends_on = B, C
 
 ## Set default parameters for all supervised programs
 
-All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omited in all other program sections.
+All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omitted in all other program sections.
 
 In example below the VAR1 and VAR2 environment variables apply to both test1 and test2 supervised programs:
 
 ```ini
 [program-default]
 environment=VAR1="value1",VAR2="value2"
+envFiles=global.env,prod.env
 
 [program:test1]
 ...
@@ -210,6 +217,20 @@ Multiple log files can be configured for the stdout_logfile and stderr_logfile w
 ```ini
 stdout_logfile = test.log, /dev/stdout
 ```
+
+### syslog settings
+
+if write the log to the syslog, following additional parameter can be set like:
+```ini
+syslog_facility=local0
+syslog_tag=test
+syslog_stdout_priority=info
+syslog_stderr_priority=err
+```
+- **syslog_facility**, can be one of(case insensitive): KERNEL, USER, MAIL, DAEMON, AUTH, SYSLOG, LPR, NEWS, UUCP, CRON, AUTHPRIV, FTP, LOCAL0~LOCAL7
+- **syslog_stdout_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
+- **syslog_stderr_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
+
 
 # Web GUI
 

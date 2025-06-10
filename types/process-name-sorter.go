@@ -1,8 +1,8 @@
 package types
 
 import (
+	"reflect"
 	"sort"
-	"strings"
 )
 
 // ProcessNameSorter sort the process info by program name
@@ -10,30 +10,29 @@ type ProcessNameSorter struct {
 	processes []ProcessInfo
 }
 
-// NewwProcessNameSorter create a new ProcessNameSorter object
-func NewwProcessNameSorter(processes []ProcessInfo) *ProcessNameSorter {
+// NewProcessNameSorter creates new ProcessNameSorter object
+func NewProcessNameSorter(processes []ProcessInfo) *ProcessNameSorter {
 	return &ProcessNameSorter{processes: processes}
 }
 
-// Len return the number of programs
+// Len returns amount of programs
 func (pns *ProcessNameSorter) Len() int {
 	return len(pns.processes)
 }
 
-// Less return true if the program name of ith process is less than the program name of jth process
+// Less returns true if program name of i-th process is less than the program name of j-th process
 func (pns *ProcessNameSorter) Less(i, j int) bool {
-	return strings.Compare(pns.processes[i].Name, pns.processes[j].Name) < 0
+	return pns.processes[i].Name < pns.processes[j].Name
 }
 
-// Swap swap the ith program and jth program
+// Swap i-th program and j-th program
 func (pns *ProcessNameSorter) Swap(i, j int) {
-	info := pns.processes[i]
-	pns.processes[i] = pns.processes[j]
-	pns.processes[j] = info
+	swapF := reflect.Swapper(pns.processes)
+	swapF(i,j)
 }
 
-// SortProcessInfos sort the process information with program name
+// SortProcessInfos sorts the process information by program name
 func SortProcessInfos(processes []ProcessInfo) {
-	sorter := NewwProcessNameSorter(processes)
+	sorter := NewProcessNameSorter(processes)
 	sort.Sort(sorter)
 }
