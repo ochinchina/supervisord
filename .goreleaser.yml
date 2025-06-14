@@ -60,7 +60,7 @@ builds:
 archives:
 
   - id: archive_multi
-    builds: [dynamic]
+    ids: [dynamic]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_
       {{- title .Os }}_
@@ -68,16 +68,18 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    format: tar.gz
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     wrap_in_directory: true
     files:
       - none*
 
   - id: archive_static
-    builds: [static]
+    ids: [static]
     name_template: >-
       {{ .ProjectName }}_static_{{ .Version }}_
       {{- title .Os }}_
@@ -85,7 +87,8 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    format: tar.gz
+    formats:
+      - tar.gz
     wrap_in_directory: true
     files:
       - none*

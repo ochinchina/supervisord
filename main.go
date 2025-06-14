@@ -165,7 +165,9 @@ func getSupervisordLogFile(configFile string) string {
 }
 
 func main() {
-	if BuildVersion != "" { VERSION = BuildVersion }
+	if BuildVersion != "" {
+		VERSION = BuildVersion
+	}
 	ReapZombie()
 
 	// when execute `supervisord` without sub-command, it should start the server

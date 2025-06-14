@@ -11,7 +11,6 @@ var (
 	COMMIT  = ""
 )
 
-
 // VersionCommand implement the flags.Commander interface
 type VersionCommand struct {
 }
