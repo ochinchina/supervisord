@@ -51,7 +51,7 @@ func (s *Supervisor) checkMinLimit(resource int, resourceName string, minRequire
 
 	limit.Cur = limit.Max
 	if syscall.Setrlimit(syscall.RLIMIT_NOFILE, &limit) != nil {
-		return fmt.Errorf(fmt.Sprintf("fail to set the %s to %d", resourceName, limit.Cur))
+		return fmt.Errorf("fail to set the %s to %d", resourceName, limit.Cur)
 	}
 	return nil
 }
