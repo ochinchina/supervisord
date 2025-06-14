@@ -458,7 +458,6 @@ func (lc *LogtailCommand) tailLog(program string, dev string) error {
 			os.Stderr.Write(buf[0:n])
 		}
 	}
-	return nil
 }
 
 // Execute check if the number of arguments is ok
