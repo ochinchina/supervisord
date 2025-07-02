@@ -16,6 +16,7 @@ c-compiler = "*"
 sysroot_linux-64 = "2.34"
 
 [activation.env]
-GOOS="linux"
-CGO_ENABLED="1"  
-
+CONDA_BUILD = "1"
+GOOS = "linux"
+CGO_ENABLED = "0"
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"

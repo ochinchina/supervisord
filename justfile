@@ -6,4 +6,5 @@ sync target="frp":
 build:
   mkdir -p build
   rm -rf build/*  
-  go build -tags release -a -ldflags "-linkmode external -extldflags -static" -o build/supervisord .
+  # go build -tags release -a -ldflags "-linkmode external -extldflags -static" -o build/supervisord .
+  go build -tags release -a -ldflags "-s -w" -o build/supervisord .
