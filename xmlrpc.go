@@ -159,6 +159,10 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	// conf 文件
 	confHandler := NewConfApi(s).CreateHandler()
 	mux.Handle("/conf/", newHTTPBasicAuth(user, password, confHandler))
+
+	// 动态程序API
+	dynamicProgramHandler := NewDynamicProgramAPI(s).CreateHandler()
+	mux.Handle("/dynamic/", newHTTPBasicAuth(user, password, dynamicProgramHandler))
 	mux.HandleFunc("/confFile", func(writer http.ResponseWriter, request *http.Request) {
 		b, err := readFile("webgui/conf.html")
 		if err != nil {
