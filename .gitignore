@@ -9,3 +9,12 @@ vendor
 supervisord_linux_amd64
 upx
 dist
+
+# pixi environments
+.pixi
+*.egg-info
+build
+
+.rsync_exclude
+.lazy.lua
+

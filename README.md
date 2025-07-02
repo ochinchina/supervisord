@@ -282,3 +282,10 @@ supervisord service start
 supervisord service stop
 ```
 
+# JUST RUN
+
+```bash
+just build
+
+```
+

@@ -1,0 +1,21 @@
+[workspace]
+authors = ["fecet <xiezej@gmail.com>"]
+channels = ["conda-forge"]
+name = "supervisord"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[system-requirements]
+libc = { family = "glibc", version = "2.34" }
+
+[dependencies]
+go = "*"
+c-compiler = "*"
+sysroot_linux-64 = "2.34"
+
+[activation.env]
+GOOS="linux"
+CGO_ENABLED="1"  
+
