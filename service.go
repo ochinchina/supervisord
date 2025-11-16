@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/kardianos/service"
 	log "github.com/sirupsen/logrus"
@@ -21,7 +22,15 @@ func (p *program) Start(s service.Service) error {
 	return nil
 }
 
-func (p *program) run() {}
+func (p *program) run() {
+	log.SetOutput(os.Stdout)
+	if options.Daemon {
+		logFile := getSupervisordLogFile(options.Configuration)
+		Daemonize(logFile, runServer)
+	} else {
+		runServer()
+	}
+}
 
 // Stop supervised service
 func (p *program) Stop(s service.Service) error {
@@ -102,6 +111,31 @@ func (sc ServiceCommand) Execute(args []string) error {
 	}
 
 	return nil
+}
+
+func (sc *ServiceCommand) RunServer() error {
+	serviceArgs := make([]string, 0)
+	if options.Configuration != "" {
+		serviceArgs = append(serviceArgs, "--configuration="+options.Configuration)
+	}
+	if options.EnvFile != "" {
+		serviceArgs = append(serviceArgs, "--env-file="+options.EnvFile)
+	}
+
+	svcConfig := &service.Config{
+		Name:        "go-supervisord",
+		DisplayName: "go-supervisord",
+		Description: "Supervisord service in golang",
+		Arguments:   serviceArgs,
+	}
+	prg := &program{}
+	s, err := service.New(prg, svcConfig)
+	if err != nil {
+		log.Error("service init failed", err)
+		return err
+	}
+
+	return s.Run()
 }
 
 func showUsage() {

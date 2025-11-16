@@ -165,21 +165,17 @@ func getSupervisordLogFile(configFile string) string {
 }
 
 func main() {
-	if BuildVersion != "" { VERSION = BuildVersion }
+	if BuildVersion != "" {
+		VERSION = BuildVersion
+	}
 	ReapZombie()
 
 	// when execute `supervisord` without sub-command, it should start the server
 	parser.Command.SubcommandsOptional = true
 	parser.CommandHandler = func(command flags.Commander, args []string) error {
 		if command == nil {
-			log.SetOutput(os.Stdout)
-			if options.Daemon {
-				logFile := getSupervisordLogFile(options.Configuration)
-				Daemonize(logFile, runServer)
-			} else {
-				runServer()
-			}
-			os.Exit(0)
+			pureService := &ServiceCommand{}
+			return pureService.RunServer()
 		}
 		return command.Execute(args)
 	}
