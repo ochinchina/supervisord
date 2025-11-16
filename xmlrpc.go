@@ -123,7 +123,21 @@ func getProgramConfigPath(programName string, s *Supervisor) string {
 }
 
 func readLogHtml(writer http.ResponseWriter, request *http.Request) {
-	b, err := readFile("webgui/log.html")
+
+	var b []byte
+	var err error
+
+	if HTTP != nil {
+		var file http.File
+		file, err = HTTP.Open("log.html")
+		if err == nil {
+			defer file.Close()
+			b, err = ioutil.ReadAll(file)
+		}
+	} else {
+		b, err = readFile("webgui/log.html")
+	}
+
 	if err != nil {
 		writer.WriteHeader(http.StatusNotFound)
 		return
