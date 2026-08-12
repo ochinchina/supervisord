@@ -188,7 +188,9 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 			continue
 		}
 		dir := filepath.Dir(filePath)
-		mux.Handle("/log/"+realName+"/", http.StripPrefix("/log/"+realName+"/", http.FileServer(http.Dir(dir))))
+		prefix := "/log/" + realName + "/"
+		mux.Handle(prefix, newHTTPBasicAuth(user, password,
+			http.StripPrefix(prefix, http.FileServer(http.Dir(dir)))))
 	}
 
 	listener, err := net.Listen(protocol, listenAddr)
