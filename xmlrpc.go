@@ -137,7 +137,7 @@ func readLogHtml(writer http.ResponseWriter, request *http.Request) {
 		file, err = HTTP.Open("log.html")
 		if err == nil {
 			defer file.Close()
-			b, err = ioutil.ReadAll(file)
+			b, err = io.ReadAll(file)
 		}
 	} else {
 		b, err = readFile("webgui/log.html")
