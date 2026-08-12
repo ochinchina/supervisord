@@ -2,13 +2,75 @@ package events
 
 import (
 	"bufio"
+	"container/list"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+// TestEventListenerStopUnblocksWait verifies that stop() wakes a goroutine
+// that is blocked inside getFirstEvent(). Previously unregistering a listener
+// whose process had already sent READY would leave the goroutine stuck forever.
+func TestEventListenerStopUnblocksWait(t *testing.T) {
+	el := &EventListener{
+		cond:       sync.NewCond(new(sync.Mutex)),
+		events:     list.New(),
+		bufferSize: 10,
+	}
+
+	done := make(chan struct{})
+	go func() {
+		el.getFirstEvent()
+		close(done)
+	}()
+
+	// Give the goroutine time to enter cond.Wait().
+	time.Sleep(20 * time.Millisecond)
+
+	el.stop()
+
+	select {
+	case <-done:
+		// success — goroutine exited promptly
+	case <-time.After(time.Second):
+		t.Error("getFirstEvent() did not return after stop()")
+	}
+}
+
+// TestEventListenerUnregisterStops verifies that UnregisterEventListener
+// causes the listener's goroutine to exit.
+func TestEventListenerUnregisterStops(t *testing.T) {
+	r1, w1 := io.Pipe()
+	r2, w2 := io.Pipe()
+
+	listener := NewEventListener("pool-unreg-test", "supervisor", r2, w1, 10)
+	eventListenerManager.registerEventListener("pool-unreg-test",
+		[]string{"REMOTE_COMMUNICATION"}, listener)
+
+	// Send READY so the goroutine moves past waitForReady into getFirstEvent.
+	w2.Write([]byte("READY\n"))
+	time.Sleep(20 * time.Millisecond)
+
+	// Unregister calls stop() internally.
+	eventListenerManager.unregisterEventListener("pool-unreg-test")
+
+	// Verify the stopped flag is set (stop() was called).
+	listener.cond.L.Lock()
+	stopped := listener.stopped
+	listener.cond.L.Unlock()
+	if !stopped {
+		t.Error("listener.stopped should be true after unregister")
+	}
+
+	w1.Close()
+	w2.Close()
+	r1.Close()
+	r2.Close()
+}
 
 func TestEventSerial(t *testing.T) {
 	v1 := nextEventSerial()

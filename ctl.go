@@ -86,7 +86,7 @@ func (x *CtlCommand) getServerURL() string {
 		return x.ServerURL
 	} else if _, err := os.Stat(options.Configuration); err == nil {
 		myconfig := config.NewConfig(options.Configuration)
-		myconfig.Load()
+		_, _ = myconfig.Load()
 		if entry, ok := myconfig.GetSupervisorctl(); ok {
 			serverurl := entry.GetString("serverurl", "")
 			if serverurl != "" {
@@ -104,7 +104,7 @@ func (x *CtlCommand) getUser() string {
 		return x.User
 	} else if _, err := os.Stat(options.Configuration); err == nil {
 		myconfig := config.NewConfig(options.Configuration)
-		myconfig.Load()
+		_, _ = myconfig.Load()
 		if entry, ok := myconfig.GetSupervisorctl(); ok {
 			user := entry.GetString("username", "")
 			return user
@@ -120,7 +120,7 @@ func (x *CtlCommand) getPassword() string {
 		return x.Password
 	} else if _, err := os.Stat(options.Configuration); err == nil {
 		myconfig := config.NewConfig(options.Configuration)
-		myconfig.Load()
+		_, _ = myconfig.Load()
 		if entry, ok := myconfig.GetSupervisorctl(); ok {
 			password := entry.GetString("password", "")
 			return password
@@ -424,7 +424,9 @@ func (pc *PidCommand) Execute(args []string) error {
 func (lc *LogtailCommand) Execute(args []string) error {
 	program := args[0]
 	go func() {
-		lc.tailLog(program, "stderr")
+		if err := lc.tailLog(program, "stderr"); err != nil {
+			fmt.Printf("error tailing stderr for %s: %v\n", program, err)
+		}
 	}()
 	return lc.tailLog(program, "stdout")
 }
@@ -453,18 +455,17 @@ func (lc *LogtailCommand) tailLog(program string, dev string) error {
 			return err
 		}
 		if dev == "stdout" {
-			os.Stdout.Write(buf[0:n])
+			_, _ = os.Stdout.Write(buf[0:n])
 		} else {
-			os.Stderr.Write(buf[0:n])
+			_, _ = os.Stderr.Write(buf[0:n])
 		}
 	}
-	return nil
 }
 
 // Execute check if the number of arguments is ok
 func (wc *CmdCheckWrapperCommand) Execute(args []string) error {
 	if len(args) < wc.leastNumArgs {
-		err := fmt.Errorf("Invalid arguments.\nUsage: supervisord ctl %v", wc.usage)
+		err := fmt.Errorf("invalid arguments.\nUsage: supervisord ctl %v", wc.usage)
 		fmt.Printf("%v\n", err)
 		return err
 	}
@@ -476,39 +477,39 @@ func init() {
 		"Control a running daemon",
 		"The ctl subcommand resembles supervisorctl command of original daemon.",
 		&ctlCommand)
-	ctlCmd.AddCommand("status",
+	_, _ = ctlCmd.AddCommand("status",
 		"show program status",
 		"show all or some program status",
 		&statusCommand)
-	ctlCmd.AddCommand("start",
+	_, _ = ctlCmd.AddCommand("start",
 		"start programs",
 		"start one or more programs",
 		&startCommand)
-	ctlCmd.AddCommand("stop",
+	_, _ = ctlCmd.AddCommand("stop",
 		"stop programs",
 		"stop one or more programs",
 		&stopCommand)
-	ctlCmd.AddCommand("restart",
+	_, _ = ctlCmd.AddCommand("restart",
 		"restart programs",
 		"restart one or more programs",
 		&restartCommand)
-	ctlCmd.AddCommand("shutdown",
+	_, _ = ctlCmd.AddCommand("shutdown",
 		"shutdown supervisord",
 		"shutdown supervisord",
 		&shutdownCommand)
-	ctlCmd.AddCommand("reload",
+	_, _ = ctlCmd.AddCommand("reload",
 		"reload the programs",
 		"reload the programs",
 		&reloadCommand)
-	ctlCmd.AddCommand("signal",
+	_, _ = ctlCmd.AddCommand("signal",
 		"send signal to program",
 		"send signal to program",
 		&signalCommand)
-	ctlCmd.AddCommand("pid",
+	_, _ = ctlCmd.AddCommand("pid",
 		"get the pid of specified program",
 		"get the pid of specified program",
 		&pidCommand)
-	ctlCmd.AddCommand("logtail",
+	_, _ = ctlCmd.AddCommand("logtail",
 		"get the standard output&standard error of the program",
 		"get the standard output&standard error of the program",
 		&logtailCommand)

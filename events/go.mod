@@ -1,6 +1,8 @@
 module github.com/ochinchina/supervisord/events
 
-go 1.24
+go 1.25.0
+
+toolchain go1.25.8
 
 require github.com/sirupsen/logrus v1.9.3
 

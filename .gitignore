@@ -1,3 +1,8 @@
+# Claude / Anthropic / Claude Code
+CLAUDE.md
+.claude/
+memory/
+
 .idea
 supervisord
 supervisord.exe

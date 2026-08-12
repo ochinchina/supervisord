@@ -1,6 +1,8 @@
 module github.com/ochinchina/supervisord/process
 
-go 1.24
+go 1.25.0
+
+toolchain go1.25.8
 
 require (
 	github.com/mitchellh/go-ps v1.0.0

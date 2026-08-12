@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ochinchina/supervisord/config"
@@ -33,7 +34,7 @@ type Supervisor struct {
 	xmlRPC     *XMLRPC          // XMLRPC interface
 	logger     logger.Logger    // logger manager
 	lock       sync.Mutex
-	restarting bool // if supervisor is in restarting state
+	restarting atomic.Bool // if supervisor is in restarting state
 }
 
 // StartProcessArgs arguments for starting a process
@@ -91,9 +92,8 @@ type ProcessTailLog struct {
 // NewSupervisor create a Supervisor object with supervisor configuration file
 func NewSupervisor(configFile string) *Supervisor {
 	return &Supervisor{config: config.NewConfig(configFile),
-		procMgr:    process.NewManager(),
-		xmlRPC:     NewXMLRPC(),
-		restarting: false}
+		procMgr: process.NewManager(),
+		xmlRPC:  NewXMLRPC()}
 }
 
 // GetConfig get the loaded supervisor configuration
@@ -184,14 +184,14 @@ func (s *Supervisor) Shutdown(r *http.Request, args *struct{}, reply *struct{ Re
 // Restart the supervisor
 func (s *Supervisor) Restart(r *http.Request, args *struct{}, reply *struct{ Ret bool }) error {
 	log.Info("Receive instruction to restart")
-	s.restarting = true
+	s.restarting.Store(true)
 	reply.Ret = true
 	return nil
 }
 
 // IsRestarting check if supervisor is in restarting state
 func (s *Supervisor) IsRestarting() bool {
-	return s.restarting
+	return s.restarting.Load()
 }
 
 func getProcessInfo(proc *process.Process) *types.ProcessInfo {
@@ -359,12 +359,12 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, r
 	procs := s.procMgr.FindMatch(args.Name)
 	if len(procs) <= 0 {
 		reply.Success = false
-		return fmt.Errorf("No process named %s", args.Name)
+		return fmt.Errorf("no process named %s", args.Name)
 	}
 	sig, err := signals.ToSignal(args.Signal)
 	if err == nil {
 		for _, proc := range procs {
-			proc.Signal(sig, false)
+			_ = proc.Signal(sig, false)
 		}
 	}
 	reply.Success = true
@@ -377,7 +377,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSign
 		if proc.GetGroup() == args.Name {
 			sig, err := signals.ToSignal(args.Signal)
 			if err == nil {
-				proc.Signal(sig, false)
+				_ = proc.Signal(sig, false)
 			}
 		}
 	})
@@ -395,7 +395,7 @@ func (s *Supervisor) SignalAllProcesses(r *http.Request, args *types.ProcessSign
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		sig, err := signals.ToSignal(args.Signal)
 		if err == nil {
-			proc.Signal(sig, false)
+			_ = proc.Signal(sig, false)
 		}
 	})
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
@@ -643,7 +643,7 @@ func (s *Supervisor) RemoveProcessGroup(r *http.Request, args *struct{ Name stri
 func (s *Supervisor) ReadProcessStdoutLog(r *http.Request, args *ProcessLogReadInfo, reply *struct{ LogData string }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", args.Name)
+		return fmt.Errorf("no such process %s", args.Name)
 	}
 	var err error
 	reply.LogData, err = proc.StdoutLog.ReadLog(int64(args.Offset), int64(args.Length))
@@ -654,7 +654,7 @@ func (s *Supervisor) ReadProcessStdoutLog(r *http.Request, args *ProcessLogReadI
 func (s *Supervisor) ReadProcessStderrLog(r *http.Request, args *ProcessLogReadInfo, reply *struct{ LogData string }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", args.Name)
+		return fmt.Errorf("no such process %s", args.Name)
 	}
 	var err error
 	reply.LogData, err = proc.StderrLog.ReadLog(int64(args.Offset), int64(args.Length))
@@ -665,7 +665,7 @@ func (s *Supervisor) ReadProcessStderrLog(r *http.Request, args *ProcessLogReadI
 func (s *Supervisor) TailProcessStdoutLog(r *http.Request, args *ProcessLogReadInfo, reply *ProcessTailLog) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", args.Name)
+		return fmt.Errorf("no such process %s", args.Name)
 	}
 	var err error
 	reply.LogData, reply.Offset, reply.Overflow, err = proc.StdoutLog.ReadTailLog(int64(args.Offset), int64(args.Length))
@@ -676,7 +676,7 @@ func (s *Supervisor) TailProcessStdoutLog(r *http.Request, args *ProcessLogReadI
 func (s *Supervisor) TailProcessStderrLog(r *http.Request, args *ProcessLogReadInfo, reply *ProcessTailLog) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", args.Name)
+		return fmt.Errorf("no such process %s", args.Name)
 	}
 	var err error
 	reply.LogData, reply.Offset, reply.Overflow, err = proc.StderrLog.ReadTailLog(int64(args.Offset), int64(args.Length))
@@ -687,7 +687,7 @@ func (s *Supervisor) TailProcessStderrLog(r *http.Request, args *ProcessLogReadI
 func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string }, reply *struct{ Success bool }) error {
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("No such process %s", args.Name)
+		return fmt.Errorf("no such process %s", args.Name)
 	}
 	err1 := proc.StdoutLog.ClearAllLogFile()
 	err2 := proc.StderrLog.ClearAllLogFile()
@@ -702,8 +702,8 @@ func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string
 func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply *struct{ RPCTaskResults []RPCTaskResult }) error {
 
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		proc.StdoutLog.ClearAllLogFile()
-		proc.StderrLog.ClearAllLogFile()
+		_ = proc.StdoutLog.ClearAllLogFile()
+		_ = proc.StderrLog.ClearAllLogFile()
 		procInfo := getProcessInfo(proc)
 		reply.RPCTaskResults = append(reply.RPCTaskResults, RPCTaskResult{
 			Name:        procInfo.Name,

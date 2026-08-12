@@ -4,12 +4,12 @@ import (
 	"crypto/sha1" //nolint:gosec
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/rpc"
 	"github.com/ochinchina/gorilla-xmlrpc/xml"
@@ -22,8 +22,9 @@ import (
 // XMLRPC mange the XML RPC servers
 // start XML RPC servers to accept the XML RPC request from client side
 type XMLRPC struct {
-	// all the listeners to accept the XML RPC request
-	listeners map[string]net.Listener
+	mu            sync.Mutex
+	listeners     map[string]net.Listener
+	procCollector prometheus.Collector
 }
 
 type httpBasicAuth struct {
@@ -74,6 +75,8 @@ func NewXMLRPC() *XMLRPC {
 // Stop network listening
 func (p *XMLRPC) Stop() {
 	log.Info("stop listening")
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	for _, listener := range p.listeners {
 		listener.Close()
 	}
@@ -94,6 +97,8 @@ func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr st
 }
 
 func (p *XMLRPC) isHTTPServerStartedOnProtocol(protocol string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	_, ok := p.listeners[protocol]
 	return ok
 }
@@ -104,7 +109,7 @@ func readFile(path string) ([]byte, error) {
 		return nil, err
 	}
 	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +143,15 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 		startedCb()
 		return
 	}
-	procCollector := process.NewProcCollector(s.procMgr)
-	prometheus.Register(procCollector)
+	// Unregister any previously registered collector before creating a new one
+	// so that config reloads don't accumulate stale collectors.
+	p.mu.Lock()
+	if p.procCollector != nil {
+		prometheus.Unregister(p.procCollector)
+	}
+	p.procCollector = process.NewProcCollector(s.procMgr)
+	prometheus.Register(p.procCollector)
+	p.mu.Unlock()
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", newHTTPBasicAuth(user, password, p.createRPCServer(s)))
 
@@ -196,7 +208,9 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	listener, err := net.Listen(protocol, listenAddr)
 	if err == nil {
 		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Info("success to listen on address")
+		p.mu.Lock()
 		p.listeners[protocol] = listener
+		p.mu.Unlock()
 		startedCb()
 		http.Serve(listener, mux)
 	} else {

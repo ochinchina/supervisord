@@ -76,7 +76,7 @@ func readPid(pidfile string) (int, error) {
 		n, err := fmt.Fscanf(file, "%d", &pid)
 		if err == nil {
 			if n != 1 {
-				return pid, errors.New("Fail to get pid from file")
+				return pid, errors.New("fail to get pid from file")
 			}
 			return pid, nil
 		}
@@ -86,9 +86,7 @@ func readPid(pidfile string) (int, error) {
 
 func startApplication(command string, args []string) {
 	cmd := exec.Command(command)
-	for _, arg := range args {
-		cmd.Args = append(cmd.Args, arg)
-	}
+	cmd.Args = append(cmd.Args, args...)
 
 	err := cmd.Start()
 

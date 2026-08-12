@@ -13,6 +13,15 @@ func TestWriteSingleLog(t *testing.T) {
 	logger.Close()
 }
 
+// TestChanLoggerDoubleClose verifies that Close() is safe to call multiple
+// times. Previously this panicked via a channel double-close.
+func TestChanLoggerDoubleClose(t *testing.T) {
+	ch := make(chan []byte, 1)
+	logger := NewChanLogger(ch)
+	logger.Close()
+	logger.Close() // must not panic
+}
+
 func TestSplitLogFile(t *testing.T) {
 	files := splitLogFile(" test1.log, /dev/stdout, test2.log ")
 	if len(files) != 3 {

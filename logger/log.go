@@ -57,6 +57,7 @@ type NullLocker struct {
 // ChanLogger write log message by channel
 type ChanLogger struct {
 	channel chan []byte
+	once    sync.Once
 }
 
 // CompositeLogger dispatch the log message to other loggers
@@ -362,13 +363,11 @@ func (l *ChanLogger) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// Close ChanLogger
+// Close ChanLogger — safe to call multiple times
 func (l *ChanLogger) Close() error {
-	defer func() {
-		if err := recover(); err != nil {
-		}
-	}()
-	close(l.channel)
+	l.once.Do(func() {
+		close(l.channel)
+	})
 	return nil
 }
 

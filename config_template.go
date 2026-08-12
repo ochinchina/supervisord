@@ -142,7 +142,7 @@ func GenTemplate(writer io.Writer) error {
 }
 
 func init() {
-	parser.AddCommand("init",
+	_, _ = parser.AddCommand("init",
 		"initialize a template",
 		"The init subcommand writes the supported configurations to specified file",
 		&initTemplateCommand)

@@ -1,6 +1,8 @@
 module github.com/ochinchina/supervisord/logger
 
-go 1.24
+go 1.25.0
+
+toolchain go1.25.8
 
 require (
 	github.com/ochinchina/supervisord/events v0.0.0-20250610055946-d5a5470d11af

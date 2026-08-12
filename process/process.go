@@ -263,6 +263,8 @@ func (p *Process) GetPid() int {
 
 // GetState returns process state
 func (p *Process) GetState() State {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	return p.state
 }
 
@@ -273,6 +275,8 @@ func (p *Process) GetStartTime() time.Time {
 
 // GetStopTime returns process stop time
 func (p *Process) GetStopTime() time.Time {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	switch p.state {
 	case Starting:
 		fallthrough
@@ -332,8 +336,11 @@ func (p *Process) getNumberProcs() int {
 
 // SendProcessStdin sends data to process stdin
 func (p *Process) SendProcessStdin(chars string) error {
-	if p.stdin != nil {
-		_, err := p.stdin.Write([]byte(chars))
+	p.lock.RLock()
+	stdin := p.stdin
+	p.lock.RUnlock()
+	if stdin != nil {
+		_, err := stdin.Write([]byte(chars))
 		return err
 	}
 	return fmt.Errorf("NO_FILE")
@@ -1081,7 +1088,7 @@ func (p *Process) Stop(wait bool) {
 			// wait at most "stopwaitsecs" seconds for one signal
 			for endTime.After(time.Now()) {
 				// if it already exits
-				if p.state != Starting && p.state != Running && p.state != Stopping {
+				if p.GetState() != Starting && p.GetState() != Running && p.GetState() != Stopping {
 					atomic.StoreInt32(&stopped, 1)
 					break
 				}
@@ -1094,7 +1101,7 @@ func (p *Process) Stop(wait bool) {
 			killEndTime := time.Now().Add(killwaitsecs)
 			for killEndTime.After(time.Now()) {
 				// if it exits
-				if p.state != Starting && p.state != Running && p.state != Stopping {
+				if p.GetState() != Starting && p.GetState() != Running && p.GetState() != Stopping {
 					atomic.StoreInt32(&stopped, 1)
 					break
 				}
@@ -1112,6 +1119,8 @@ func (p *Process) Stop(wait bool) {
 
 // GetStatus returns status of program as a string
 func (p *Process) GetStatus() string {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	if p.cmd.ProcessState == nil {
 		return "<nil>"
 	}

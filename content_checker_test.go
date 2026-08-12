@@ -106,3 +106,47 @@ func TestHttpCheckFail(t *testing.T) {
 		t.Fail()
 	}
 }
+
+// TestHttpCheckTimeoutReturns verifies that Check() returns false within a
+// reasonable time when no server is available. With the old code this test
+// would hang forever after the timeout expired.
+func TestHttpCheckTimeoutReturns(t *testing.T) {
+	start := time.Now()
+	checker := NewHTTPChecker("http://127.0.0.1:19991", 1)
+	if checker.Check() {
+		t.Error("expected false when no server is listening")
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Errorf("Check() took %v, should return within ~1s of timeout", elapsed)
+	}
+}
+
+// TestHttpCheckRetriesOnConnectionRefused verifies that Check() retries when
+// the server is not yet listening (connection refused), and eventually succeeds
+// once the server comes up. This also exercises the body-close path on success.
+func TestHttpCheckRetriesOnConnectionRefused(t *testing.T) {
+	// Grab a free port, then immediately release it so it's "not yet listening".
+	tmp, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := tmp.Addr().String()
+	tmp.Close()
+
+	// Start the real server after a short delay to force at least one retry.
+	go func() {
+		time.Sleep(400 * time.Millisecond)
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			return
+		}
+		http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+	}()
+
+	checker := NewHTTPChecker("http://"+addr, 5)
+	if !checker.Check() {
+		t.Error("expected true after server became available")
+	}
+}

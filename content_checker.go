@@ -16,19 +16,19 @@ type ContentChecker interface {
 
 // BaseChecker basic implementation of ContentChecker
 type BaseChecker struct {
-	data     string
-	includes []string
-	// timeout in second
+	data          strings.Builder
+	includes      []string
 	timeoutTime   time.Time
 	notifyChannel chan string
 }
 
 // NewBaseChecker creates BaseChecker object
 func NewBaseChecker(includes []string, timeout int) *BaseChecker {
-	return &BaseChecker{data: "",
+	return &BaseChecker{
 		includes:      includes,
 		timeoutTime:   time.Now().Add(time.Duration(timeout) * time.Second),
-		notifyChannel: make(chan string, 1)}
+		notifyChannel: make(chan string, 1),
+	}
 }
 
 // Write data to the checker
@@ -38,8 +38,9 @@ func (bc *BaseChecker) Write(b []byte) (int, error) {
 }
 
 func (bc *BaseChecker) isReady() bool {
+	s := bc.data.String()
 	for _, include := range bc.includes {
-		if !strings.Contains(bc.data, include) {
+		if !strings.Contains(s, include) {
 			return false
 		}
 	}
@@ -48,7 +49,7 @@ func (bc *BaseChecker) isReady() bool {
 
 // Check content of the input data
 func (bc *BaseChecker) Check() bool {
-	d := bc.timeoutTime.Sub(time.Now())
+	d := time.Until(bc.timeoutTime)
 	if d < 0 {
 		return false
 	}
@@ -57,7 +58,7 @@ func (bc *BaseChecker) Check() bool {
 	for {
 		select {
 		case data := <-bc.notifyChannel:
-			bc.data = bc.data + data
+			bc.data.WriteString(data)
 			if bc.isReady() {
 				return true
 			}
@@ -97,9 +98,11 @@ type TCPChecker struct {
 
 // NewTCPChecker creates TCPChecker object
 func NewTCPChecker(host string, port int, includes []string, timeout int) *TCPChecker {
-	checker := &TCPChecker{host: host,
+	checker := &TCPChecker{
+		host:        host,
 		port:        port,
-		baseChecker: NewBaseChecker(includes, timeout)}
+		baseChecker: NewBaseChecker(includes, timeout),
+	}
 	checker.start()
 	return checker
 }
@@ -113,6 +116,7 @@ func (tc *TCPChecker) start() {
 			if err == nil || tc.baseChecker.timeoutTime.Before(time.Now()) {
 				break
 			}
+			time.Sleep(500 * time.Millisecond)
 		}
 
 		if err == nil {
@@ -121,7 +125,7 @@ func (tc *TCPChecker) start() {
 				if err != nil {
 					break
 				}
-				tc.baseChecker.Write(b[0:n])
+				_, _ = tc.baseChecker.Write(b[0:n])
 			}
 		}
 	}()
@@ -144,18 +148,26 @@ type HTTPChecker struct {
 
 // NewHTTPChecker creates HTTPChecker object
 func NewHTTPChecker(url string, timeout int) *HTTPChecker {
-	return &HTTPChecker{url: url,
-		timeoutTime: time.Now().Add(time.Duration(timeout) * time.Second)}
+	return &HTTPChecker{
+		url:         url,
+		timeoutTime: time.Now().Add(time.Duration(timeout) * time.Second),
+	}
 }
 
-// Check content of HTTP response
+// Check content of HTTP response. Returns true if a 2xx response is received
+// before the timeout. Returns false if the timeout expires or the response
+// is non-2xx.
 func (hc *HTTPChecker) Check() bool {
 	for {
-		if hc.timeoutTime.After(time.Now()) {
+		if time.Now().Before(hc.timeoutTime) {
 			resp, err := http.Get(hc.url)
 			if err == nil {
+				resp.Body.Close()
 				return resp.StatusCode >= 200 && resp.StatusCode < 300
 			}
+			time.Sleep(500 * time.Millisecond)
+		} else {
+			return false
 		}
 	}
 }

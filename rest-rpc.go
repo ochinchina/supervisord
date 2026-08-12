@@ -2,11 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/ochinchina/supervisord/types"
+	log "github.com/sirupsen/logrus"
 )
 
 // SupervisorRestful the restful interface to control the programs defined in configuration file
@@ -44,10 +45,10 @@ func (sr *SupervisorRestful) CreateSupervisorHandler() http.Handler {
 func (sr *SupervisorRestful) ListProgram(w http.ResponseWriter, req *http.Request) {
 	result := struct{ AllProcessInfo []types.ProcessInfo }{make([]types.ProcessInfo, 0)}
 	if sr.supervisor.GetAllProcessInfo(nil, nil, &result) == nil {
-		json.NewEncoder(w).Encode(result.AllProcessInfo)
+		_ = json.NewEncoder(w).Encode(result.AllProcessInfo)
 	} else {
 		r := map[string]bool{"success": false}
-		json.NewEncoder(w).Encode(r)
+		_ = json.NewEncoder(w).Encode(r)
 	}
 }
 
@@ -57,7 +58,7 @@ func (sr *SupervisorRestful) StartProgram(w http.ResponseWriter, req *http.Reque
 	params := mux.Vars(req)
 	success, err := sr._startProgram(params["name"])
 	r := map[string]bool{"success": err == nil && success}
-	json.NewEncoder(w).Encode(&r)
+	_ = json.NewEncoder(w).Encode(&r)
 }
 
 func (sr *SupervisorRestful) _startProgram(program string) (bool, error) {
@@ -73,21 +74,23 @@ func (sr *SupervisorRestful) StartPrograms(w http.ResponseWriter, req *http.Requ
 	var b []byte
 	var err error
 
-	if b, err = ioutil.ReadAll(req.Body); err != nil {
+	if b, err = io.ReadAll(req.Body); err != nil {
 		w.WriteHeader(400)
-		w.Write([]byte("not a valid request"))
+		_, _ = w.Write([]byte("not a valid request"))
 		return
 	}
 
 	var programs []string
 	if err = json.Unmarshal(b, &programs); err != nil {
 		w.WriteHeader(400)
-		w.Write([]byte("not a valid request"))
+		_, _ = w.Write([]byte("not a valid request"))
 	} else {
 		for _, program := range programs {
-			sr._startProgram(program)
+			if _, err := sr._startProgram(program); err != nil {
+				log.WithField("program", program).Warn("failed to start program: ", err)
+			}
 		}
-		w.Write([]byte("Success to start the programs"))
+		_, _ = w.Write([]byte("Success to start the programs"))
 	}
 }
 
@@ -98,7 +101,7 @@ func (sr *SupervisorRestful) StopProgram(w http.ResponseWriter, req *http.Reques
 	params := mux.Vars(req)
 	success, err := sr._stopProgram(params["name"])
 	r := map[string]bool{"success": err == nil && success}
-	json.NewEncoder(w).Encode(&r)
+	_ = json.NewEncoder(w).Encode(&r)
 }
 
 func (sr *SupervisorRestful) _stopProgram(programName string) (bool, error) {
@@ -115,20 +118,22 @@ func (sr *SupervisorRestful) StopPrograms(w http.ResponseWriter, req *http.Reque
 	var programs []string
 	var b []byte
 	var err error
-	if b, err = ioutil.ReadAll(req.Body); err != nil {
+	if b, err = io.ReadAll(req.Body); err != nil {
 		w.WriteHeader(400)
-		w.Write([]byte("not a valid request"))
+		_, _ = w.Write([]byte("not a valid request"))
 		return
 	}
 
 	if err := json.Unmarshal(b, &programs); err != nil {
 		w.WriteHeader(400)
-		w.Write([]byte("not a valid request"))
+		_, _ = w.Write([]byte("not a valid request"))
 	} else {
 		for _, program := range programs {
-			sr._stopProgram(program)
+			if _, err := sr._stopProgram(program); err != nil {
+				log.WithField("program", program).Warn("failed to stop program: ", err)
+			}
 		}
-		w.Write([]byte("Success to stop the programs"))
+		_, _ = w.Write([]byte("Success to stop the programs"))
 	}
 
 }
@@ -142,8 +147,10 @@ func (sr *SupervisorRestful) Shutdown(w http.ResponseWriter, req *http.Request) 
 	defer req.Body.Close()
 
 	reply := struct{ Ret bool }{false}
-	sr.supervisor.Shutdown(nil, nil, &reply)
-	w.Write([]byte("Shutdown..."))
+	if err := sr.supervisor.Shutdown(nil, nil, &reply); err != nil {
+		log.Warn("shutdown error: ", err)
+	}
+	_, _ = w.Write([]byte("Shutdown..."))
 }
 
 // Reload the supervisor configuration file through rest interface
@@ -151,7 +158,9 @@ func (sr *SupervisorRestful) Reload(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
 	reply := struct{ Ret bool }{false}
-	sr.supervisor.Reload(false)
+	if _, _, _, err := sr.supervisor.Reload(false); err != nil {
+		log.Warn("reload error: ", err)
+	}
 	r := map[string]bool{"success": reply.Ret}
-	json.NewEncoder(w).Encode(&r)
+	_ = json.NewEncoder(w).Encode(&r)
 }

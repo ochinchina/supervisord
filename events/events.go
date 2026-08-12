@@ -89,6 +89,7 @@ type EventListener struct {
 	stdin      *bufio.Reader
 	stdout     io.Writer
 	bufferSize int
+	stopped    bool
 }
 
 // NewEventListener creates NewEventListener object
@@ -110,11 +111,14 @@ func NewEventListener(pool string,
 
 func (el *EventListener) getFirstEvent() ([]byte, bool) {
 	el.cond.L.Lock()
-
 	defer el.cond.L.Unlock()
 
-	for el.events.Len() <= 0 {
+	for el.events.Len() <= 0 && !el.stopped {
 		el.cond.Wait()
+	}
+
+	if el.stopped {
+		return nil, false
 	}
 
 	if el.events.Len() > 0 {
@@ -124,6 +128,14 @@ func (el *EventListener) getFirstEvent() ([]byte, bool) {
 		return b, ok
 	}
 	return nil, false
+}
+
+// stop signals the event listener goroutine to exit.
+func (el *EventListener) stop() {
+	el.cond.L.Lock()
+	el.stopped = true
+	el.cond.Signal()
+	el.cond.L.Unlock()
 }
 
 func (el *EventListener) removeFirstEvent() {
@@ -141,30 +153,33 @@ func (el *EventListener) start() {
 			err := el.waitForReady()
 			if err != nil {
 				log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to read from event listener, the event listener may exit")
-				break
+				return
 			}
 			for {
-				if b, ok := el.getFirstEvent(); ok {
-					_, err := el.stdout.Write(b)
-					if err != nil {
-						log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to send event")
-						break
-					}
-					result, err := el.readResult()
-					if err != nil {
-						log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to read result")
-						break
-					}
-					if result == "OK" { // remove the event if succeed
-						log.WithFields(log.Fields{"eventListener": el.pool}).Info("succeed to send the event")
-						el.removeFirstEvent()
-						break
-					} else if result == "FAIL" {
-						log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to send the event")
-						break
-					} else {
-						log.WithFields(log.Fields{"eventListener": el.pool, "result": result}).Warn("unknown result from listener")
-					}
+				b, ok := el.getFirstEvent()
+				if !ok {
+					// stop() was called; exit the goroutine
+					return
+				}
+				_, err := el.stdout.Write(b)
+				if err != nil {
+					log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to send event")
+					break
+				}
+				result, err := el.readResult()
+				if err != nil {
+					log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to read result")
+					break
+				}
+				if result == "OK" { // remove the event if succeed
+					log.WithFields(log.Fields{"eventListener": el.pool}).Info("succeed to send the event")
+					el.removeFirstEvent()
+					break
+				} else if result == "FAIL" {
+					log.WithFields(log.Fields{"eventListener": el.pool}).Warn("fail to send the event")
+					break
+				} else {
+					log.WithFields(log.Fields{"eventListener": el.pool, "result": result}).Warn("unknown result from listener")
 				}
 			}
 		}
@@ -354,9 +369,9 @@ func (em *EventListenerManager) unregisterEventListener(eventListenerName string
 			if _, ok = listeners[listener]; ok {
 				log.WithFields(log.Fields{"eventListener": eventListenerName, "event": event}).Info("unregister event listener")
 			}
-
 			delete(listeners, listener)
 		}
+		listener.stop()
 		return listener
 	}
 	return nil

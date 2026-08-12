@@ -23,6 +23,6 @@ func Daemonize(logfile string, proc func()) {
 	if child != nil {
 		return
 	}
-	defer context.Release()
+	defer func() { _ = context.Release() }()
 	proc()
 }

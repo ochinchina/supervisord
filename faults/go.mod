@@ -1,6 +1,8 @@
 module github.com/ochinchina/supervisord/faults
 
-go 1.24
+go 1.25.0
+
+toolchain go1.25.8
 
 require github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c
 

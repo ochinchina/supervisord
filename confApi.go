@@ -43,5 +43,5 @@ func (ca *ConfApi) getProgramConfFile(writer http.ResponseWriter, request *http.
 	}
 
 	writer.WriteHeader(http.StatusOK)
-	writer.Write(b)
+	_, _ = writer.Write(b)
 }

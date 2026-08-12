@@ -1,8 +1,8 @@
 module github.com/ochinchina/supervisord/config
 
-go 1.24.0
+go 1.25.0
 
-toolchain go1.24.4
+toolchain go1.25.8
 
 require (
 	github.com/hashicorp/go-envparse v0.1.0
