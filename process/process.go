@@ -217,7 +217,7 @@ func (p *Process) GetDescription() string {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 	if p.state == Running {
-		seconds := int(time.Now().Sub(p.startTime).Seconds())
+		seconds := int(time.Since(p.startTime).Seconds())
 		minutes := seconds / 60
 		hours := minutes / 60
 		days := hours / 24
@@ -226,7 +226,7 @@ func (p *Process) GetDescription() string {
 		}
 		return fmt.Sprintf("pid %d, uptime %d:%02d:%02d", p.cmd.Process.Pid, hours%24, minutes%60, seconds%60)
 	} else if p.state != Stopped {
-                if p.stopTime.Unix() > 0 {
+		if p.stopTime.Unix() > 0 {
 			return p.stopTime.String()
 		}
 	}
@@ -330,8 +330,35 @@ func (p *Process) GetPriority() int {
 	return p.config.GetInt("priority", 999)
 }
 
-func (p *Process) getNumberProcs() int {
-	return p.config.GetInt("numprocs", 1)
+func (p *Process) executePreStartHook() {
+	hook := p.config.GetString("pre_start_hook", "")
+	if hook != "" {
+		log.WithFields(log.Fields{"program": p.GetName(), "hook": hook}).Info("execute pre_start_hook")
+		p.executeHook(hook)
+	}
+
+}
+
+func (p *Process) executePreStopHook() {
+	hook := p.config.GetString("pre_stop_hook", "")
+	if hook != "" {
+		log.WithFields(log.Fields{"program": p.GetName(), "hook": hook}).Info("execute pre_stop_hook")
+		p.executeHook(hook)
+	}
+}
+
+func (p *Process) executeHook(cmd string) {
+	if cmd == "" {
+		return
+	}
+
+	scriptExecutor := NewScriptExecutor(cmd)
+	err := scriptExecutor.Execute()
+	if err != nil {
+		log.WithFields(log.Fields{"program": p.GetName(), "hook": cmd}).Errorf("fail to execute hook: %v", err)
+	} else {
+		log.WithFields(log.Fields{"program": p.GetName(), "hook": cmd}).Info("success to execute hook")
+	}
 }
 
 // SendProcessStdin sends data to process stdin
@@ -590,6 +617,8 @@ func (p *Process) run(finishCb func()) {
 			break
 		}
 
+		p.executePreStartHook()
+
 		err = p.cmd.Start()
 
 		if err != nil {
@@ -615,7 +644,7 @@ func (p *Process) run(finishCb func()) {
 		go func() {
 			// the sleep time must be less than `stopwaitsecs`, here I set half of `stopwaitsecs`
 			// otherwise the logger will not be closed before SIGKILL is sent
-			halfWaitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)/2) * time.Second
+			halfWaitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)*1000/2) * time.Millisecond
 			for {
 				if !p.isRunning() {
 					break
@@ -1062,7 +1091,7 @@ func (p *Process) Stop(wait bool) {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("program is not running")
 		return
 	}
-  
+
 	log.WithFields(log.Fields{"program": p.GetName()}).Info("stopping the program")
 	p.changeStateTo(Stopping)
 	sigs := strings.Fields(p.config.GetString("stopsignal", "TERM"))
@@ -1073,6 +1102,8 @@ func (p *Process) Stop(wait bool) {
 	if stopasgroup && !killasgroup {
 		log.WithFields(log.Fields{"program": p.GetName()}).Error("Cannot set stopasgroup=true and killasgroup=false")
 	}
+
+	p.executePreStopHook()
 
 	var stopped int32 = 0
 	go func() {

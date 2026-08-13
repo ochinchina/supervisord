@@ -157,6 +157,8 @@ Supervised program settings configured in [program:programName] section and incl
 - **restart_cmd_when_file_changed**. The command to restart the program if any monitored files under **restart_directory_monitor** with pattern **restart_file_pattern** are changed.
 - **restart_signal_when_file_changed**. The signal will be sent to the proram, such as Nginx, for restarting if any monitored files under **restart_directory_monitor** with pattern **restart_file_pattern** are changed.
 - **depends_on**. Define supervised command start dependency. If program A depends on program B, C, the program B, C will be started before program A. Example:
+- **pre_start_hook** the script to run before starting the application.
+- **pre_stop_hook** the script to run before stopping the application.
 
 ```ini
 [program:A]
@@ -167,6 +169,8 @@ depends_on = B, C
 [program:C]
 ...
 ```
+- **pre_start_hook** the prestart hook script
+- **pre_stop_hook** the prestop hook script
 
 ## Set default parameters for all supervised programs
 
