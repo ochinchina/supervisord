@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ochinchina/supervisord/config"
 	log "github.com/sirupsen/logrus"
@@ -18,9 +19,11 @@ type Manager struct {
 
 // NewManager creates new Manager object
 func NewManager() *Manager {
-	return &Manager{procs: make(map[string]*Process),
+	manager := &Manager{procs: make(map[string]*Process),
 		eventListeners: make(map[string]*Process),
 	}
+	manager.startLivenessCheckers()
+	return manager
 }
 
 // CreateProcess creates process (program or event listener) and adds to Manager object
@@ -144,10 +147,13 @@ func (pm *Manager) Clear() {
 
 // ForEachProcess process each process in sync mode
 func (pm *Manager) ForEachProcess(procFunc func(p *Process)) {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
+	var procs []*Process = make([]*Process, 0)
+	{
+		pm.lock.Lock()
+		defer pm.lock.Unlock()
 
-	procs := pm.getAllProcess()
+		procs = pm.getAllProcess()
+	}
 	for _, proc := range procs {
 		procFunc(proc)
 	}
@@ -159,10 +165,13 @@ func (pm *Manager) ForEachProcess(procFunc func(p *Process)) {
 // - done, signal the process is completed
 // Returns: number of total processes
 func (pm *Manager) AsyncForEachProcess(procFunc func(p *Process), done chan *Process) int {
-	pm.lock.Lock()
-	defer pm.lock.Unlock()
+	var procs []*Process = make([]*Process, 0)
+	{
+		pm.lock.Lock()
+		defer pm.lock.Unlock()
 
-	procs := pm.getAllProcess()
+		procs = pm.getAllProcess()
+	}
 
 	for _, proc := range procs {
 		go forOneProcess(proc, procFunc, done)
@@ -198,6 +207,35 @@ func (pm *Manager) StopAllProcesses() {
 	})
 
 	wg.Wait()
+}
+
+func (pm *Manager) IsAllProcessesStopped() bool {
+	var procs []*Process = make([]*Process, 0)
+	{
+		pm.lock.Lock()
+		defer pm.lock.Unlock()
+
+		procs = pm.getAllProcess()
+	}
+
+	for _, proc := range procs {
+		if proc.isRunning() {
+			log.WithFields(log.Fields{"process": proc.GetName()}).Info("process is still running")
+			return false
+		}
+	}
+	return true
+}
+
+func (pm *Manager) startLivenessCheckers() {
+	go func() {
+		for {
+			pm.ForEachProcess(func(proc *Process) {
+				proc.DoLivenessCheck()
+			})
+			time.Sleep(2 * time.Second)
+		}
+	}()
 }
 
 func sortProcess(procs []*Process) []*Process {

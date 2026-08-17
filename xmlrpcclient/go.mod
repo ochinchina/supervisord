@@ -1,12 +1,11 @@
 module github.com/ochinchina/supervisord/xmlrpcclient
 
-go 1.25.0
+go 1.26.0
 
-toolchain go1.25.8
+toolchain go1.26.5
 
 require (
 	github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c
-	github.com/ochinchina/supervisord/types v0.0.0-20250610055946-d5a5470d11af
 )
 
 require (

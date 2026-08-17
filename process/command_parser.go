@@ -84,7 +84,6 @@ func parseCommand(command string) ([]string, error) {
 }
 
 // create command from string or []string
-//
 func createCommand(command interface{}) (*exec.Cmd, error) {
 	args := make([]string, 0)
 	var err error = nil
@@ -116,5 +115,10 @@ func executeCommand(command interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cmd.CombinedOutput()
+	output, err := cmd.CombinedOutput()
+
+	if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 0 {
+		return output, errors.New(fmt.Sprintf("command execution failed with exit code %d", cmd.ProcessState.ExitCode()))
+	}
+	return output, err
 }

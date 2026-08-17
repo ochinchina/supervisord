@@ -12,7 +12,8 @@ import (
 )
 
 func createTmpFile() (string, error) {
-	f, err := ioutil.TempFile("", "tmp")
+	f, err := os.CreateTemp("", "tmp")
+
 	if err == nil {
 		f.Close()
 		return f.Name(), err
@@ -27,7 +28,7 @@ func saveToTmpFile(b []byte) (string, error) {
 		return "", err
 	}
 
-	ioutil.WriteFile(f, b, os.ModePerm)
+	os.WriteFile(f, b, os.ModePerm)
 
 	return f, nil
 }

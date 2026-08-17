@@ -5,11 +5,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // FileExists returns true if the file exists at the given path.
@@ -22,11 +26,16 @@ func fileExists(filename string) bool {
 }
 
 type ScriptExecutor struct {
-	script string
+	script         string
+	executeTimeout uint32
+}
+
+func NewScriptExecutorWithTimeout(script string, executeTimeout uint32) *ScriptExecutor {
+	return &ScriptExecutor{script: script, executeTimeout: executeTimeout}
 }
 
 func NewScriptExecutor(script string) *ScriptExecutor {
-	return &ScriptExecutor{script: script}
+	return &ScriptExecutor{script: script, executeTimeout: 60}
 }
 
 // Execute the script in local or remote machine
@@ -45,16 +54,22 @@ func (se *ScriptExecutor) Execute() error {
 // @return error if the script execution failed
 func (se *ScriptExecutor) executeHTTP() error {
 
-	fields := strings.Fields(se.script)
+	fields, err := parseCommand(se.script)
+	if err != nil {
+		return err
+	}
+
 	var url string = fields[0]
 	if len(fields) > 1 {
 		options, _, headers := se.parseHttpParameters(fields[1:])
-		key_file, cert_file, ca_file := options["key"], options["cert"], options["ca"]
+		key_file, cert_file, ca_file := options["key-file"], options["cert-file"], options["ca-file"]
 		data := se.loadData(options)
 
 		return se.executeHttpRequest(url, key_file, cert_file, ca_file, data, headers)
+	} else {
+		return se.executeHttpRequest(url, "", "", "", make([]byte, 0), make(map[string]string))
 	}
-	return nil
+
 }
 
 // loadData load the data from options["data"] or options["d"]
@@ -95,9 +110,9 @@ func (se *ScriptExecutor) executeHttpRequest(url, key_file, cert_file, ca_file s
 		transport := &http.Transport{
 			TLSClientConfig: tlsConfig,
 		}
-		client = &http.Client{Transport: transport}
+		client = &http.Client{Transport: transport, Timeout: time.Duration(se.executeTimeout) * time.Second}
 	} else {
-		client = &http.Client{}
+		client = &http.Client{Timeout: time.Duration(se.executeTimeout) * time.Second}
 	}
 
 	var req *http.Request = nil
@@ -109,6 +124,7 @@ func (se *ScriptExecutor) executeHttpRequest(url, key_file, cert_file, ca_file s
 	}
 
 	if req == nil {
+		log.WithFields(log.Fields{"url": url}).Error("failed to create HTTP request")
 		return errors.New("failed to create HTTP request")
 	}
 
@@ -121,9 +137,15 @@ func (se *ScriptExecutor) executeHttpRequest(url, key_file, cert_file, ca_file s
 		return err
 	}
 	defer resp.Body.Close()
-	_, err = io.ReadAll(resp.Body)
+	output, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.WithFields(log.Fields{"url": url, "error": err}).Error("failed to read HTTP response")
 		return err
+	} else {
+		log.WithFields(log.Fields{"url": url, "status": resp.StatusCode, "output": string(output)}).Info("HTTP request executed successfully")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("HTTP request failed with status code %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -173,15 +195,35 @@ func (se *ScriptExecutor) createTlsConfig(key_file, cert_file, ca_file string) (
 // @return error if the script execution failed
 func (se *ScriptExecutor) executeLocal() error {
 	cmd := strings.TrimPrefix(se.script, "script://")
-	_, err := executeCommand(cmd)
-	return err
+	ch := make(chan error, 1)
+	go func() {
+		output, err := executeCommand(cmd)
+		if err != nil {
+			log.WithFields(log.Fields{"script": cmd, "output": string(output)}).Error("failed to execute script")
+		} else {
+			log.WithFields(log.Fields{"script": cmd, "output": string(output)}).Info("script executed successfully")
+		}
+
+		ch <- err
+	}()
+
+	select {
+	case <-time.After(time.Duration(se.executeTimeout) * time.Second):
+		log.WithFields(log.Fields{"script": cmd}).Error("script execution timed out")
+		return errors.New("script execution timed out")
+	case err := <-ch:
+		return err
+	}
 }
 
 // Execute the script in remote machine via TCP connection
 // @return error if the script execution failed
 func (se *ScriptExecutor) executeTCP() error {
 	hostPort := strings.TrimPrefix(se.script, "tcp://")
-	_, err := net.Dial("tcp", hostPort)
+	_, err := net.DialTimeout("tcp", hostPort, time.Duration(se.executeTimeout)*time.Second)
+	if err != nil {
+		log.WithFields(log.Fields{"hostPort": hostPort}).Error("failed to connect to TCP server")
+	}
 	return err
 }
 

@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package signals
@@ -5,48 +6,93 @@ package signals
 import (
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
-//convert a signal name to signal
+// convert a signal name to signal
 func ToSignal(signalName string) (os.Signal, error) {
-	if signalName == "HUP" {
+	switch signalName {
+	case "HUP":
 		return syscall.SIGHUP, nil
-	} else if signalName == "INT" {
+	case "INT":
 		return syscall.SIGINT, nil
-	} else if signalName == "QUIT" {
+	case "QUIT":
 		return syscall.SIGQUIT, nil
-	} else if signalName == "KILL" {
+	case "KILL":
 		return syscall.SIGKILL, nil
-	} else if signalName == "USR1" {
+	case "USR1":
 		log.Warn("signal USR1 is not supported in windows")
 		return nil, errors.New("signal USR1 is not supported in windows")
-	} else if signalName == "USR2" {
+	case "USR2":
 		log.Warn("signal USR2 is not supported in windows")
 		return nil, errors.New("signal USR2 is not supported in windows")
-	} else {
+	default:
 		return syscall.SIGTERM, nil
 
 	}
 
 }
 
-//
 // Args:
-//    process - the process
-//    sig - the signal
-//    sigChildren - ignore in windows system
 //
-func Kill(process *os.Process, sig os.Signal, sigChilren bool) error {
+//	process - the process
+//	sigs - the signals
+//	sigChildren - ignore in windows system
+func Kill(process *os.Process, sigs []string, sigChildren bool, stopWaitSecs int) error {
 	//Signal command can't kill children processes, call  taskkill command to kill them
-	cmd := exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Pid))
-	err := cmd.Start()
-	if err == nil {
-		return cmd.Wait()
+	done := make(chan error, 1)
+
+	for index := range sigs {
+		var cmd *exec.Cmd = nil
+		if sigs[index] == "KILL" {
+			cmd = exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Pid))
+		} else {
+			cmd = exec.Command("taskkill", "/T", "/PID", fmt.Sprintf("%d", process.Pid))
+		}
+		go func() {
+			output, err := cmd.CombinedOutput()
+			if isKilledSucessfully(string(output)) {
+				done <- nil
+				return
+			} else {
+				done <- fmt.Errorf("taskkill failed: %v", err)
+				return
+			}
+		}()
+		// Wait for the process to exit or timeout
+		select {
+		// return if the process has exited
+		case err := <-done:
+			if err == nil {
+				return nil
+			} else {
+				continue
+			}
+		// Timeout after stopWaitSecs seconds
+		case <-time.After(time.Duration(stopWaitSecs) * time.Second):
+			continue
+		}
 	}
-	//if fail to find taskkill, fallback to normal signal
-	return process.Signal(sig)
+
+	return fmt.Errorf("failed to kill process %d after %d seconds", process.Pid, stopWaitSecs)
+
+}
+
+func isKilledSucessfully(s string) bool {
+	s = strings.TrimSpace(s)
+	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "ERROR:") {
+			log.Errorf("taskkill error: %s", line)
+			return false
+		}
+	}
+	return true
 }

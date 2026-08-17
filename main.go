@@ -46,8 +46,10 @@ func init() {
 func initSignals(s *Supervisor) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	fmt.Println("init signals")
 	go func() {
 		sig := <-sigs
+		fmt.Println("receive a signal to stop all process & exit:", sig)
 		log.WithFields(log.Fields{"signal": sig}).Info("receive a signal to stop all process & exit")
 		s.procMgr.StopAllProcesses()
 		os.Exit(-1)
@@ -129,18 +131,21 @@ func findSupervisordConf() (string, error) {
 	return "", fmt.Errorf("fail to find supervisord.conf")
 }
 
+func initServer() (*Supervisor, error) {
+	loadEnvFile()
+	if len(options.Configuration) <= 0 {
+		options.Configuration, _ = findSupervisordConf()
+	}
+	s := NewSupervisor(options.Configuration)
+	if _, _, _, sErr := s.Reload(true); sErr != nil {
+		panic(sErr)
+	}
+	return s, nil
+}
 func runServer() {
 	// infinite loop for handling Restart ('reload' command)
-	loadEnvFile()
 	for {
-		if len(options.Configuration) <= 0 {
-			options.Configuration, _ = findSupervisordConf()
-		}
-		s := NewSupervisor(options.Configuration)
-		initSignals(s)
-		if _, _, _, sErr := s.Reload(true); sErr != nil {
-			panic(sErr)
-		}
+		s, _ := initServer()
 		s.WaitForExit()
 	}
 }
@@ -166,13 +171,18 @@ func getSupervisordLogFile(configFile string) string {
 
 func main() {
 	if BuildVersion != "" {
-		VERSION = BuildVersion
+		version = BuildVersion
 	}
+
 	ReapZombie()
 
 	// when execute `supervisord` without sub-command, it should start the server
 	parser.Command.SubcommandsOptional = true
 	parser.CommandHandler = func(command flags.Commander, args []string) error {
+		fmt.Fprintln(os.Stdout, "args:", args)
+		if command == nil {
+			fmt.Println("Command is nil")
+		}
 		if command == nil {
 			pureService := &ServiceCommand{}
 			return pureService.RunServer()
@@ -191,6 +201,9 @@ func main() {
 				_, _ = fmt.Fprintf(os.Stderr, "error when parsing command: %s\n", err)
 				os.Exit(1)
 			}
+		} else {
+			runServer()
 		}
 	}
+
 }

@@ -1,3 +1,4 @@
+//go:build darwin
 // +build darwin
 
 package signals
@@ -5,8 +6,10 @@ package signals
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var signalMap = map[string]os.Signal{"SIGABRT": syscall.SIGABRT,
@@ -57,15 +60,39 @@ func ToSignal(signalName string) (os.Signal, error) {
 // Kill send signal to the process
 //
 // Args:
-//    process - the process which the signal should be sent to
-//    sig - the signal will be sent
-//    sigChildren - true if the signal needs to be sent to the children also
 //
-func Kill(process *os.Process, sig os.Signal, sigChildren bool) error {
-	localSig := sig.(syscall.Signal)
-	pid := process.Pid
-	if sigChildren {
-		pid = -pid
+//	process - the process which the signal should be sent to
+//	sigs - the signals will be sent
+//	sigChildren - true if the signal needs to be sent to the children also
+func Kill(process *os.Process, sigs []string, sigChildren bool, stopWaitSecs int) error {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGCHLD)
+	defer signal.Stop(sigChan)
+
+	for _, sigStr := range sigs {
+		sig, err := ToSignal(sigStr)
+		if err != nil {
+			continue
+		}
+		localSig := sig.(syscall.Signal)
+		pid := process.Pid
+		if sigChildren {
+			pid = -pid
+		}
+
+		err = syscall.Kill(pid, localSig)
+		if err != nil {
+			continue
+		}
+
+		select {
+		// return if the process has exited
+		case <-sigChan:
+			return nil
+		case <-time.After(time.Duration(stopWaitSecs) * time.Second):
+			continue
+		}
+
 	}
-	return syscall.Kill(pid, localSig)
+	return nil
 }

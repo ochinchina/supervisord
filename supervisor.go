@@ -14,7 +14,6 @@ import (
 	"github.com/ochinchina/supervisord/faults"
 	"github.com/ochinchina/supervisord/logger"
 	"github.com/ochinchina/supervisord/process"
-	"github.com/ochinchina/supervisord/signals"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/util"
 
@@ -361,11 +360,8 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, r
 		reply.Success = false
 		return fmt.Errorf("no process named %s", args.Name)
 	}
-	sig, err := signals.ToSignal(args.Signal)
-	if err == nil {
-		for _, proc := range procs {
-			_ = proc.Signal(sig, false)
-		}
+	for _, proc := range procs {
+		_ = proc.Signal(args.Signal, true)
 	}
 	reply.Success = true
 	return nil
@@ -375,10 +371,7 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, r
 func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		if proc.GetGroup() == args.Name {
-			sig, err := signals.ToSignal(args.Signal)
-			if err == nil {
-				_ = proc.Signal(sig, false)
-			}
+			_ = proc.Signal(args.Signal, true)
 		}
 	})
 
@@ -393,10 +386,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSign
 // SignalAllProcesses send signal to all the processes in the supervisor
 func (s *Supervisor) SignalAllProcesses(r *http.Request, args *types.ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		sig, err := signals.ToSignal(args.Signal)
-		if err == nil {
-			_ = proc.Signal(sig, false)
-		}
+		_ = proc.Signal(args.Signal, true)
 	})
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
@@ -473,11 +463,16 @@ func (s *Supervisor) Reload(restart bool) (addedGroup []string, changedGroup []s
 // WaitForExit waits for supervisord to exit
 func (s *Supervisor) WaitForExit() {
 	for {
-		if s.IsRestarting() {
+		/*f s.IsRestarting() {
 			s.procMgr.StopAllProcesses()
 			break
+		}*/
+
+		if s.procMgr.IsAllProcessesStopped() {
+			break
 		}
-		time.Sleep(10 * time.Second)
+
+		time.Sleep(2 * time.Second)
 	}
 }
 

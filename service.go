@@ -14,7 +14,13 @@ type ServiceCommand struct {
 
 var serviceCommand ServiceCommand
 
-type program struct{}
+type program struct {
+	supervisor *Supervisor
+}
+
+func NewProgram() *program {
+	return &program{}
+}
 
 // Start supervised service
 func (p *program) Start(s service.Service) error {
@@ -26,15 +32,23 @@ func (p *program) run() {
 	log.SetOutput(os.Stdout)
 	if options.Daemon {
 		logFile := getSupervisordLogFile(options.Configuration)
-		Daemonize(logFile, runServer)
+		p.supervisor, _ = initServer()
+		Daemonize(logFile, func() {
+			p.supervisor.WaitForExit()
+		})
 	} else {
-		runServer()
+		p.supervisor, _ = initServer()
+		p.supervisor.WaitForExit()
+		//runServer()
 	}
 }
 
 // Stop supervised service
 func (p *program) Stop(s service.Service) error {
 	// Stop should not block. Return with a few seconds.
+	if p.supervisor != nil {
+		p.supervisor.procMgr.StopAllProcesses()
+	}
 	return nil
 }
 

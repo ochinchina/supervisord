@@ -66,6 +66,8 @@ envFiles=global.env,prod.env
 directory=/tmp
 #umask=not support
 serverurl=AUTO
+pre_start_hook = echo "this is start hook"
+pre_stop_hook = echo "this is stop hook"
 
 [include]
 files=/an/absolute/filename.conf /an/absolute/*.conf foo.conf config??.conf

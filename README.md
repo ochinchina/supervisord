@@ -159,6 +159,22 @@ Supervised program settings configured in [program:programName] section and incl
 - **depends_on**. Define supervised command start dependency. If program A depends on program B, C, the program B, C will be started before program A. Example:
 - **pre_start_hook** the script to run before starting the application.
 - **pre_stop_hook** the script to run before stopping the application.
+- **liveness check** parameters:
+    - **liveness_check_script** the script to be executed for liveness checking, it can be one of following format：
+        - http url, for example: http://127.0.0.1:8080/liveness -H "Content-Type: application/json" -d "this is data" --key-file <your-key-file.pem> --cert-file <your-cert-file.pem> --ca-file <your-ca-file.pem>
+        - tcp, for example: tcp://127.0.0.1：8080
+        - script, for example: /your/liveness/script.sh
+    - **liveness_check_initial_delay** how long to wait before performing the first liveness check, default is 60
+    - **liveness_check_period** how often the liveness check will be executed in seconds, default is 60
+    - **liveness_check_timeout** the script execute timeout in seconds, default is 30
+    - **liveness_check_success_threshold** minimum consecutive successes for the liveness check to be considered successful after having failed, default is 1
+    - **liveness_check_success_action** the script to be executed after the liveness check becomes success, default is nothing to do
+    - **liveness_check_failure_threshold** After a liveness check fails failureThreshold times successively, the program will be considered as failed
+    - **liveness_check_failure_action** action to be token if liveness check is failed, default is **restart** it can be one of:
+        - **restart** the program will be restarted
+        - **stop** the program will be stopped
+        - **script** the script to be executed
+    
 
 ```ini
 [program:A]

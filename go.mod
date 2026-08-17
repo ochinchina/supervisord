@@ -13,20 +13,21 @@ require (
 	github.com/ochinchina/go-ini v1.0.1
 	github.com/ochinchina/go-reaper v0.0.0-20181016012355-6b11389e79fc
 	github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c
-	github.com/ochinchina/supervisord/config v0.0.0-20260812091739-2125ad06c228
-	github.com/ochinchina/supervisord/events v0.0.0-20260812091739-2125ad06c228
-	github.com/ochinchina/supervisord/faults v0.0.0-20260812091739-2125ad06c228
-	github.com/ochinchina/supervisord/logger v0.0.0-20260812091739-2125ad06c228
-	github.com/ochinchina/supervisord/process v0.0.0-20260813030513-0526c7c37da8
-	github.com/ochinchina/supervisord/signals v0.0.0-20260813030513-0526c7c37da8
-	github.com/ochinchina/supervisord/types v0.0.0-20260812091739-2125ad06c228
-	github.com/ochinchina/supervisord/util v0.0.0-20260812091739-2125ad06c228
-	github.com/ochinchina/supervisord/xmlrpcclient v0.0.0-20260813030513-0526c7c37da8
 	github.com/sirupsen/logrus v1.9.4
 	google.golang.org/protobuf v1.36.12 // indirect; CVE-2024-24786
 )
 
-require github.com/prometheus/client_golang v1.22.0
+require (
+	github.com/ochinchina/supervisord/config v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/events v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/faults v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/logger v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/process v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/types v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/util v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/xmlrpcclient v0.0.0-00010101000000-000000000000
+	github.com/prometheus/client_golang v1.24.1
+)
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -35,9 +36,9 @@ require (
 	github.com/hashicorp/go-envparse v0.1.0 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ochinchina/filechangemonitor v0.3.1 // indirect
+	github.com/ochinchina/supervisord/signals v0.0.0-00010101000000-000000000000 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v1.20.99 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect

@@ -1,0 +1,13 @@
+go 1.26.0
+
+use (
+	.
+	./config
+	./events
+	./faults
+	./process
+	./signals
+	./types
+	./util
+	./xmlrpcclient
+)

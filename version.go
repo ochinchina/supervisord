@@ -7,8 +7,8 @@ import (
 // VERSION the version of supervisor
 
 var (
-	VERSION = "v0.7.3"
-	COMMIT  = ""
+	version = "v0.7.3"
+	commit  = ""
 )
 
 // VersionCommand implement the flags.Commander interface
@@ -19,8 +19,8 @@ var versionCommand VersionCommand
 
 // Execute implement Execute() method defined in flags.Commander interface, executes the given command
 func (v VersionCommand) Execute(args []string) error {
-	fmt.Println("Version:", VERSION)
-	fmt.Println(" Commit:", COMMIT)
+	fmt.Println("Version:", version)
+	fmt.Println(" Commit:", commit)
 	return nil
 }
 
