@@ -61,7 +61,12 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags="-s -w" -o dist/${{ matrix.output_name }}
+          VERSION="${{ inputs.tag_name || github.ref_name }}"
+          COMMIT=$(git rev-parse --short HEAD)
+          
+          go build -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
+            -o dist/${{ matrix.output_name }}
+
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v3
