@@ -61,7 +61,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags="-s -w" -o dist/${{ matrix.output_name }} main.go
+          go build -ldflags="-s -w" -o dist/${{ matrix.output_name }}
 
       - name: Compress Binary with UPX
         uses: svenstaro/upx-action@v2
