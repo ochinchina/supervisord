@@ -63,13 +63,6 @@ jobs:
         run: |
           go build -ldflags="-s -w" -o dist/${{ matrix.output_name }}
 
-      - name: Compress Binary with UPX
-        uses: svenstaro/upx-action@v2
-        with:
-          file: dist/${{ matrix.output_name }}
-          args: --best --lzma
-          strip: false
-
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
