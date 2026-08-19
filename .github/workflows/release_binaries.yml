@@ -68,6 +68,7 @@ jobs:
         with:
           file: dist/${{ matrix.output_name }}
           args: --best --lzma
+          strip: false
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
