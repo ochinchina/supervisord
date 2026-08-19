@@ -193,8 +193,11 @@ func (s *Supervisor) IsRestarting() bool {
 	return s.restarting.Load()
 }
 
-func getProcessInfo(proc *process.Process) *types.ProcessInfo {
-	return &types.ProcessInfo{Name: proc.GetName(),
+func getProcessInfo(nodename string, proc *process.Process) *types.ProcessInfo {
+
+	return &types.ProcessInfo{
+		Node:          nodename,
+		Name:          proc.GetName(),
 		Group:         proc.GetGroup(),
 		Description:   proc.GetDescription(),
 		Start:         int(proc.GetStartTime().Unix()),
@@ -211,11 +214,22 @@ func getProcessInfo(proc *process.Process) *types.ProcessInfo {
 
 }
 
+func (s *Supervisor) getNodeName() string {
+
+	nodename, _ := os.Hostname()
+
+	httpServerConfig, ok := s.config.GetInetHTTPServer()
+	if ok {
+		nodename = httpServerConfig.GetString("nodename", nodename)
+	}
+	return nodename
+}
+
 // GetAllProcessInfo get all the program information managed by supervisor
 func (s *Supervisor) GetAllProcessInfo(r *http.Request, args *struct{}, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
 	reply.AllProcessInfo = make([]types.ProcessInfo, 0)
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		procInfo := getProcessInfo(proc)
+		procInfo := getProcessInfo(s.getNodeName(), proc)
 		reply.AllProcessInfo = append(reply.AllProcessInfo, *procInfo)
 	})
 	types.SortProcessInfos(reply.AllProcessInfo)
@@ -230,7 +244,7 @@ func (s *Supervisor) GetProcessInfo(r *http.Request, args *struct{ Name string }
 		return fmt.Errorf("BAD_NAME no process named %s", args.Name)
 	}
 
-	reply.ProcInfo = *getProcessInfo(proc)
+	reply.ProcInfo = *getProcessInfo(s.getNodeName(), proc)
 	return nil
 }
 
@@ -244,6 +258,14 @@ func (s *Supervisor) StartProcess(r *http.Request, args *StartProcessArgs, reply
 	for _, proc := range procs {
 		proc.Start(args.Wait)
 	}
+
+	for _, proc := range procs {
+		if !proc.IsRunning() {
+			reply.Success = false
+			return fmt.Errorf("fail to start process %s", args.Name)
+		}
+	}
+
 	reply.Success = true
 	return nil
 }
@@ -262,7 +284,7 @@ func (s *Supervisor) StartAllProcesses(r *http.Request, args *struct {
 	for i := 0; i < n; i++ {
 		proc, ok := <-finishedProcCh
 		if ok {
-			processInfo := *getProcessInfo(proc)
+			processInfo := *getProcessInfo(s.getNodeName(), proc)
 			reply.RPCTaskResults = append(reply.RPCTaskResults, RPCTaskResult{
 				Name:        processInfo.Name,
 				Group:       processInfo.Group,
@@ -288,7 +310,7 @@ func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, 
 	for i := 0; i < n; i++ {
 		proc, ok := <-finishedProcCh
 		if ok && proc.GetGroup() == args.Name {
-			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
+			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
 		}
 	}
 
@@ -304,6 +326,12 @@ func (s *Supervisor) StopProcess(r *http.Request, args *StartProcessArgs, reply 
 	}
 	for _, proc := range procs {
 		proc.Stop(args.Wait)
+	}
+	for _, proc := range procs {
+		if proc.IsRunning() {
+			reply.Success = false
+			return fmt.Errorf("fail to stop process %s", args.Name)
+		}
 	}
 	reply.Success = true
 	return nil
@@ -322,7 +350,7 @@ func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, r
 	for i := 0; i < n; i++ {
 		proc, ok := <-finishedProcCh
 		if ok && proc.GetGroup() == args.Name {
-			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
+			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
 		}
 	}
 	return nil
@@ -341,7 +369,7 @@ func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 	for i := 0; i < n; i++ {
 		proc, ok := <-finishedProcCh
 		if ok {
-			processInfo := *getProcessInfo(proc)
+			processInfo := *getProcessInfo(s.getNodeName(), proc)
 			reply.RPCTaskResults = append(reply.RPCTaskResults, RPCTaskResult{
 				Name:        processInfo.Name,
 				Group:       processInfo.Group,
@@ -377,7 +405,7 @@ func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSign
 
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		if proc.GetGroup() == args.Name {
-			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
+			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
 		}
 	})
 	return nil
@@ -389,7 +417,7 @@ func (s *Supervisor) SignalAllProcesses(r *http.Request, args *types.ProcessSign
 		_ = proc.Signal(args.Signal, true)
 	})
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(proc))
+		reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
 	})
 	return nil
 }
@@ -431,20 +459,27 @@ func (s *Supervisor) Reload(restart bool) (addedGroup []string, changedGroup []s
 
 	loadedPrograms, err := s.config.Load()
 
+	if err != nil {
+		log.Error("failed to load config: ", err)
+		return nil, nil, nil, err
+	}
+
+	log.WithFields(log.Fields{"programs": strings.Join(loadedPrograms, ",")}).Info("loaded programs")
+
 	if checkErr := s.checkRequiredResources(); checkErr != nil {
 		log.Error(checkErr)
 		os.Exit(1)
 
 	}
-	if err == nil {
-		s.setSupervisordInfo()
-		s.startEventListeners()
-		s.createPrograms(prevPrograms)
-		if restart {
-			s.startHTTPServer()
-		}
-		s.startAutoStartPrograms()
+
+	s.setSupervisordInfo()
+	s.startEventListeners()
+	s.createPrograms(prevPrograms)
+	if restart {
+		s.startHTTPServer()
 	}
+	s.startAutoStartPrograms()
+
 	removedPrograms := util.Sub(prevPrograms, loadedPrograms)
 	for _, removedProg := range removedPrograms {
 		log.WithFields(log.Fields{"program": removedProg}).Info("the program is removed and will be stopped")
@@ -504,11 +539,28 @@ func (s *Supervisor) startEventListeners() {
 	}
 }
 
+func parseRemoteSupervisors(remotes string) map[string]string {
+	remoteSupervisors := make(map[string]string)
+	fields := strings.Split(remotes, ",")
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		namePorts := strings.SplitN(field, ":", 2)
+		if len(namePorts) == 2 {
+			name := strings.TrimSpace(namePorts[0])
+			port := "http://" + strings.TrimSpace(namePorts[1])
+			remoteSupervisors[name] = port
+
+		}
+	}
+	return remoteSupervisors
+}
+
 func (s *Supervisor) startHTTPServer() {
 	httpServerConfig, ok := s.config.GetInetHTTPServer()
 	s.xmlRPC.Stop()
 	if ok {
 		addr := httpServerConfig.GetString("port", "")
+
 		if addr != "" {
 			cond := sync.NewCond(&sync.Mutex{})
 			cond.L.Lock()
@@ -517,6 +569,7 @@ func (s *Supervisor) startHTTPServer() {
 				httpServerConfig.GetString("password", ""),
 				addr,
 				s,
+				parseRemoteSupervisors(httpServerConfig.GetString("remotes", "")),
 				func() {
 					cond.L.Lock()
 					cond.Signal()
@@ -699,7 +752,7 @@ func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply 
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		_ = proc.StdoutLog.ClearAllLogFile()
 		_ = proc.StderrLog.ClearAllLogFile()
-		procInfo := getProcessInfo(proc)
+		procInfo := getProcessInfo(s.getNodeName(), proc)
 		reply.RPCTaskResults = append(reply.RPCTaskResults, RPCTaskResult{
 			Name:        procInfo.Name,
 			Group:       procInfo.Group,

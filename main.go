@@ -179,10 +179,6 @@ func main() {
 	// when execute `supervisord` without sub-command, it should start the server
 	parser.Command.SubcommandsOptional = true
 	parser.CommandHandler = func(command flags.Commander, args []string) error {
-		fmt.Fprintln(os.Stdout, "args:", args)
-		if command == nil {
-			fmt.Println("Command is nil")
-		}
 		if command == nil {
 			pureService := &ServiceCommand{}
 			return pureService.RunServer()

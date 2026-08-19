@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -48,7 +47,7 @@ var emptyReader io.ReadCloser
 
 func init() {
 	var buf bytes.Buffer
-	emptyReader = ioutil.NopCloser(&buf)
+	emptyReader = io.NopCloser(bytes.NewReader(buf.Bytes())) //ioutil.NopCloser(&buf)
 }
 
 // NewXMLRPCClient creates XMLRPCClient object
@@ -176,11 +175,12 @@ func (r *XMLRPCClient) post(method string, data interface{}, processBody func(io
 		fmt.Printf("Malform url:%s\n", myurl)
 		return
 	}
-	if myurl.Scheme == "http" || myurl.Scheme == "https" {
+	switch myurl.Scheme {
+	case "http", "https":
 		r.postInetHTTP(method, r.URL(), data, processBody)
-	} else if myurl.Scheme == "unix" {
+	case "unix":
 		r.postUnixHTTP(method, myurl.Path, data, processBody)
-	} else {
+	default:
 		fmt.Printf("Unsupported URL scheme:%s\n", myurl.Scheme)
 	}
 

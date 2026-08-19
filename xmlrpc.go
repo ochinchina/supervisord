@@ -43,7 +43,6 @@ func newHTTPBasicAuth(user string, password string, handler http.Handler) *httpB
 
 func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.user == "" || h.password == "" {
-		log.Debug("no auth required")
 		h.handler.ServeHTTP(w, r)
 		return
 	}
@@ -87,13 +86,13 @@ func (p *XMLRPC) Stop() {
 // must provide user and password for basic authentication when making an XML RPC request.
 func (p *XMLRPC) StartUnixHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
 	os.Remove(listenAddr)
-	p.startHTTPServer(user, password, "unix", listenAddr, s, startedCb)
+	p.startHTTPServer(user, password, "unix", listenAddr, s, make(map[string]string), startedCb)
 }
 
 // StartInetHTTPServer start http server on tcp with path listenAddr. If both user and password are not empty, the user
 // must provide user and password for basic authentication when making an XML RPC request.
-func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr string, s *Supervisor, startedCb func()) {
-	p.startHTTPServer(user, password, "tcp", listenAddr, s, startedCb)
+func (p *XMLRPC) StartInetHTTPServer(user string, password string, listenAddr string, s *Supervisor, remoteSupervisors map[string]string, startedCb func()) {
+	p.startHTTPServer(user, password, "tcp", listenAddr, s, remoteSupervisors, startedCb)
 }
 
 func (p *XMLRPC) isHTTPServerStartedOnProtocol(protocol string) bool {
@@ -152,7 +151,7 @@ func readLogHtml(writer http.ResponseWriter, request *http.Request) {
 	writer.Write(b)
 }
 
-func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, listenAddr string, s *Supervisor, startedCb func()) {
+func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, listenAddr string, s *Supervisor, remoteSupervisors map[string]string, startedCb func()) {
 	if p.isHTTPServerStartedOnProtocol(protocol) {
 		startedCb()
 		return
@@ -169,10 +168,10 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	mux := http.NewServeMux()
 	mux.Handle("/RPC2", newHTTPBasicAuth(user, password, p.createRPCServer(s)))
 
-	progRestHandler := NewSupervisorRestful(s).CreateProgramHandler()
+	progRestHandler := NewSupervisorRestful(s).AddRemoteSupervisors(remoteSupervisors).CreateProgramHandler()
 	mux.Handle("/program/", newHTTPBasicAuth(user, password, progRestHandler))
 
-	supervisorRestHandler := NewSupervisorRestful(s).CreateSupervisorHandler()
+	supervisorRestHandler := NewSupervisorRestful(s).AddRemoteSupervisors(remoteSupervisors).CreateSupervisorHandler()
 	mux.Handle("/supervisor/", newHTTPBasicAuth(user, password, supervisorRestHandler))
 
 	// 有bug已弃用

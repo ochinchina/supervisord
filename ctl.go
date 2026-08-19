@@ -359,13 +359,14 @@ func (x *CtlCommand) inProcessMap(procInfo *types.ProcessInfo, processesMap map[
 }
 
 func (x *CtlCommand) getANSIColor(statename string) string {
-	if statename == "RUNNING" {
+	switch statename {
+	case "RUNNING":
 		// green
 		return "\x1b[0;32m"
-	} else if statename == "BACKOFF" || statename == "FATAL" {
+	case "BACKOFF", "FATAL":
 		// red
 		return "\x1b[0;31m"
-	} else {
+	default:
 		// yellow
 		return "\x1b[1;33m"
 	}

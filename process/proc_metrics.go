@@ -71,7 +71,7 @@ func (c *procCollector) collectProcessMetrics(proc *Process, ch chan<- prometheu
 	ch <- prometheus.MustNewConstMetric(c.stateDesc, prometheus.GaugeValue, float64(proc.GetState()), labels...)
 	ch <- prometheus.MustNewConstMetric(c.exitStatusDesc, prometheus.GaugeValue, float64(proc.GetExitstatus()), labels...)
 
-	if proc.isRunning() {
+	if proc.IsRunning() {
 		ch <- prometheus.MustNewConstMetric(c.upDesc, prometheus.GaugeValue, 1, labels...)
 		ch <- prometheus.MustNewConstMetric(c.startTimeDesc, prometheus.CounterValue, float64(proc.GetStartTime().Unix()), labels...)
 	} else {

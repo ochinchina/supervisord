@@ -277,7 +277,7 @@ func (p *Process) addToCron() {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("try to create cron program with cron expression:", s)
 		scheduler.AddFunc(s, func() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("start cron program")
-			if !p.isRunning() {
+			if !p.IsRunning() {
 				p.Start(false)
 			}
 		})
@@ -285,7 +285,7 @@ func (p *Process) addToCron() {
 }
 
 func (p *Process) DoLivenessCheck() {
-	if p.livenessChecker != nil {
+	if p.livenessChecker != nil && p.IsRunning() {
 		p.livenessChecker.DoLivenessCheck(func(successAction string) {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("liveness check succeeded, action:", successAction)
 			if successAction != "" {
@@ -463,7 +463,7 @@ func (p *Process) GetStopTime() time.Time {
 
 // GetStdoutLogfile returns program stdout log filename
 func (p *Process) GetStdoutLogfile() string {
-	fileName := p.config.GetStringExpression("stdout_logfile", "/dev/null")
+	fileName := p.config.GetStringExpression("stdout_logfile", "AUTO")
 	expandFile, err := PathExpand(fileName)
 	if err != nil {
 		return fileName
@@ -473,7 +473,7 @@ func (p *Process) GetStdoutLogfile() string {
 
 // GetStderrLogfile returns program stderr log filename
 func (p *Process) GetStderrLogfile() string {
-	fileName := p.config.GetStringExpression("stderr_logfile", "/dev/null")
+	fileName := p.config.GetStringExpression("stderr_logfile", "AUTO")
 	expandFile, err := PathExpand(fileName)
 	if err != nil {
 		return fileName
@@ -549,11 +549,12 @@ func (p *Process) SendProcessStdin(chars string) error {
 func (p *Process) isAutoRestart() bool {
 	autoRestart := p.config.GetString("autorestart", "unexpected")
 
-	if autoRestart == "false" {
+	switch autoRestart {
+	case "false":
 		return false
-	} else if autoRestart == "true" {
+	case "true":
 		return true
-	} else {
+	default:
 		p.lock.RLock()
 		defer p.lock.RUnlock()
 		if p.cmd != nil && p.cmd.ProcessState != nil {
@@ -598,7 +599,7 @@ func (p *Process) getExitCodes() []int {
 }
 
 // check if the process is running or not
-func (p *Process) isRunning() bool {
+func (p *Process) IsRunning() bool {
 	state := p.state.Load()
 	return state == Starting || state == Running || state == Stopping
 
@@ -747,7 +748,7 @@ func (p *Process) run(finishCb func()) {
 	defer p.lock.Unlock()
 
 	// check if the program is in running state
-	if p.isRunning() {
+	if p.IsRunning() {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("Don't start program because it is running")
 		finishCb()
 		return
@@ -813,7 +814,7 @@ func (p *Process) run(finishCb func()) {
 			// otherwise the logger will not be closed before SIGKILL is sent
 			halfWaitsecs := time.Duration(p.config.GetInt("stopwaitsecs", 10)*1000/2) * time.Millisecond
 			for {
-				if !p.isRunning() {
+				if !p.IsRunning() {
 					break
 				}
 				time.Sleep(halfWaitsecs)
@@ -856,7 +857,7 @@ func (p *Process) run(finishCb func()) {
 			case <-procExitC:
 				break LOOP
 			default:
-				if !p.isRunning() {
+				if !p.IsRunning() {
 					break LOOP
 				}
 			}
@@ -1124,6 +1125,8 @@ func (p *Process) createStdoutLogger() logger.Logger {
 		props["syslog_priority"] = syslog_priority
 	}
 
+	log.WithFields(log.Fields{"program": p.GetName(), "logFile": logFile}).Info("create stdout logger")
+
 	return logger.NewLogger(p.GetName(), logFile, logger.NewNullLocker(), maxBytes, backups, props, logEventEmitter)
 }
 
@@ -1254,7 +1257,7 @@ func (p *Process) Stop(wait bool) {
 	p.stopByUser.Store(true)
 
 	p.lock.Unlock()
-	if !p.isRunning() {
+	if !p.IsRunning() {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("program is not running")
 		return
 	}
@@ -1274,22 +1277,22 @@ func (p *Process) Stop(wait bool) {
 
 	go func() {
 		p.sendSignals(sigs, stopasgroup, waitsecs)
-		if !p.isRunning() {
+		if !p.IsRunning() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is stopped after sending stop signal")
 		}
 
-		if p.isRunning() {
+		if p.IsRunning() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
 			p.sendSignals([]string{"KILL"}, killasgroup, killwaitsecs)
 		}
-		if !p.isRunning() {
+		if !p.IsRunning() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is stopped after sending stop signal")
 		} else {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is still running after sending stop signal and kill signal")
 		}
 	}()
 	if wait {
-		for p.isRunning() {
+		for p.IsRunning() {
 			time.Sleep(1 * time.Second)
 		}
 	}

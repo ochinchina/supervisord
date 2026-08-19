@@ -1,6 +1,3 @@
-//go:build release
-// +build release
-
 package main
 
 import (
@@ -19,10 +16,11 @@ import (
 //go:embed webgui
 var content embed.FS
 
+// HTTP auto generated
 var HTTP http.FileSystem
 
 func init() {
-	// Priority: STATIC_DIR > STATIC_ZIP > STATIC_EMBED > DEV_DIR
+	// Priority: STATIC_DIR > STATIC_ZIP > DEV_DIR > STATIC_EMBED
 	if dir := os.Getenv("STATIC_DIR"); dir != "" {
 		HTTP = http.Dir(dir)
 		return
@@ -48,6 +46,12 @@ func init() {
 		return
 	}
 
+	statInfo, err := os.Stat("webgui") // check if webgui directory exists
+	if err == nil && statInfo.IsDir() {
+		HTTP = http.Dir("webgui")
+		return
+	}
+
 	// try embedded assets
 	webgui, err := fs.Sub(content, "webgui")
 	if err == nil {
@@ -55,8 +59,6 @@ func init() {
 		return
 	}
 
-	// fallback to development directory
-	HTTP = http.Dir("./webgui")
 }
 
 type zipFS struct {

@@ -219,11 +219,11 @@ func (pm *Manager) IsAllProcessesStopped() bool {
 	}
 
 	for _, proc := range procs {
-		if proc.isRunning() {
-			log.WithFields(log.Fields{"process": proc.GetName()}).Info("process is still running")
+		if proc.IsRunning() {
 			return false
 		}
 	}
+	log.Info("all processes are stopped")
 	return true
 }
 

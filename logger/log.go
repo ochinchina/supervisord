@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"container/ring"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ type Logger interface {
 	io.WriteCloser
 	SetPid(pid int)
 	ReadLog(offset int64, length int64) (string, error)
+
 	ReadTailLog(offset int64, length int64) (string, int64, bool, error)
 	ClearCurLogFile() error
 	ClearAllLogFile() error
@@ -64,6 +66,98 @@ type ChanLogger struct {
 type CompositeLogger struct {
 	lock    sync.Mutex
 	loggers []Logger
+}
+
+type MemoryLogger struct {
+	lock            sync.Mutex
+	logEventEmitter LogEventEmitter
+	logs            *ring.Ring
+}
+
+func NewMemoryLogger(n int, logEventEmitter LogEventEmitter) *MemoryLogger {
+	return &MemoryLogger{
+		logs:            ring.New(n),
+		logEventEmitter: logEventEmitter,
+	}
+}
+
+func (ml *MemoryLogger) Write(p []byte) (n int, err error) {
+	ml.lock.Lock()
+	defer ml.lock.Unlock()
+	ml.logs.Value = string(p)
+	ml.logs = ml.logs.Next()
+	ml.logEventEmitter.emitLogEvent(string(p))
+	return len(p), nil
+}
+
+func (ml *MemoryLogger) Close() error {
+	return nil
+}
+
+func (ml *MemoryLogger) SetPid(pid int) {
+	//NOTHING TO DO
+}
+
+func (ml *MemoryLogger) ReadLog(offset int64, length int64) (string, error) {
+	if offset < 0 && length != 0 {
+		return "", faults.NewFault(faults.BadArguments, "BAD_ARGUMENTS")
+	}
+	if offset >= 0 && length < 0 {
+		return "", faults.NewFault(faults.BadArguments, "BAD_ARGUMENTS")
+	}
+
+	ml.lock.Lock()
+	defer ml.lock.Unlock()
+	var logs string = ""
+	ml.logs.Do(func(p interface{}) {
+		if p != nil {
+			logs = logs + "\n" + p.(string)
+		}
+	})
+	if offset >= int64(len(logs)) {
+		return "", errors.New("offset out of range")
+	}
+	if length <= 0 {
+		return logs, nil
+	}
+	end := offset + length
+	if end > int64(len(logs)) {
+		end = int64(len(logs))
+	}
+	return logs[offset:end], nil
+}
+
+func (ml *MemoryLogger) ReadTailLog(offset int64, length int64) (string, int64, bool, error) {
+	ml.lock.Lock()
+	defer ml.lock.Unlock()
+	var logs []string = make([]string, 0)
+	ml.logs.Do(func(p interface{}) {
+		if p != nil {
+			logs = append(logs, p.(string))
+		}
+	})
+	if offset >= int64(len(logs)) {
+		return "", offset, true, nil
+	}
+	end := offset + length
+	if end > int64(len(logs)) {
+		end = int64(len(logs))
+	}
+	return strings.Join(logs[offset:end], ""), end, end == int64(len(logs)), nil
+}
+
+func (ml *MemoryLogger) ClearCurLogFile() error {
+	ml.lock.Lock()
+	defer ml.lock.Unlock()
+	ml.logs = ring.New(ml.logs.Len())
+	return nil
+}
+
+func (ml *MemoryLogger) ClearAllLogFile() error {
+	ml.lock.Lock()
+	defer ml.lock.Unlock()
+	ml.logs = ring.New(ml.logs.Len())
+	return nil
 }
 
 // NewFileLogger creates FileLogger object
@@ -688,29 +782,33 @@ func splitLogFile(logFile string) []string {
 }
 
 func createLogger(programName string, logFile string, locker sync.Locker, maxBytes int64, backups int, props map[string]string, logEventEmitter LogEventEmitter) Logger {
-	if logFile == "/dev/stdout" {
+	switch logFile {
+	case "/dev/stdout":
 		return NewStdoutLogger(logEventEmitter)
-	}
-	if logFile == "/dev/stderr" {
+	case "/dev/stderr":
 		return NewStderrLogger(logEventEmitter)
-	}
-	if logFile == "/dev/null" {
+	case "/dev/null":
 		return NewNullLogger(logEventEmitter)
+	case "syslog":
+		return NewSysLogger(programName, props, logEventEmitter)
+	case "memory":
+		return NewMemoryLogger(1000, logEventEmitter)
+	case "AUTO":
+		return NewMemoryLogger(1000, logEventEmitter)
+	default:
+		if strings.HasPrefix(logFile, "syslog") {
+			fields := strings.Split(logFile, "@")
+			fields[0] = strings.TrimSpace(fields[0])
+			fields[1] = strings.TrimSpace(fields[1])
+			if len(fields) == 2 && fields[0] == "syslog" {
+				return NewRemoteSysLogger(programName, fields[1], props, logEventEmitter)
+			}
+		}
+		if len(logFile) > 0 {
+			return NewFileLogger(logFile, maxBytes, backups, logEventEmitter, locker)
+		}
+		return NewNullLogger(logEventEmitter)
+
 	}
 
-	if logFile == "syslog" {
-		return NewSysLogger(programName, props, logEventEmitter)
-	}
-	if strings.HasPrefix(logFile, "syslog") {
-		fields := strings.Split(logFile, "@")
-		fields[0] = strings.TrimSpace(fields[0])
-		fields[1] = strings.TrimSpace(fields[1])
-		if len(fields) == 2 && fields[0] == "syslog" {
-			return NewRemoteSysLogger(programName, fields[1], props, logEventEmitter)
-		}
-	}
-	if len(logFile) > 0 {
-		return NewFileLogger(logFile, maxBytes, backups, logEventEmitter, locker)
-	}
-	return NewNullLogger(logEventEmitter)
 }

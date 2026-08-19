@@ -6,6 +6,7 @@ import (
 
 // ProcessInfo the running process information
 type ProcessInfo struct {
+	Node          string `xml:"node" json:"node"`
 	Name          string `xml:"name" json:"name"`
 	Group         string `xml:"group" json:"group"`
 	Description   string `xml:"description" json:"description"`

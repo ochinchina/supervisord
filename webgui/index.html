@@ -1,354 +1,641 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Go-Supervisor</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <link rel="stylesheet" href="css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="css/bootstrap-table.css"/>
-    <link rel="stylesheet" href="css/bootstrap-dialog.min.css"/>
-    <script src='js/jquery-3.3.1.min.js'></script>
-    <script src='js/popper.min.js'></script>
-    <script src='js/bootstrap.min.js'></script>
-    <script src='js/bootstrap-table.min.js'></script>
-    <script src='js/bootstrap-dialog.min.js'></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supervisor Status - Multi-Node Manager</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="tailwind.js"></script>
+  <!-- Alpine.js CDN -->
+  <script defer src="alpine-mini.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%234F46E5'/><path d='M35 26V12L17 38h15v14l18-26H35z' fill='%23FFFFFF'/><circle cx='50' cy='14' r='7' fill='%2322C55E' stroke='%234F46E5' stroke-width='2'/></svg>">
 </head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800" x-data="supervisorApp()">
 
-
-<script type="text/javascript">
-    var columns = [{
-        field: 'name',
-        title: 'Program'
-    }, {
-        field: 'statename',
-        title: 'State'
-    }, {
-        field: 'description',
-        title: 'Description'
-    }, {
-        field: 'action',
-        title: 'Action'
-    }];
-
-    var programs = []
-
-    function changeProgramState( name, statename ) {
-        for( var i = 0; i < programs.length; i++ ) {
-            if( name == programs[i]['name'] ) {
-                programs[i]['statename'] = statename;
-            }
-        }
-    }
-
-    function refreshDisplay() {
-        reformatPrograms( programs );
-        $("#programs").bootstrapTable('destroy');
-        $("#programs").bootstrapTable({
-            data: programs
-        });
-
-    }
-
-    function startProgram( name ) {
-        $.ajax( {
-            type: "POST",
-            dataType: "json",
-            url: "/program/start/" + name,
-            success: function( data, status, jqXHR  ) {
-                if( data['success'] ) {
-                    changeProgramState( name, "RUNNING" );
-                    refreshDisplay();
-                } else {
-                    confirm_dialog( { 'title': "Information",
-                        'message': "Fail to start program, please check the log of supervisord to find reason",
-                        'cancel-text': "Cancel",
-                        'cancel-hide': true,
-                        'confirm-text': "Ok",
-                        'confirm-onclick': function() {}
-                    } );
-
-                }
-            },
-            error: function( jqXHR, status, errorThrown ) {
-                confirm_dialog( { 'title': "Information",
-                    'message': "Fail to start program, please check if supervisord is started or not",
-                    'cancel-text': "Cancel",
-                    'cancel-hide': true,
-                    'confirm-text': "Ok",
-                    'confirm-onclick': function() {}
-                } );
-
-            }
-        });
-    };
-
-    function stopProgram( programName ) {
-        return new Promise((resolve, reject) =>{
-            confirm_dialog( { 'title': "Stop confirmation",
-                'message': "Do you really want to stop program?",
-                'cancel-text': "Cancel",
-                'confirm-text': "Stop",
-                'confirm-onclick': async function() {
-                    await doStopProgram( programName );
-                    resolve("success");
-                }
-            } );
-        })
-    }
-
-    async function restartProgram( programName ){
-        await stopProgram(programName)
-        startProgram(programName)
-
-    }
-
-    function doStopProgram( name ) {
-        return new Promise(
-            (resolve, reject) =>{
-                $.ajax( {
-                    type: "POST",
-                    dataType: "json",
-                    url: "/program/stop/" + name,
-                    success: function( data, status, jqXHR  ) {
-                        if( data['success'] ) {
-                            changeProgramState( name, 'STOPPED' );
-                            refreshDisplay();
-                        } else {
-                            confirm_dialog( { 'title': "Information",
-                                'message': "Fail to stop program, please check the log of supervisord",
-                                'cancel-text': "Cancel",
-                                'cancel-hide': true,
-                                'confirm-text': "Ok",
-                                'confirm-onclick': function() {
-                                }
-                            } );
-                        }
-                        resolve("success")
-                    },
-                    error: function( jqXHR, status, errorThrown ) {
-                        confirm_dialog( { 'title': "Information",
-                            'message': "Fail to stop program, please check if supervisord is running",
-                            'cancel-text': "Cancel",
-                            'cancel-hide': true,
-                            'confirm-text': "Ok",
-                            'confirm-onclick': function() {
-                            }
-                        } );
-                        reject("err")
-
-                    }
-                });
-            })
-
-    }
-
-    function reformatPrograms( programs ) {
-        for( var i in programs ) {
-            var statename = programs[i]['statename'];
-            var action = "";
-            var color = "";
-            if( statename.toLowerCase().indexOf("running") >= 0 || statename.toLowerCase().indexOf( "starting") >= 0 ) {
-                action = '<button type="button" disabled class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
-                action = action + '<button type="button" class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
-                action = action + '<button type="button" class="btn btn-primary mr-1" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
-                color = "green";
-            } else {
-                action = '<button type="button" class="btn btn-primary mr-1" onclick="startProgram(\'' + programs[i]['name'] + '\');">Start</button>';
-                action = action + '<button type="button" disabled class="btn btn-primary mr-1" onclick="stopProgram(\'' + programs[i]['name'] + '\');">Stop</button>';
-                action = action + '<button type="button" disabled class="btn btn-primary mr-1" onclick="restartProgram(\'' + programs[i]['name'] + '\');">ReStart</button>';
-                color = "red";
-            }
-            let logLabel = '<a href=/log?name=' + programs[i]['name'] + '>日志列表 </a>';
-
-            action = action + logLabel;
-
-            programs[i]['action'] = action;
-            programs[i]['statename'] = '<div style="background-color:' + color + ';">' + statename + '</div>';
-        }
-    };
-
-    function confirm_dialog( confirm ) {
-        $('#my-modal-title').text(confirm['title'] );
-        $('#my-modal-message').text( confirm['message'] );
-        $('#my-modal-cancel-btn').text( confirm['cancel-text'] );
-        $('#my-modal-confirm-btn').text( confirm['confirm-text'] );
-        $('#my-modal-confirm-btn').unbind( 'click' );
-        if( confirm.hasOwnProperty( 'cancel-hide') && confirm['cancel-hide'] ) {
-            $('#my-modal-cancel-btn').hide();
-        } else {
-            $('#my-modal-cancel-btn').show();
-        }
-        $('#my-modal-confirm-btn').click( confirm['confirm-onclick'] );
-        $("#myModal").modal('show');
-
-    }
-
-    function shutdown_supervisor() {
-        confirm_dialog( { 'title': "Shutdown confirmation",
-            'message': "Do you really want to shutdown supervisor?",
-            'cancel-text': "Cancel",
-            'confirm-text': "Shutdown",
-            'confirm-onclick': function() {
-                $.ajax( {
-                    type: "PUT",
-                    url: "/supervisor/shutdown",
-                    contentType: "application/json",
-                    dataType: "text",
-                    success: function( data, status, jqXHR ) {
-                    },
-                    error: function( jqXHR, textStatus, errorThrown ) {
-                    }
-                });
-
-            }
-        } );
-
-    };
-
-    function reload_supervisor() {
-        confirm_dialog( { 'title': "Reload confirmation",
-            'message': "Do you really want to reload supervisor?",
-            'cancel-text': "Cancel",
-            'confirm-text': "Reload",
-            'confirm-onclick': function() {
-                $.ajax( {
-                    type: "POST",
-                    url: "/supervisor/reload",
-                    contentType: "application/json",
-                    dataType: "text",
-                    success: function( data, status, jqXHR ) {
-                        list_programs();
-                    },
-                    error: function( jqXHR, textStatus, errorThrown ) {
-                        list_programs();
-                    }
-                });
-
-            }
-        } );
-    }
-
-    function get_selected_programs() {
-        selected = $("#programs").bootstrapTable('getSelections');
-        programs = [];
-        for(i in selected) {
-            programs.push( selected[i]['name'] );
-        }
-        return programs;
-
-    }
-    function start_select() {
-        programs = get_selected_programs();
-        if( programs.length <= 0 ) {
-            alert( "no program selected" );
-            return;
-        }
-        $.ajax( {
-            type: "POST",
-            url: "/program/startPrograms",
-            contentType: "application/json",
-            data: JSON.stringify( programs ),
-            dataType: "text",
-            success: function( data, status, jqXHR ) {
-                list_programs();
-            },
-            error: function( jqXHR, textStatus, errorThrown ) {
-                list_programs();
-            }
-        });
-    }
-
-    function stop_select() {
-        programs = get_selected_programs();
-        if( programs.length <= 0 ) {
-            alert( "no program selected" );
-            return;
-        }
-        $.ajax( {
-            type: "POST",
-            url: "/program/stopPrograms",
-            contentType: "application/json",
-            data: JSON.stringify( programs ),
-            dataType: "text",
-            success: function( data, status, jqXHR ) {
-                list_programs();
-            },
-            error: function( jqXHR, textStatus, errorThrown ) {
-                list_programs();
-            }
-        });
-
-    }
-
-    function list_programs() {
-        $.ajax({
-            type: "GET",
-            url: "/program/list",
-            dataType: "json",
-            success: function( data, status, jqXHR ) {
-                programs = data;
-                refreshDisplay();
-            },
-            error: function( jqXHR, textStatus, errorThrown ) {
-                alert( textStatus );
-            }
-        });
-    }
-
-    $(document).ready(function() {
-        list_programs();
-    });
-</script>
-<body>
-<H1 class="text-center text-success">Go-Supervisor</H1>
-<div class="container">
-    <div class='row'>
-        <div class="col-12">
-
-            <a href="http://10.234.254.27:9996/graph" class="text-decoration-none mr-3" target="_blank">Prometheus</a>
-            <a href="http://127.0.0.1:3000" class="text-decoration-none" target="_blank">Grafana</a>
-
-            <input type="button" class="btn btn-primary float-right mr-1" value="Shutdown" onclick='shutdown_supervisor();'>
-            <input type="button" class="btn btn-primary float-right mr-1" value="Reload" onclick='reload_supervisor();'>
-            <input type="button" class="btn btn-primary float-right mr-1" value="Stop Select" onclick='stop_select();'>
-            <input type="button" class="btn btn-primary float-right mr-1" value="Start Select" onclick='start_select();'>
+  <!-- Header Banner -->
+  <header class="bg-slate-800 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="bg-indigo-600 p-2 rounded-lg">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
         </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide">Supervisor Process Manager</h1>
+          <p class="text-xs text-gray-400">Cluster Status: <span class="text-green-400 font-semibold" x-text="clusterStatus"></span></p>
+        </div>
+      </div>
+
+      <!-- Action / Global Controls -->
+      <div class="flex items-center gap-2">
+        <button 
+          @click="startAll()"
+          class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded transition flex items-center gap-1 shadow-sm">
+          <span>▶</span> Start All
+        </button>
+        <button 
+          @click="stopAll()"
+          class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3 py-2 rounded transition flex items-center gap-1 shadow-sm">
+          <span>■</span> Stop All
+        </button>
+        <button 
+          @click="restartAll()"
+          class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 rounded transition flex items-center gap-1 shadow-sm">
+          <span>↻</span> Restart All
+        </button>
+      </div>
     </div>
-    <div class="table-responsive mt-3">
-        <table id="programs"
-               data-toggle="table"
-               data-click-to-select="true" >
-            <thead>
-            <th data-field="id" data-checkbox="true"></th>
-            <th data-field="name">Program</th>
-            <th data-field="statename">State</th>
-            <th data-field="description">Description</th>
-            <th data-field="action">Action</th>
-            </thead>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Node Management Control Panel -->
+    <section class="bg-white rounded-lg shadow border border-gray-200 p-4">
+      <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Cluster Nodes</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <template x-for="node in nodes" :key="node.name">
+          <div class="border rounded-md p-3.5 bg-slate-50 border-slate-200 flex flex-col justify-between space-y-3">
+            
+            <!-- Node Title & Status -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span 
+                  class="w-2.5 h-2.5 rounded-full"
+                  :class="{
+                    'bg-emerald-500': node.status === 'ONLINE',
+                    'bg-amber-500': node.status === 'RELOADING',
+                    'bg-rose-500': node.status === 'OFFLINE'
+                  }"></span>
+                <span class="font-mono text-xs font-bold text-slate-800" x-text="node.name"></span>
+              </div>
+              <span class="text-[10px] text-gray-500 font-mono uppercase bg-slate-200 px-1.5 py-0.5 rounded" x-text="node.status"></span>
+            </div>
+
+            <!-- CPU & Memory Metrics -->
+            <div class="space-y-2" x-show="node.status === 'ONLINE'">
+              
+              <!-- CPU Meter -->
+              <div>
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span class="text-gray-500 font-medium">CPU Usage</span>
+                  <span class="font-mono font-semibold" :class="node.cpu > 85 ? 'text-rose-600' : 'text-slate-700'" x-text="node.cpu + '%'"></span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div 
+                    class="h-2 rounded-full transition-all duration-500" 
+                    :style="`width: ${node.cpu}%`"
+                    :class="{
+                      'bg-emerald-500': node.cpu <= 60,
+                      'bg-amber-500': node.cpu > 60 && node.cpu <= 85,
+                      'bg-rose-500': node.cpu > 85
+                    }"></div>
+                </div>
+              </div>
+
+              <!-- Memory Meter -->
+              <div>
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span class="text-gray-500 font-medium">Memory</span>
+                  <span class="font-mono text-slate-700" x-text="`${node.memUsed} / ${node.memTotal} GB (${node.memPercent}%)`"></span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div 
+                    class="h-2 rounded-full transition-all duration-500" 
+                    :style="`width: ${node.memPercent}%`"
+                    :class="{
+                      'bg-indigo-500': node.memPercent <= 75,
+                      'bg-amber-500': node.memPercent > 75 && node.memPercent <= 90,
+                      'bg-rose-500': node.memPercent > 90
+                    }"></div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Displayed when Node is Offline / Reloading -->
+            <div x-show="node.status !== 'ONLINE'" class="py-2 text-center text-xs text-gray-400 italic">
+              Metrics unavailable while node is <span x-text="node.status.toLowerCase()"></span>
+            </div>
+
+            <!-- Node Controls -->
+            <div class="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-200">
+              <button 
+                @click="reloadNode(node.name)"
+                :disabled="node.status === 'OFFLINE'"
+                class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded text-xs font-semibold disabled:opacity-50 transition">
+                Reload
+              </button>
+              <button 
+                @click="shutdownNode(node.name)"
+                :disabled="node.status === 'OFFLINE'"
+                class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded text-xs font-semibold disabled:opacity-50 transition">
+                Shutdown
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+    
+    <!-- Table Wrapper -->
+    <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+
+      <!-- Bulk Actions Bar (Visible when 1+ processes selected) -->
+      <div 
+        x-show="selected.length > 0" 
+        x-cloak
+        class="bg-indigo-50 border-b border-indigo-100 px-4 py-2.5 flex items-center justify-between text-xs transition-all">
+        <span class="text-indigo-900 font-medium">
+          <strong x-text="selected.length"></strong> process(es) selected
+        </span>
+        <div class="flex items-center gap-2">
+          <button 
+            @click="startSelected()"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2.5 py-1 rounded transition shadow-sm">
+            ▶ Start Selected
+          </button>
+          <button 
+            @click="stopSelected()"
+            class="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-2.5 py-1 rounded transition shadow-sm">
+            ■ Stop Selected
+          </button>
+          <button 
+            @click="selected = []"
+            class="text-gray-500 hover:text-gray-700 font-medium px-2 py-1">
+            Clear Selection
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase tracking-wider">
+              <th class="py-3 px-4 w-10">
+                <input 
+                  type="checkbox" 
+                  :checked="allSelected" 
+                  @change="toggleSelectAll()" 
+                  class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+              </th>
+              <th class="py-3 px-4">Node Host</th>
+              <th class="py-3 px-4">State</th>
+              <th class="py-3 px-4">Process Name</th>
+              <th class="py-3 px-4">PID</th>
+              <th class="py-3 px-4">Uptime / Description</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 text-sm">
+            <template x-for="process in processes" :key="process.node + '-' + process.name">
+              <tr 
+                class="hover:bg-gray-50 transition-colors"
+                :class="{'bg-indigo-50/40': isSelected(process)}">
+                
+                <!-- Checkbox -->
+                <td class="py-3 px-4">
+                  <input 
+                    type="checkbox" 
+                    :checked="isSelected(process)" 
+                    @change="toggleSelect(process)"
+                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                </td>
+
+                <!-- Node Host Tag -->
+                <td class="py-3 px-4 whitespace-nowrap">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200" x-text="process.node"></span>
+                </td>
+
+                <!-- State Badge -->
+                <td class="py-3 px-4 whitespace-nowrap">
+                  <span 
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider"
+                    :class="{
+                      'bg-green-100 text-green-800 border border-green-300': process.state === 'RUNNING',
+                      'bg-red-100 text-red-800 border border-red-300': process.state === 'STOPPED' || process.state === 'FATAL' || process.state === 'BACKOFF' || process.state === 'UNKNOWN',
+                      'bg-yellow-100 text-yellow-800 border border-yellow-300': process.state === 'STARTING' || process.state === 'STOPPING' || process.state === 'EXITED',
+                    }">
+                    <span 
+                      class="w-1.5 h-1.5 rounded-full mr-1.5"
+                      :class="{
+                        'bg-green-500': process.state === 'RUNNING',
+                        'bg-red-500': process.state === 'STOPPED' || process.state === 'FATAL' || process.state === 'BACKOFF' || process.state === 'UNKNOWN',
+                        'bg-yellow-500': process.state === 'STARTING' || process.state === 'STOPPING' || process.state === 'EXITED'
+                      }"></span>
+                    <span x-text="process.state"></span>
+                  </span>
+                </td>
+
+                <!-- Process Name -->
+                <td class="py-3 px-4 font-semibold text-gray-900" x-text="process.name"></td>
+
+                <!-- PID -->
+                <td class="py-3 px-4 text-gray-600 font-mono text-xs" x-text="process.pid || '-'"></td>
+
+                <!-- Uptime / Description -->
+                <td class="py-3 px-4 text-gray-500 text-xs" x-text="process.description"></td>
+
+                <!-- Action Buttons -->
+                <td class="py-3 px-4 whitespace-nowrap text-right">
+                  <div class="inline-flex rounded-md shadow-sm" role="group">
+                    
+                    <!-- Start Button -->
+                    <button 
+                      x-show="process.state !== 'RUNNING'"
+                      @click="startProcess(process)"
+                      class="px-2.5 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-300 rounded-l hover:bg-emerald-100">
+                      Start
+                    </button>
+
+                    <!-- Stop Button -->
+                    <button 
+                      x-show="process.state === 'RUNNING'"
+                      @click="stopProcess(process)"
+                      class="px-2.5 py-1 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-300 rounded-l hover:bg-rose-100">
+                      Stop
+                    </button>
+
+                    <!-- Restart Button -->
+                    <button 
+                      @click="restartProcess(process)"
+                      class="px-2.5 py-1 text-xs font-medium text-gray-700 bg-white border-t border-b border-gray-300 hover:bg-gray-50">
+                      Restart
+                    </button>
+
+                    <!-- Tail Stdout Log -->
+                    <button 
+                      @click="openLogModal(process, 'stdout')"
+                      class="px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100">
+                      Tail Log
+                    </button>
+
+                    <!-- Tail Stderr Log -->
+                    <button 
+                      @click="openLogModal(process, 'stderr')"
+                      class="px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 border border-l-0 border-amber-300 rounded-r hover:bg-amber-100">
+                      Err Log
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
         </table>
+      </div>
     </div>
-</div>
+  </main>
 
-
-<div id="myModal" class="modal fade">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                <h4 class="modal-title" id="my-modal-title">Confirmation</h4>
-            </div>
-            <div class="modal-body">
-                <p id="my-modal-message">Do you want to save changes you made to document before closing?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-dismiss="modal" id='my-modal-cancel-btn'>Cancel</button>
-                <button type="button" class="btn btn-primary" data-dismiss="modal" id='my-modal-confirm-btn'>Shutdown</button>
-            </div>
+  <!-- Log Viewer Modal -->
+  <div 
+    x-cloak 
+    x-show="logModal.open" 
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    x-transition.opacity>
+    
+    <div 
+      @click.away="logModal.open = false" 
+      class="bg-slate-900 text-gray-100 w-full max-w-4xl rounded-lg shadow-2xl flex flex-col h-[80vh] border border-slate-700">
+      
+      <!-- Modal Header -->
+      <div class="px-4 py-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center rounded-t-lg">
+        <div class="flex items-center gap-2">
+          <span class="text-xs px-2 py-0.5 rounded font-mono bg-slate-700 text-slate-300" x-text="logModal.node"></span>
+          <span class="font-bold text-sm" x-text="logModal.processName"></span>
+          <span 
+            class="text-xs px-2 py-0.5 rounded font-mono uppercase"
+            :class="logModal.type === 'stdout' ? 'bg-indigo-900 text-indigo-200' : 'bg-amber-900 text-amber-200'"
+            x-text="logModal.type">
+          </span>
         </div>
+        <button 
+          @click="logModal.open = false" 
+          class="text-gray-400 hover:text-white text-lg font-bold">
+          &times;
+        </button>
+      </div>
+
+      <!-- Log Content Window -->
+      <div class="p-4 flex-1 overflow-y-auto font-mono text-xs leading-relaxed whitespace-pre-wrap bg-slate-950 text-emerald-400">
+        <span x-text="logModal.content"></span>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-4 py-3 bg-slate-800 border-t border-slate-700 flex justify-between items-center rounded-b-lg">
+        <span class="text-xs text-gray-400">Auto-refresh active</span>
+        <button 
+          @click="logModal.open = false" 
+          class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium rounded">
+          Close
+        </button>
+      </div>
     </div>
-</div>
+  </div>
 
+  <!-- Alpine App Logic -->
+  <script>
+    function supervisorApp() {
+      return {
+        clusterStatus: 'HEALTHY',
+        nodes: [
+          
+          
+        ],
+        processes: [          
+        ],
+        selected: [], // Array of unique IDs "node:processName"
+        logModal: {
+          open: false,
+          node: '',
+          processName: '',
+          type: 'stdout',
+          content: ''
+        },
 
+        init() {
+          this.loadNodes();
+          this.loadProcesses();
+          setInterval(this.loadNodes.bind(this), 5000);
+          setInterval(this.loadProcesses.bind(this), 5000);
+        },
+
+        async loadNodes() {
+          try {
+            const response = await fetch('/supervisor/listNodes');
+            if (!response.ok) {
+              throw new Error('Failed to fetch nodes');
+            }
+            const data = await response.json();
+            this.nodes = data.map(node => ({
+              name: node.name,
+              status: node.status || 'UNKNOWN',
+              cpu: (node.cpu_percent || 0.0).toFixed(2),
+              memTotal: ((node.mem_total || 0)/1024/1024/1024).toFixed(2), // Convert bytes to GB
+              memUsed: ((node.mem_used || 0)/1024/1024/1024).toFixed(2), // Convert bytes to GB
+              memPercent: node.mem_used_percent || 0,
+              
+            }));
+          } catch (error) {
+            console.error('Error fetching nodes:', error);
+            //alert(`Error fetching nodes: ${error.message}`);
+          }
+        },
+
+        async loadProcesses() {
+          try {
+            const response = await fetch('/program/list');
+            if (!response.ok) {
+              throw new Error('Failed to fetch processes');
+            }
+            const data = await response.json();
+            this.processes = data.map(proc => ({
+              node: proc.node,
+              name: proc.name,
+              state: this.getStateString(proc.state),
+              pid: proc.pid,
+              description: proc.description
+            }));
+          } catch (error) {
+            console.error('Error fetching processes:', error);
+          }
+        },
+
+        getStateString(stateCode) {
+          switch(stateCode) {
+            case 0: return 'STOPPED';
+            case 10: return 'STARTING';
+            case 20: return 'RUNNING';
+            case 30: return 'BACKOFF';
+            case 40: return 'STOPPING';
+            case 100: return "EXITED";
+            case 200: return 'FATAL';
+            default: return 'UNKNOWN';
+          }
+        },
+
+        // Selection Logic
+        getProcId(proc) {
+          return `${proc.node}:${proc.name}`;
+        },
+        isSelected(proc) {
+          return this.selected.includes(this.getProcId(proc));
+        },
+        toggleSelect(proc) {
+          const id = this.getProcId(proc);
+          if (this.isSelected(proc)) {
+            this.selected = this.selected.filter(item => item !== id);
+          } else {
+            this.selected.push(id);
+          }
+        },
+        get allSelected() {
+          return this.processes.length > 0 && this.selected.length === this.processes.length;
+        },
+        toggleSelectAll() {
+          if (this.allSelected) {
+            this.selected = [];
+          } else {
+            this.selected = this.processes.map(p => this.getProcId(p));
+          }
+        },
+
+        // Single Process Controls
+        async startProcess(proc, fromClick = true) {
+            try {                            
+                const response = await fetch(`/program/start/${proc.node}/${proc.name}`, { method: 'POST' });
+                if (!response.ok) {                  
+                  throw new Error(`Failed to start process ${proc.name} on node ${proc.node}`);
+                }
+                const r = await response.json()                
+                if (!r.success) {
+                    throw new Error(`Failed to start process ${proc.name} on node ${proc.node}`);
+                }
+                this.updateProcessState(proc, 'RUNNING');
+            } catch (error) {
+                console.error('Error starting process:', error);
+                if(fromClick) alert(`Error starting process: ${error.message}`);
+            } finally {
+                await this.loadProcessInfo(proc);
+            }
+        },
+
+        updateProcessState(proc, newState) {
+          const targetProc = this.processes.find(p => p.node === proc.node && p.name === proc.name);
+          if (targetProc) {
+            targetProc.state = newState;           
+          }
+        },
+
+        async loadProcessInfo(proc) {
+          try {
+            const response = await fetch(`/program/info/${proc.node}/${proc.name}`);
+            if (!response.ok) {
+              alert(`Failed to fetch process info for ${proc.name} on node ${proc.node}`);
+              throw new Error(`Failed to fetch process info for ${proc.name} on node ${proc.node}`);
+            }
+            const data = await response.json();
+            const targetProc = this.processes.find(p => p.node === proc.node && p.name === proc.name);
+            if (targetProc) {
+              targetProc.state = this.getStateString(data.state);
+              targetProc.pid = data.pid;
+              targetProc.description = data.description;
+            } else {
+              this.processes.push({
+                node: proc.node,
+                name: proc.name,
+                state: this.getStateString(data.state),
+                pid: data.pid,
+                description: data.description
+              });
+            }
+            
+          } catch (error) {
+            console.error('Error fetching process info:', error);
+            //alert(`Error fetching process info: ${error.message}`);
+          }
+        },
+        async stopProcess(proc, fromClick = true) {
+            try {
+                const response = await fetch(`/program/stop/${proc.node}/${proc.name}`, { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error(`Failed to stop process ${proc.name} on node ${proc.node}`);
+                }
+                
+                response.json().then(data => {
+                    if (!data.success) {
+                        throw new Error(`Failed to stop process ${proc.name} on node ${proc.node}`);
+                    }
+                    this.updateProcessState(proc, 'STOPPED');
+                });               
+            } catch (error) {
+                console.error('Error stopping process:', error);
+                if(fromClick) alert(`Error stopping process: ${error.message}`);
+            } finally {
+                await this.loadProcessInfo(proc);
+            }
+        },
+
+        async restartProcess(proc, fromClick = true) {
+          try {
+                const response = await fetch(`/program/restart/${proc.node}/${proc.name}`, { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error(`Failed to restart process ${proc.name} on node ${proc.node}`);
+                }
+                
+                const r = await response.json();
+                if (!r.success) {
+                    throw new Error(`Failed to restart process ${proc.name} on node ${proc.node}`);
+                }
+                this.updateProcessState(proc, 'RUNNING');
+
+            } catch (error) {
+                console.error('Error restarting process:', error);
+                if(fromClick) alert(`Error restarting process: ${error.message}`);
+            } finally {
+                await this.loadProcessInfo(proc);
+            }
+        },
+
+        // Bulk / Selection Action Controls
+        startSelected() {
+          this.processes.forEach(p => {
+            if (this.isSelected(p)) this.startProcess(p, false);
+          });
+        },
+        stopSelected() {
+          this.processes.forEach(p => {
+            if (this.isSelected(p)) this.stopProcess(p, false);
+          });
+        },
+        startAll() {
+          this.processes.forEach(p => this.startProcess(p, false));
+        },
+        stopAll() {
+          this.processes.forEach(p => this.stopProcess(p, false));
+        },
+        restartAll() {
+          this.processes.forEach(p => this.restartProcess(p, false));
+        },
+
+        // Node Level Operations
+        async reloadNode(nodeName) {
+          try {
+            const response = await fetch(`/supervisor/${nodeName}/reload`, { method: 'POST' });
+            if (!response.ok) {
+              throw new Error(`Failed to reload supervisor on node ${nodeName}`);
+            }
+            const r = await response.json();
+            if (!r.success) {
+              throw new Error(`Failed to reload supervisor on node ${nodeName}`);
+            }
+            alert(`Supervisor on node ${nodeName} reloaded successfully.`);
+          } catch (error) {
+            console.error('Error reloading supervisor:', error);
+            alert(`Error reloading supervisor: ${error.message}`);
+          } finally {
+            await this.loadNodes();
+            await this.loadProcesses();
+          }
+
+          
+        },
+        async shutdownNode(nodeName) {
+          if (!confirm(`Are you sure you want to shutdown supervisor on ${nodeName}?`)) return;
+
+          try {
+            const response = await fetch(`/supervisor/${nodeName}/shutdown`, { method: 'POST' });
+            if (!response.ok) {
+              throw new Error(`Failed to shutdown supervisor on node ${nodeName}`);
+            }
+            const r = await response.json();
+            if (!r.success) {
+              throw new Error(`Failed to shutdown supervisor on node ${nodeName}`);
+            }
+            alert(`Supervisor on node ${nodeName} shutdown successfully.`);
+          } catch (error) {
+            console.error('Error shutting down supervisor:', error);
+            alert(`Error shutting down supervisor: ${error.message}`);
+          } finally {
+            await this.loadNodes();
+            await this.loadProcesses();
+          }
+        },
+
+        async tailLog(proc, type) {
+          try {
+            
+            const response = await fetch(`/program/log/${proc.node}/${proc.name}/${type}`);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch log for ${proc.name} on node ${proc.node}`);
+            }
+            const data = await response.text();
+            return data
+          } catch (error) {
+            console.error('Error fetching log:', error);
+            alert(`Error fetching log: ${error.message}`);
+            return '';
+          }
+        },
+        // Log Modal
+        async openLogModal(proc, type) {
+          this.logModal.node = proc.node;
+          this.logModal.processName = proc.name;
+          this.logModal.type = type;
+          this.logModal.content = await this.tailLog(proc, type);
+          /*this.logModal.content = `[INFO] Connecting to host [${proc.node}]...\n` +
+            `[INFO] Initializing ${proc.name} log output stream...\n` +
+            `[DEBUG] Fetching trailing log entries for stream '${type}'\n` +
+            `[LOG] ${new Date().toISOString()} - Process running on node ${proc.node} in state [${proc.state}]\n` +
+            (type === 'stderr' ? `[ERROR] Mock standard error output stream log line.` : `[STDOUT] Application initialized successfully.`);
+            */
+          this.logModal.open = true;
+        }
+      };
+    }
+  </script>
 </body>
-
 </html>

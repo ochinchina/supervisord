@@ -118,7 +118,7 @@ func executeCommand(command interface{}) ([]byte, error) {
 	output, err := cmd.CombinedOutput()
 
 	if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() != 0 {
-		return output, errors.New(fmt.Sprintf("command execution failed with exit code %d", cmd.ProcessState.ExitCode()))
+		return output, fmt.Errorf("command execution failed with exit code %d", cmd.ProcessState.ExitCode())
 	}
 	return output, err
 }

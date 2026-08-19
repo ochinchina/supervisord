@@ -254,17 +254,23 @@ syslog_stderr_priority=err
 
 # Web GUI
 
-Supervisord has builtin web GUI: you can start, stop & check the status of program from the GUI. Following picture shows the default web GUI:
+Supervisord has builtin web GUI: you can start, stop & check the status of program from the GUI for one/multi supervisord instances. Following picture shows a GUI with two nodes:
 
 ![alt text](https://github.com/ochinchina/supervisord/blob/master/go_supervisord_gui.png)
 
 Please note that in order to see|use Web GUI you should configure it in /etc/supervisord.conf both in [inet_http_server] (and|or [unix_http_server] if you prefer unix domain socket) and [supervisorctl]:
 
+If you like to check status of another supervisord instances, you need to configure additional parameters in section **inet_http_server**:
+- **nodename** the node name which the supervisord is running, if it is not configured, it will be the host name of the supervisord is in running
+- **remotes** this parameter is used to configure the remote supervisord information in format **&lt;nodename&gt;:&lt;ip&gt;:&lt;port-number&gt;\[,&lt;nodename&gt;:&lt;ip&gt;:&lt;port-number&gt;\]**
+
 ```ini
 [inet_http_server]
+;nodename=node-1
 port=127.0.0.1:9001
 ;username=test1
 ;password=thepassword
+;remotes=node-2:10.0.0.2:9001,node-3:10.0.0.2:9001,node-4:10.0.0.3:9001
 
 [supervisorctl]
 serverurl=http://127.0.0.1:9001
