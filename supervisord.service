@@ -1,0 +1,21 @@
+[Unit]
+Description=Go Supervisord Process Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/supervisord -c /etc/supervisord.conf
+ExecStop=/usr/local/bin/supervisord shutdown
+ExecReload=/usr/local/bin/supervisord reload
+Restart=on-failure
+RestartSec=5s
+
+# Security and Limit Configurations
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

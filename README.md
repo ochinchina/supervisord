@@ -286,6 +286,45 @@ COPY --from=ochinchina/supervisord:latest /usr/local/bin/supervisord /usr/local/
 CMD ["/usr/local/bin/supervisord"]
 ```
 
+# Integrate with Linux systemctl
+
+The supervisord can be integrated with the linux systemctl. The following supervisord.service is an example for the systemctl integration:
+
+```service
+[Unit]
+Description=Go Supervisord Process Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/supervisord -c /etc/supervisord.conf
+ExecStop=/usr/local/bin/supervisord shutdown
+ExecReload=/usr/local/bin/supervisord reload
+Restart=on-failure
+RestartSec=5s
+
+# Security and Limit Configurations
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Put to supervisord binary to /usr/local/bin and the configuration file to /etc/supervisord.conf. And put the above supervisord.service to systemctl required directory, for example, the supervisord.service will be put to directory /usr/lib/systemd/system for the ubuntu linux family.
+
+Then the supervisord can be managed by systemctl and we can start/stop/restart it like:
+
+```shell
+systemctl daemon-reload
+systemctl start supervisord
+systemctl restart supervisord
+systemctl stop supervisord
+```
+
 # Integrate with Prometheus
 
 The Prometheus node exporter supported supervisord metrics are now integrated into the supervisor. So there is no need to deploy an extra node_exporter to collect the supervisord metrics. To collect the metrics, the port parameter in section "inet_http_server" must be configured and the metrics server is started on the path /metrics of the supervisor http server.
