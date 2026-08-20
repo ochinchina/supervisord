@@ -229,6 +229,23 @@ func (r *XMLRPCClient) ChangeProcessState(change string, processName string) (re
 	return
 }
 
+func (r *XMLRPCClient) ChangeProcessGroupState(change string, groupName string) (reply AllProcessInfoReply, err error) {
+	if !(change == "start" || change == "stop") {
+		err = fmt.Errorf("Incorrect required state")
+		return
+	}
+
+	ins := struct{ Value string }{groupName}
+	r.post(fmt.Sprintf("supervisor.%sProcessGroup", change), &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+
+	return
+}
+
 // ChangeAllProcessState requests to change all supervised programs to same state( start/stop )
 func (r *XMLRPCClient) ChangeAllProcessState(change string) (reply AllProcessInfoReply, err error) {
 	if !(change == "start" || change == "stop") {
@@ -406,6 +423,30 @@ func (r *XMLRPCClient) StartAllProcesses(wait bool) (reply AllProcStatusInfoRepl
 func (r *XMLRPCClient) StopAllProcesses(wait bool) (reply AllProcStatusInfoReply, err error) {
 	ins := struct{ Wait bool }{wait}
 	r.post("supervisor.stopAllProcesses", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+	return
+}
+
+func (r *XMLRPCClient) TailProcessLog(process string, offset int, length int, logType string) (reply types.ProcessTailLog, err error) {
+	ins := struct {
+		Name   string
+		Offset int
+		Length int
+	}{
+		Name:   process,
+		Offset: offset,
+		Length: length,
+	}
+	operation := "supervisor.tailProcessStdoutLog"
+	if logType == "stderr" {
+		operation = "supervisor.tailProcessStderrLog"
+	}
+
+	r.post(operation, &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &reply)

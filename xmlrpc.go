@@ -35,9 +35,6 @@ type httpBasicAuth struct {
 
 // create a new HttpBasicAuth object with username, password and the http request handler
 func newHTTPBasicAuth(user string, password string, handler http.Handler) *httpBasicAuth {
-	if user != "" && password != "" {
-		log.Debug("require authentication")
-	}
 	return &httpBasicAuth{user: user, password: password, handler: handler}
 }
 
@@ -49,7 +46,6 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	username, password, ok := r.BasicAuth()
 	if ok && username == h.user {
 		if strings.HasPrefix(h.password, "{SHA}") {
-			log.Debug("auth with SHA")
 			hash := sha1.New() //nolint:gosec
 			io.WriteString(hash, password)
 			if hex.EncodeToString(hash.Sum(nil)) == h.password[5:] {
@@ -57,7 +53,6 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else if password == h.password {
-			log.Debug("Auth with normal password")
 			h.handler.ServeHTTP(w, r)
 			return
 		}

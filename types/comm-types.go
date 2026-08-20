@@ -41,6 +41,12 @@ type BooleanReply struct {
 	Success bool
 }
 
+type ProcessTailLog struct {
+	LogData  string
+	Offset   int
+	Overflow bool
+}
+
 // GetFullName returns full name of program including group and name
 func (pi ProcessInfo) GetFullName() string {
 	if len(pi.Group) > 0 {

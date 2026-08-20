@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
-	"github.com/jessevdk/go-flags"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
@@ -22,18 +20,44 @@ type CtlCommand struct {
 
 // StatusCommand get the status of all supervisor managed programs
 type StatusCommand struct {
+	Args struct {
+		Programs []string `positional-arg-name:"Program" description:"Name of the Program"`
+	} `positional-args:"yes" required:"no"`
 }
 
 // StartCommand start the given program
 type StartCommand struct {
+	Args struct {
+		Programs []string `positional-arg-name:"Program" description:"Name of the Program"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 // StopCommand stop the given program
 type StopCommand struct {
+	Args struct {
+		Programs []string `positional-arg-name:"Program" description:"Name of the Program"`
+	} `positional-args:"yes" required:"yes"`
+}
+
+// StartGroupCommand start the given process group
+type StartGroupCommand struct {
+	Args struct {
+		Groups []string `positional-arg-name:"Group" description:"Name of the Process Group"`
+	} `positional-args:"yes" required:"yes"`
+}
+
+// StopGroupCommand stop the given process group
+type StopGroupCommand struct {
+	Args struct {
+		Groups []string `positional-arg-name:"Group" description:"Name of the Process Group"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 // RestartCommand restart the given program
 type RestartCommand struct {
+	Args struct {
+		Programs []string `positional-arg-name:"Program" description:"Name of the Program"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 // ShutdownCommand shutdown the supervisor
@@ -46,38 +70,39 @@ type ReloadCommand struct {
 
 // PidCommand get the pid of program
 type PidCommand struct {
+	Args struct {
+		Program string `positional-arg-name:"Program" description:"Name of the Program"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 // SignalCommand send signal of program
 type SignalCommand struct {
+	Args struct {
+		Signal   string   `positional-arg-name:"Signal" description:"Name of the Signal"`
+		Programs []string `positional-arg-name:"Program" description:"Name of the Program"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 // LogtailCommand tail the stdout/stderr log of program through http interface
 type LogtailCommand struct {
-}
-
-// CmdCheckWrapperCommand A wrapper can be used to check whether
-// number of parameters is valid or not
-type CmdCheckWrapperCommand struct {
-	// Original cmd
-	cmd flags.Commander
-	// leastNumArgs indicates how many arguments
-	// this cmd should have at least
-	leastNumArgs int
-	// Print usage when arguments not valid
-	usage string
+	LogType string `short:"t" long:"type" choice:"stdout" choice:"stderr" description:"the log type, stdout or stderr" default:"stdout"`
+	Args    struct {
+		Program string `positional-arg-name:"Program" description:"Name of the Program"`
+	} `positional-args:"yes" required:"yes"`
 }
 
 var ctlCommand CtlCommand
-var statusCommand = CmdCheckWrapperCommand{&StatusCommand{}, 0, ""}
-var startCommand = CmdCheckWrapperCommand{&StartCommand{}, 0, ""}
-var stopCommand = CmdCheckWrapperCommand{&StopCommand{}, 0, ""}
-var restartCommand = CmdCheckWrapperCommand{&RestartCommand{}, 0, ""}
-var shutdownCommand = CmdCheckWrapperCommand{&ShutdownCommand{}, 0, ""}
-var reloadCommand = CmdCheckWrapperCommand{&ReloadCommand{}, 0, ""}
-var pidCommand = CmdCheckWrapperCommand{&PidCommand{}, 1, "pid <program>"}
-var signalCommand = CmdCheckWrapperCommand{&SignalCommand{}, 2, "signal <signal_name> <program>[...]"}
-var logtailCommand = CmdCheckWrapperCommand{&LogtailCommand{}, 1, "logtail <program>"}
+var statusCommand StatusCommand
+var startCommand StartCommand
+var stopCommand StopCommand
+var startGroupCommand StartGroupCommand
+var stopGroupCommand StopGroupCommand
+var restartCommand RestartCommand
+var shutdownCommand ShutdownCommand
+var reloadCommand ReloadCommand
+var pidCommand PidCommand
+var signalCommand SignalCommand
+var logtailCommand LogtailCommand
 
 func (x *CtlCommand) getServerURL() string {
 	options.Configuration, _ = findSupervisordConf()
@@ -158,6 +183,10 @@ func (x *CtlCommand) Execute(args []string) error {
 		////////////////////////////////////////////////////////////////////////////////
 	case "start", "stop":
 		x.startStopProcesses(rpcc, verb, args[1:])
+	case "start-group", "stop-group":
+		x.startStopProcessGroups(rpcc, strings.Split(verb, "-")[0], args[1:])
+	case "restart":
+		x.restartProcesses(rpcc, args[1:])
 
 		////////////////////////////////////////////////////////////////////////////////
 		// SHUTDOWN
@@ -202,6 +231,14 @@ func (x *CtlCommand) startStopProcesses(rpcc *xmlrpcclient.XMLRPCClient, verb st
 	x._startStopProcesses(rpcc, verb, processes, state[verb], true)
 }
 
+func (x *CtlCommand) startStopProcessGroups(rpcc *xmlrpcclient.XMLRPCClient, verb string, groups []string) {
+	state := map[string]string{
+		"start": "started",
+		"stop":  "stopped",
+	}
+	x._startStopProcessGroups(rpcc, verb, groups, state[verb], true)
+}
+
 func (x *CtlCommand) _startStopProcesses(rpcc *xmlrpcclient.XMLRPCClient, verb string, processes []string, state string, showProcessInfo bool) {
 	if len(processes) <= 0 {
 		fmt.Printf("Please specify process for %s\n", verb)
@@ -229,6 +266,22 @@ func (x *CtlCommand) _startStopProcesses(rpcc *xmlrpcclient.XMLRPCClient, verb s
 				fmt.Printf("%s: failed [%v]\n", pname, err)
 				os.Exit(1)
 			}
+		}
+	}
+}
+
+func (x *CtlCommand) _startStopProcessGroups(rpcc *xmlrpcclient.XMLRPCClient, verb string, groups []string, state string, showProcessInfo bool) {
+	if len(groups) <= 0 {
+		fmt.Printf("Please specify group for %s\n", verb)
+	}
+	for _, gname := range groups {
+		if reply, err := rpcc.ChangeProcessGroupState(verb, gname); err == nil {
+			if showProcessInfo {
+				x.showProcessInfo(&reply, make(map[string]bool))
+			}
+		} else {
+			fmt.Printf("%s: failed [%v]\n", gname, err)
+
 		}
 	}
 }
@@ -358,6 +411,16 @@ func (x *CtlCommand) inProcessMap(procInfo *types.ProcessInfo, processesMap map[
 	return false
 }
 
+func (x *CtlCommand) logTail(rpcc *xmlrpcclient.XMLRPCClient, program string, logType string) {
+	log, err := rpcc.TailProcessLog(program, 0, 10240, logType)
+	if err != nil {
+		fmt.Printf("Fail to tail log of program %s: %v\n", program, err)
+		os.Exit(1)
+	}
+	os.Stdout.WriteString(log.LogData)
+
+}
+
 func (x *CtlCommand) getANSIColor(statename string) string {
 	switch statename {
 	case "RUNNING":
@@ -374,25 +437,36 @@ func (x *CtlCommand) getANSIColor(statename string) string {
 
 // Execute implements flags.Commander interface to get status of program
 func (sc *StatusCommand) Execute(args []string) error {
-	ctlCommand.status(ctlCommand.createRPCClient(), args)
+	ctlCommand.status(ctlCommand.createRPCClient(), sc.Args.Programs)
 	return nil
 }
 
 // Execute start the given programs
 func (sc *StartCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "start", args)
+	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "start", sc.Args.Programs)
 	return nil
 }
 
 // Execute stop the given programs
 func (sc *StopCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "stop", args)
+	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "stop", sc.Args.Programs)
+	return nil
+}
+
+// Execute start the given process group
+func (sc *StartGroupCommand) Execute(args []string) error {
+	ctlCommand.startStopProcessGroups(ctlCommand.createRPCClient(), "start", sc.Args.Groups)
+	return nil
+}
+
+func (sc *StopGroupCommand) Execute(args []string) error {
+	ctlCommand.startStopProcessGroups(ctlCommand.createRPCClient(), "stop", sc.Args.Groups)
 	return nil
 }
 
 // Execute restart the programs
 func (rc *RestartCommand) Execute(args []string) error {
-	ctlCommand.restartProcesses(ctlCommand.createRPCClient(), args)
+	ctlCommand.restartProcesses(ctlCommand.createRPCClient(), rc.Args.Programs)
 	return nil
 }
 
@@ -410,67 +484,21 @@ func (rc *ReloadCommand) Execute(args []string) error {
 
 // Execute send signal to program
 func (rc *SignalCommand) Execute(args []string) error {
-	sigName, processes := args[0], args[1:]
-	ctlCommand.signal(ctlCommand.createRPCClient(), sigName, processes)
+	//sigName, processes := args[0], args[1:]
+	ctlCommand.signal(ctlCommand.createRPCClient(), rc.Args.Signal, rc.Args.Programs)
 	return nil
 }
 
 // Execute get the pid of program
 func (pc *PidCommand) Execute(args []string) error {
-	ctlCommand.getPid(ctlCommand.createRPCClient(), args[0])
+	ctlCommand.getPid(ctlCommand.createRPCClient(), pc.Args.Program)
 	return nil
 }
 
 // Execute tail the stdout/stderr of a program through http interface
 func (lc *LogtailCommand) Execute(args []string) error {
-	program := args[0]
-	go func() {
-		if err := lc.tailLog(program, "stderr"); err != nil {
-			fmt.Printf("error tailing stderr for %s: %v\n", program, err)
-		}
-	}()
-	return lc.tailLog(program, "stdout")
-}
-
-func (lc *LogtailCommand) tailLog(program string, dev string) error {
-	_, err := ctlCommand.getProcessInfo(ctlCommand.createRPCClient(), program)
-	if err != nil {
-		fmt.Printf("Not exist program %s\n", program)
-		return err
-	}
-	url := fmt.Sprintf("%s/logtail/%s/%s", ctlCommand.getServerURL(), program, dev)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-	req.SetBasicAuth(ctlCommand.getUser(), ctlCommand.getPassword())
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	buf := make([]byte, 10240)
-	for {
-		n, err := resp.Body.Read(buf)
-		if err != nil {
-			return err
-		}
-		if dev == "stdout" {
-			_, _ = os.Stdout.Write(buf[0:n])
-		} else {
-			_, _ = os.Stderr.Write(buf[0:n])
-		}
-	}
-}
-
-// Execute check if the number of arguments is ok
-func (wc *CmdCheckWrapperCommand) Execute(args []string) error {
-	if len(args) < wc.leastNumArgs {
-		err := fmt.Errorf("invalid arguments.\nUsage: supervisord ctl %v", wc.usage)
-		fmt.Printf("%v\n", err)
-		return err
-	}
-	return wc.cmd.Execute(args)
+	ctlCommand.logTail(ctlCommand.createRPCClient(), lc.Args.Program, lc.LogType)
+	return nil
 }
 
 func init() {
@@ -490,6 +518,14 @@ func init() {
 		"stop programs",
 		"stop one or more programs",
 		&stopCommand)
+	_, _ = ctlCmd.AddCommand("start-group",
+		"start a group of programs",
+		"start one or more program groups",
+		&startGroupCommand)
+	_, _ = ctlCmd.AddCommand("stop-group",
+		"stop a group of programs",
+		"stop one or more program groups",
+		&stopGroupCommand)
 	_, _ = ctlCmd.AddCommand("restart",
 		"restart programs",
 		"restart one or more programs",

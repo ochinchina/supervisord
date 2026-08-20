@@ -84,7 +84,7 @@ type ProcessLogReadInfo struct {
 // ProcessTailLog the output of tail the program log
 type ProcessTailLog struct {
 	LogData  string
-	Offset   int64
+	Offset   int
 	Overflow bool
 }
 
@@ -307,7 +307,7 @@ func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, 
 		}
 	}, finishedProcCh)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		proc, ok := <-finishedProcCh
 		if ok && proc.GetGroup() == args.Name {
 			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
@@ -716,7 +716,9 @@ func (s *Supervisor) TailProcessStdoutLog(r *http.Request, args *ProcessLogReadI
 		return fmt.Errorf("no such process %s", args.Name)
 	}
 	var err error
-	reply.LogData, reply.Offset, reply.Overflow, err = proc.StdoutLog.ReadTailLog(int64(args.Offset), int64(args.Length))
+	var offset int64
+	reply.LogData, offset, reply.Overflow, err = proc.StdoutLog.ReadTailLog(int64(args.Offset), int64(args.Length))
+	reply.Offset = int(offset)
 	return err
 }
 
@@ -727,7 +729,9 @@ func (s *Supervisor) TailProcessStderrLog(r *http.Request, args *ProcessLogReadI
 		return fmt.Errorf("no such process %s", args.Name)
 	}
 	var err error
-	reply.LogData, reply.Offset, reply.Overflow, err = proc.StderrLog.ReadTailLog(int64(args.Offset), int64(args.Length))
+	var offset int64
+	reply.LogData, offset, reply.Overflow, err = proc.StderrLog.ReadTailLog(int64(args.Offset), int64(args.Length))
+	reply.Offset = int(offset)
 	return err
 }
 
