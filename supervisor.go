@@ -541,17 +541,17 @@ func (s *Supervisor) startEventListeners() {
 }
 
 func (s *Supervisor) startHTTPServer() {
-	httpServerConfig, ok := s.config.GetInetHTTPServer()
+	inetServerConfig, ok := s.config.GetInetHTTPServer()
 	s.xmlRPC.Stop()
 	if ok {
-		addr := httpServerConfig.GetString("port", "")
+		addr := inetServerConfig.GetString("port", "")
 
 		if addr != "" {
 			cond := sync.NewCond(&sync.Mutex{})
 			cond.L.Lock()
 			defer cond.L.Unlock()
-			go s.xmlRPC.StartInetHTTPServer(httpServerConfig.GetString("username", ""),
-				httpServerConfig.GetString("password", ""),
+			go s.xmlRPC.StartInetHTTPServer(inetServerConfig.GetString("username", ""),
+				inetServerConfig.GetString("password", ""),
 				addr,
 				s,
 				s.getRemoteNodes(),
@@ -564,16 +564,16 @@ func (s *Supervisor) startHTTPServer() {
 		}
 	}
 
-	httpServerConfig, ok = s.config.GetUnixHTTPServer()
+	unixServerConfig, ok := s.config.GetUnixHTTPServer()
 	if ok {
 		env := config.NewStringExpression("here", s.config.GetConfigFileDir())
-		sockFile, err := env.Eval(httpServerConfig.GetString("file", "/tmp/supervisord.sock"))
+		sockFile, err := env.Eval(unixServerConfig.GetString("file", "/tmp/supervisord.sock"))
 		if err == nil {
 			cond := sync.NewCond(&sync.Mutex{})
 			cond.L.Lock()
 			defer cond.L.Unlock()
-			go s.xmlRPC.StartUnixHTTPServer(httpServerConfig.GetString("username", ""),
-				httpServerConfig.GetString("password", ""),
+			go s.xmlRPC.StartUnixHTTPServer(unixServerConfig.GetString("username", ""),
+				unixServerConfig.GetString("password", ""),
 				sockFile,
 				s,
 				func() {
