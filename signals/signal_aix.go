@@ -1,5 +1,5 @@
-//go:build !windows && !darwin && !freebsd && !aix
-// +build !windows,!darwin,!freebsd,!aix
+//go:build aix
+// +build aix
 
 package signals
 
@@ -18,6 +18,7 @@ var signalMap = map[string]os.Signal{"SIGABRT": syscall.SIGABRT,
 	"SIGCHLD":   syscall.SIGCHLD,
 	"SIGCLD":    syscall.SIGCLD,
 	"SIGCONT":   syscall.SIGCONT,
+	"SIGEMT":    syscall.SIGEMT,
 	"SIGFPE":    syscall.SIGFPE,
 	"SIGHUP":    syscall.SIGHUP,
 	"SIGILL":    syscall.SIGILL,
@@ -31,7 +32,6 @@ var signalMap = map[string]os.Signal{"SIGABRT": syscall.SIGABRT,
 	"SIGPWR":    syscall.SIGPWR,
 	"SIGQUIT":   syscall.SIGQUIT,
 	"SIGSEGV":   syscall.SIGSEGV,
-	"SIGSTKFLT": syscall.SIGSTKFLT,
 	"SIGSTOP":   syscall.SIGSTOP,
 	"SIGSYS":    syscall.SIGSYS,
 	"SIGTERM":   syscall.SIGTERM,
@@ -39,7 +39,6 @@ var signalMap = map[string]os.Signal{"SIGABRT": syscall.SIGABRT,
 	"SIGTSTP":   syscall.SIGTSTP,
 	"SIGTTIN":   syscall.SIGTTIN,
 	"SIGTTOU":   syscall.SIGTTOU,
-	"SIGUNUSED": syscall.SIGUNUSED,
 	"SIGURG":    syscall.SIGURG,
 	"SIGUSR1":   syscall.SIGUSR1,
 	"SIGUSR2":   syscall.SIGUSR2,

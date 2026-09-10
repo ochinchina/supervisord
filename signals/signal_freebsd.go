@@ -1,5 +1,5 @@
-//go:build !windows && !darwin && !freebsd && !aix
-// +build !windows,!darwin,!freebsd,!aix
+//go:build freebsd
+// +build freebsd
 
 package signals
 
@@ -16,30 +16,30 @@ var signalMap = map[string]os.Signal{"SIGABRT": syscall.SIGABRT,
 	"SIGALRM":   syscall.SIGALRM,
 	"SIGBUS":    syscall.SIGBUS,
 	"SIGCHLD":   syscall.SIGCHLD,
-	"SIGCLD":    syscall.SIGCLD,
 	"SIGCONT":   syscall.SIGCONT,
+	"SIGEMT":    syscall.SIGEMT,
 	"SIGFPE":    syscall.SIGFPE,
 	"SIGHUP":    syscall.SIGHUP,
 	"SIGILL":    syscall.SIGILL,
+	"SIGINFO":   syscall.SIGINFO,
 	"SIGINT":    syscall.SIGINT,
 	"SIGIO":     syscall.SIGIO,
 	"SIGIOT":    syscall.SIGIOT,
 	"SIGKILL":   syscall.SIGKILL,
+	"SIGLIBRT":  syscall.SIGLIBRT,
+	"SIGLWP":    syscall.SIGLWP,
 	"SIGPIPE":   syscall.SIGPIPE,
-	"SIGPOLL":   syscall.SIGPOLL,
 	"SIGPROF":   syscall.SIGPROF,
-	"SIGPWR":    syscall.SIGPWR,
 	"SIGQUIT":   syscall.SIGQUIT,
 	"SIGSEGV":   syscall.SIGSEGV,
-	"SIGSTKFLT": syscall.SIGSTKFLT,
 	"SIGSTOP":   syscall.SIGSTOP,
 	"SIGSYS":    syscall.SIGSYS,
 	"SIGTERM":   syscall.SIGTERM,
+	"SIGTHR":    syscall.SIGTHR,
 	"SIGTRAP":   syscall.SIGTRAP,
 	"SIGTSTP":   syscall.SIGTSTP,
 	"SIGTTIN":   syscall.SIGTTIN,
 	"SIGTTOU":   syscall.SIGTTOU,
-	"SIGUNUSED": syscall.SIGUNUSED,
 	"SIGURG":    syscall.SIGURG,
 	"SIGUSR1":   syscall.SIGUSR1,
 	"SIGUSR2":   syscall.SIGUSR2,
