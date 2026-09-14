@@ -1,8 +1,6 @@
 module github.com/ochinchina/supervisord/signals
 
-go 1.26.0
-
-toolchain go1.26.5
+go 1.27.0
 
 require github.com/sirupsen/logrus v1.9.4
 

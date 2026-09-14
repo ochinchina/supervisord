@@ -21,7 +21,7 @@ func (s *Supervisor) checkRequiredResources() error {
 }
 
 func (s *Supervisor) getMinRequiredRes(resourceName string) (uint64, error) {
-	if entry, ok := s.config.GetSupervisord(); ok {
+	if entry, ok := s.activeConfig.GetSupervisord(); ok {
 		value := uint64(entry.GetInt(resourceName, 0))
 		if value > 0 {
 			return value, nil

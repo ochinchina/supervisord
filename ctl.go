@@ -3,12 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/ochinchina/supervisord/config"
+	"github.com/ochinchina/supervisord/faults"
 	"github.com/ochinchina/supervisord/types"
 	"github.com/ochinchina/supervisord/xmlrpcclient"
 )
@@ -21,60 +23,84 @@ type CtlCommand struct {
 	Verbose   bool   `short:"v" long:"verbose" description:"Show verbose debug information"`
 }
 
-func (x CtlCommand) remove(client *xmlrpcclient.XMLRPCClient, programs []string) {
-	x.update(client, programs)
+func createProcessGroup(processInfos []types.ProcessInfo) *config.ProcessGroup {
+	processGroup := config.NewProcessGroup()
+	for _, processInfo := range processInfos {
+		processGroup.Add(processInfo.Group, processInfo.Name)
+	}
+	return processGroup
 }
 
-func (x CtlCommand) add(client *xmlrpcclient.XMLRPCClient, programs []string) {
-	x.update(client, programs)
+func getANSIColorByStateName(statename string) string {
+	switch statename {
+	case "RUNNING":
+		// green
+		return "\x1b[0;32m"
+	case "BACKOFF", "FATAL":
+		// red
+		return "\x1b[0;31m"
+	default:
+		// yellow
+		return "\x1b[1;33m"
+	}
 }
 
-func (x CtlCommand) update(client *xmlrpcclient.XMLRPCClient, groups []string) {
-	if len(groups) == 0 || slices.Contains(groups, "all") {
-		result, err := client.ReloadConfig()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-		} else {
-			changedGroups := make([]string, 0)
-			changedGroups = append(changedGroups, result.AddedGroup...)
-			changedGroups = append(changedGroups, result.ChangedGroup...)
-			for _, group := range changedGroups {
-				reply, err := client.AddProcessGroup(group)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Fail to add process group %s: %v\n", group, err)
-				} else if !reply.Success {
-					fmt.Fprintf(os.Stderr, "Fail to add process group %s\n", group)
-				} else {
-					fmt.Printf("Process group %s is added successfully\n", group)
-				}
-			}
+// check if group name should be displayed
+func showGroupName() bool {
+	val, ok := os.LookupEnv("SUPERVISOR_GROUP_DISPLAY")
+	if !ok {
+		return true
+	}
 
-			for _, group := range result.RemovedGroup {
-				reply, err := client.RemoveProcessGroup(group)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Fail to remove process group %s: %v\n", group, err)
-				} else if !reply.Success {
-					fmt.Fprintf(os.Stderr, "Fail to remove process group %s\n", group)
-				} else {
-					fmt.Printf("Process group %s is removed successfully\n", group)
-				}
-			}
+	val = strings.ToLower(val)
+	return val == "yes" || val == "true" || val == "y" || val == "t" || val == "1"
+}
+
+func showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, processesMap map[string]bool) {
+	for _, pinfo := range reply.Value {
+		description := pinfo.Description
+		if strings.ToLower(description) == "<string></string>" {
+			description = ""
 		}
-	} else {
-		for _, group := range groups {
-			if group == "all" {
-				continue
+		if inProcessMap(&pinfo, processesMap) {
+			processName := pinfo.GetFullName()
+			if !showGroupName() {
+				processName = pinfo.Name
 			}
-			reply, err := client.AddProcessGroup(group)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Fail to add process group %s: %v\n", group, err)
-			} else if !reply.Success {
-				fmt.Fprintf(os.Stderr, "Fail to add process group %s\n", group)
-			} else {
-				fmt.Printf("Process group %s is added successfully\n", group)
-			}
+			fmt.Printf("%s%-33s%-10s%s%s\n", getANSIColorByStateName(strings.ToUpper(pinfo.Statename)), processName, pinfo.Statename, description, "\x1b[0m")
+		}
+	}
+}
+
+func inProcessMap(procInfo *types.ProcessInfo, processesMap map[string]bool) bool {
+	if len(processesMap) <= 0 {
+		return true
+	}
+	for procName := range processesMap {
+		if procName == procInfo.Name || procName == procInfo.GetFullName() {
+			return true
 		}
 
+		// check the wildcast '*'
+		pos := strings.Index(procName, ":")
+		if pos != -1 {
+			groupName := procName[0:pos]
+			programName := procName[pos+1:]
+			if programName == "*" && groupName == procInfo.Group {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func showProcessStatus(processStatuses []types.ProcessStatus) {
+	for _, pstatus := range processStatuses {
+		processName := pstatus.GetFullName()
+		if !showGroupName() {
+			processName = pstatus.Name
+		}
+		fmt.Printf("%s%-33s%-10s%s\n", faults.GetANSIColorByFaultCode(pstatus.Status), processName, faults.FaultCodeToString(pstatus.Status), "\x1b[0m")
 	}
 }
 
@@ -117,21 +143,23 @@ type StopCommand struct {
 	} `positional-args:"yes" required:"yes"`
 }
 
-// StartGroupCommand start the given process group
-type StartGroupCommand struct {
-	Args struct {
-		Groups []string `positional-arg-name:"Group" description:"Name of the Process Group"`
-	} `positional-args:"yes" required:"yes"`
-}
-
-// StopGroupCommand stop the given process group
-type StopGroupCommand struct {
-	Args struct {
-		Groups []string `positional-arg-name:"Group" description:"Name of the Process Group"`
-	} `positional-args:"yes" required:"yes"`
-}
-
 // RestartCommand restart the given program
+//
+// restart <name>
+//
+//	Restart a process Note: restart does not reread config files. For that, see reread and update.
+//
+// restart <gname>:*
+//
+//	Restart all processes in a group Note: restart does not reread config files. For that, see reread and update.
+//
+// restart <name> <name>
+//
+//	Restart multiple processes or groups Note: restart does not reread config files. For that, see reread and update.
+//
+// restart all
+//
+//	Restart all processes Note: restart does not reread config files. For that, see reread and update.
 type RestartCommand struct {
 	Args struct {
 		Programs []string `positional-arg-name:"Program" description:"Name of the Program"`
@@ -159,7 +187,7 @@ type UpdateCommand struct {
 type PidCommand struct {
 	Args struct {
 		Program string `positional-arg-name:"Program" description:"Name of the Program"`
-	} `positional-args:"yes" required:"yes"`
+	} `positional-args:"yes"`
 }
 
 // SignalCommand send signal of program
@@ -172,10 +200,11 @@ type SignalCommand struct {
 
 // LogtailCommand tail the stdout/stderr log of program through http interface
 type LogtailCommand struct {
-	LogType string `short:"t" long:"type" choice:"stdout" choice:"stderr" description:"the log type, stdout or stderr" default:"stdout"`
-	Args    struct {
-		Program string `positional-arg-name:"Program" description:"Name of the Program"`
-	} `positional-args:"yes" required:"yes"`
+	Continuous bool `short:"f" description:"Continuous tail the log"`
+	Args       struct {
+		Program string `positional‑arg:"0" positional-arg-name:"Program" description:"Name of the Program" required:"yes"`
+		LogType string `positional‑arg:"1" positional-arg-name:"LogType" choice:"stdout" choice:"stderr" description:"the log type, stdout or stderr" default:"stdout"`
+	} `positional-args:"yes"`
 }
 
 type ForegroundCommand struct {
@@ -191,8 +220,6 @@ var clearCommand ClearCommand
 var statusCommand StatusCommand
 var startCommand StartCommand
 var stopCommand StopCommand
-var startGroupCommand StartGroupCommand
-var stopGroupCommand StopGroupCommand
 var restartCommand RestartCommand
 var updateCommand UpdateCommand
 var shutdownCommand ShutdownCommand
@@ -262,168 +289,372 @@ func (x *CtlCommand) createRPCClient() *xmlrpcclient.XMLRPCClient {
 
 // Execute implements flags.Commander interface to execute the control commands
 func (x *CtlCommand) Execute(args []string) error {
-	if len(args) == 0 {
-		return nil
+
+	return nil
+}
+
+func (ac *AddCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
+	failedPrograms := 0
+
+	for _, program := range ac.Args.Programs {
+		reply, err := client.AddProcessGroup(program)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fail to add process group %s: %v\n", program, err)
+			failedPrograms += 1
+		} else if !reply.Success {
+			fmt.Fprintf(os.Stderr, "Fail to add process group %s\n", program)
+			failedPrograms += 1
+		} else {
+			fmt.Printf("Process group %s is added successfully\n", program)
+		}
 	}
 
-	rpcc := x.createRPCClient()
-	verb := args[0]
+	if failedPrograms > 0 {
+		return fmt.Errorf("Fail to add %d groups", failedPrograms)
+	}
+	return nil
+}
 
-	switch verb {
+func (rc *RemoveCommand) Execute(args []string) error {
 
-	////////////////////////////////////////////////////////////////////////////////
-	// STATUS
-	////////////////////////////////////////////////////////////////////////////////
-	case "status":
-		x.status(rpcc, args[1:])
+	client := ctlCommand.createRPCClient()
+	failedPrograms := 0
+	for _, program := range rc.Args.Programs {
+		reply, err := client.RemoveProcessGroup(program)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Fail to remove process group %s: %v\n", program, err)
+			failedPrograms += 1
+		} else if !reply.Success {
+			fmt.Fprintf(os.Stderr, "Fail to remove process group %s\n", program)
+			failedPrograms += 1
+		} else {
+			fmt.Printf("Process group %s is removed successfully\n", program)
+		}
+	}
+	if failedPrograms > 0 {
+		os.Exit(1)
+	}
+	return nil
+}
 
-		////////////////////////////////////////////////////////////////////////////////
-		// START or STOP
-		////////////////////////////////////////////////////////////////////////////////
-	case "start", "stop":
-		x.startStopProcesses(rpcc, verb, args[1:])
-	case "start-group", "stop-group":
-		x.startStopProcessGroups(rpcc, strings.Split(verb, "-")[0], args[1:])
-	case "restart":
-		x.restartProcesses(rpcc, args[1:])
+func (cc *ClearCommand) Execute(args []string) error {
 
-		////////////////////////////////////////////////////////////////////////////////
-		// SHUTDOWN
-		////////////////////////////////////////////////////////////////////////////////
-	case "shutdown":
-		x.shutdown(rpcc)
-	case "reload":
-		x.reload(rpcc)
-	case "signal":
-		sigName, processes := args[1], args[2:]
-		x.signal(rpcc, sigName, processes)
-	case "pid":
-		x.getPid(rpcc, args[1])
-	default:
-		fmt.Println("unknown command")
+	client := ctlCommand.createRPCClient()
+
+	// clear all
+	if slices.Contains(cc.Args.Programs, "all") {
+
+		reply, err := client.ClearAllProcessLogs()
+		if err != nil {
+			fmt.Printf("Fail to clear all process logs: %v\n", err)
+		} else {
+			for _, procStatus := range reply.ProcessStatuses {
+				if procStatus.Status == faults.Success {
+					fmt.Printf("%s: cleared\n", procStatus.GetFullName())
+				} else {
+					fmt.Printf("%s: fail to clear\n", procStatus.GetFullName())
+				}
+			}
+		}
+
+	} else {
+		for _, program := range cc.Args.Programs {
+
+			reply, err := client.ClearProcessLogs(program)
+			if err != nil {
+				fmt.Printf("Fail to clear logs of program %s: %v\n", program, err)
+			} else if reply.Success {
+				fmt.Printf("Succeed to clear logs of program %s\n", program)
+			} else {
+				fmt.Printf("Fail to clear logs of program %s\n", program)
+			}
+
+		}
+	}
+	return nil
+}
+
+// Execute implements flags.Commander interface to get status of program
+func (sc *StatusCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
+
+	processesMap := make(map[string]bool)
+	for _, process := range sc.Args.Programs {
+		processesMap[process] = true
+	}
+	if reply, err := client.GetAllProcessInfo(); err == nil {
+		showProcessInfo(&reply, processesMap)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
 	}
 
 	return nil
 }
 
-// get the status of processes
-func (x *CtlCommand) status(rpcc *xmlrpcclient.XMLRPCClient, processes []string) {
-	processesMap := make(map[string]bool)
-	for _, process := range processes {
-		processesMap[process] = true
-	}
-	if reply, err := rpcc.GetAllProcessInfo(); err == nil {
-		x.showProcessInfo(&reply, processesMap)
-	} else {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-}
-
-// start or stop the processes
-// verb must be: start or stop
-func (x *CtlCommand) startStopProcesses(rpcc *xmlrpcclient.XMLRPCClient, verb string, processes []string) {
-	state := map[string]string{
-		"start": "started",
-		"stop":  "stopped",
-	}
-	x._startStopProcesses(rpcc, verb, processes, state[verb], true)
-}
-
-func (x *CtlCommand) startStopProcessGroups(rpcc *xmlrpcclient.XMLRPCClient, verb string, groups []string) {
-	state := map[string]string{
-		"start": "started",
-		"stop":  "stopped",
-	}
-	x._startStopProcessGroups(rpcc, verb, groups, state[verb], true)
-}
-
-func (x *CtlCommand) _startStopProcesses(rpcc *xmlrpcclient.XMLRPCClient, verb string, processes []string, state string, showProcessInfo bool) {
-	if len(processes) <= 0 {
-		fmt.Printf("Please specify process for %s\n", verb)
-	}
-	for _, pname := range processes {
-		if pname == "all" {
-			reply, err := rpcc.ChangeAllProcessState(verb)
-			if err == nil {
-				if showProcessInfo {
-					x.showProcessInfo(&reply, make(map[string]bool))
-				}
-			} else {
-				fmt.Printf("Fail to change all process state to %s", state)
-			}
+// Execute start the given programs
+func (sc *StartCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
+	if len(sc.Args.Programs) == 0 || slices.Contains(sc.Args.Programs, "all") {
+		reply, err := client.StartAllProcess(true)
+		if err != nil {
+			fmt.Printf("Fail to start all the processes with error:%v\n", err)
 		} else {
-			pos := strings.Index(pname, ":")
-			if pos != -1 {
-				groupName := pname[0:pos]
-				programName := pname[pos+1:]
-				if programName == "*" {
-					reply, err := rpcc.ChangeProcessGroupState(verb, groupName)
-					if err == nil {
-						if showProcessInfo {
-							x.showProcessInfo(&reply, make(map[string]bool))
-						}
-					} else {
-						fmt.Printf("Fail to change process group %s state to %s", groupName, state)
-					}
-				}
-			} else {
-
-				if reply, err := rpcc.ChangeProcessState(verb, pname); err == nil {
-					if showProcessInfo {
-						fmt.Printf("%s: ", pname)
-						if !reply.Value {
-							fmt.Printf("not ")
-						}
-						fmt.Printf("%s\n", state)
-					}
+			showProcessStatus(reply.ProcessStatuses)
+		}
+	} else {
+		for _, program := range sc.Args.Programs {
+			if strings.HasSuffix(program, ":*") {
+				group := program[0 : len(program)-2]
+				reply, err := client.StartProcessGroup(group, true)
+				if err != nil {
+					fmt.Printf("Fail to start group %s with error:%v\n", group, err)
 				} else {
-					fmt.Printf("%s: failed [%v]\n", pname, err)
-					os.Exit(1)
+					fmt.Printf("Start status of group %s:\n", group)
+					showProcessStatus(reply.ProcessStatuses)
+				}
+			} else {
+				reply, err := client.StartProcess(program, true)
+				if err != nil {
+					fmt.Printf("Fail to start program %s with error:%v\n", program, err)
+				} else if !reply.Success {
+					fmt.Printf("Fail to start program %s\n", program)
+				} else {
+					fmt.Printf("Succeed to start program %s\n", program)
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
-func (x *CtlCommand) _startStopProcessGroups(rpcc *xmlrpcclient.XMLRPCClient, verb string, groups []string, state string, showProcessInfo bool) {
-	if len(groups) <= 0 {
-		fmt.Printf("Please specify group for %s\n", verb)
-	}
-	for _, gname := range groups {
-		if reply, err := rpcc.ChangeProcessGroupState(verb, gname); err == nil {
-			if showProcessInfo {
-				x.showProcessInfo(&reply, make(map[string]bool))
-			}
-		} else {
-			fmt.Printf("%s: failed [%v]\n", gname, err)
+// Execute stop the given programs
+func (sc *StopCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
 
+	if len(sc.Args.Programs) == 0 || slices.Contains(sc.Args.Programs, "all") {
+		reply, err := client.StopAllProcess(true)
+		if err != nil {
+			fmt.Printf("Fail to stop all the processes with error:%v\n", err)
+		} else {
+			showProcessStatus(reply.ProcessStatuses)
+		}
+	} else {
+		for _, program := range sc.Args.Programs {
+			if strings.HasSuffix(program, ":*") {
+				group := program[0 : len(program)-2]
+				reply, err := client.StopProcessGroup(group, true)
+				if err != nil {
+					fmt.Printf("Fail to stop group %s with error:%v\n", group, err)
+				} else {
+					fmt.Printf("Stop status of group %s:\n", group)
+					showProcessStatus(reply.ProcessStatuses)
+				}
+			} else {
+				reply, err := client.StopProcess(program, true)
+				if err != nil {
+					fmt.Printf("Fail to stop program %s with error:%v\n", program, err)
+				} else if !reply.Success {
+					fmt.Printf("Fail to stop program %s\n", program)
+				} else {
+					fmt.Printf("Succeed to stop program %s\n", program)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// Execute restart the programs
+func (rc *RestartCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
+
+	if len(rc.Args.Programs) == 0 || slices.Contains(rc.Args.Programs, "all") {
+		rc.restartAllProcess(client)
+
+	} else {
+		for _, program := range rc.Args.Programs {
+			rc.restartProcess(client, program)
+		}
+	}
+
+	return nil
+}
+
+func (rc *RestartCommand) restartProcess(client *xmlrpcclient.XMLRPCClient, program string) {
+	if strings.HasSuffix(program, ":*") {
+		groupName := program[0 : len(program)-2]
+		reply, err := client.StopProcessGroup(groupName, true)
+		if err != nil {
+			fmt.Printf("Fail to stop group %s with error:%v\n", groupName, err)
+		} else {
+			fmt.Printf("Stop status of group %s:\n", groupName)
+			showProcessStatus(reply.ProcessStatuses)
+		}
+
+		time.Sleep(1 * time.Second)
+
+		reply, err = client.StartProcessGroup(groupName, true)
+		if err != nil {
+			fmt.Printf("Fail to start group %s with error:%v\n", groupName, err)
+		} else {
+			fmt.Printf("Start status of group %s:\n", groupName)
+			showProcessStatus(reply.ProcessStatuses)
+		}
+		return
+	} else {
+		reply, err := client.StopProcess(program, true)
+		if err != nil {
+			fmt.Printf("Fail to stop program %s with error:%v\n", program, err)
+		} else if !reply.Success {
+			fmt.Printf("Fail to stop program %s\n", program)
+		} else {
+			fmt.Printf("Succeed to stop program %s\n", program)
+		}
+
+		time.Sleep(1 * time.Second)
+
+		reply, err = client.StartProcess(program, true)
+		if err != nil {
+			fmt.Printf("Fail to start program %s with error:%v\n", program, err)
+		} else if !reply.Success {
+			fmt.Printf("Fail to start program %s\n", program)
+		} else {
+			fmt.Printf("Succeed to start program %s\n", program)
 		}
 	}
 }
 
-func (x *CtlCommand) restartProcesses(rpcc *xmlrpcclient.XMLRPCClient, processes []string) {
-	x._startStopProcesses(rpcc, "stop", processes, "stopped", false)
-	x._startStopProcesses(rpcc, "start", processes, "restarted", true)
+func (rc *RestartCommand) restartAllProcess(client *xmlrpcclient.XMLRPCClient) {
+	reply, err := client.StopAllProcess(true)
+	if err != nil {
+		fmt.Printf("Fail to stop all the processes with error:%v\n", err)
+	} else {
+		fmt.Printf("Stop status:\n")
+		showProcessStatus(reply.ProcessStatuses)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	reply, err = client.StartAllProcess(true)
+	if err != nil {
+		fmt.Printf("Fail to start all the processes with error:%v\n", err)
+	} else {
+		fmt.Printf("Start status:\n")
+		showProcessStatus(reply.ProcessStatuses)
+	}
 }
 
-// shutdown the supervisord
-func (x *CtlCommand) shutdown(rpcc *xmlrpcclient.XMLRPCClient) {
-	if reply, err := rpcc.Shutdown(); err == nil {
+// Execute update the supervisord configuration and start the affected programs
+func (rc *UpdateCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
+	result, err := client.ReloadConfig()
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fail to reload config: %s\n", err)
+		os.Exit(1)
+	}
+	groups := rc.Args.Groups
+
+	for _, group := range result.AddedGroup {
+		if rc.ShouldOperateOnGroup(group, groups) {
+			reply, err := client.AddProcessGroup(group)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Fail to add process group %s: %v\n", group, err)
+			} else if !reply.Success {
+				fmt.Fprintf(os.Stderr, "Fail to add process group %s\n", group)
+			} else {
+				fmt.Printf("Process group %s is added successfully\n", group)
+			}
+		}
+	}
+
+	if len(result.ChangedGroup) > 0 {
+		allProcesses, _ := client.GetAllProcessInfo()
+		for _, group := range result.ChangedGroup {
+			if rc.ShouldOperateOnGroup(group, groups) {
+				reply, err := client.AddProcessGroup(group)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Fail to add process group %s: %v\n", group, err)
+				} else if !reply.Success {
+					fmt.Fprintf(os.Stderr, "Fail to add process group %s\n", group)
+				} else {
+					fmt.Printf("Process group %s is added successfully\n", group)
+					for _, procInfo := range allProcesses.Value {
+						if procInfo.Group == group {
+							_, _ = client.StopProcess(procInfo.Name, true)
+							r, err := client.StartProcess(procInfo.Name, true)
+							if err != nil {
+								fmt.Fprintf(os.Stderr, "Fail to start process %s: %v\n", procInfo.Name, err)
+							} else if !r.Success {
+								fmt.Fprintf(os.Stderr, "Fail to start process %s\n", procInfo.Name)
+							} else {
+								fmt.Printf("Process %s is started successfully\n", procInfo.Name)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for _, group := range result.RemovedGroup {
+		if rc.ShouldOperateOnGroup(group, groups) {
+			_, err := client.StopProcessGroup(group, true)
+			if err != nil {
+				fmt.Printf("Fail to stop process group %s: %v\n", group, err)
+			} else {
+				fmt.Printf("Succeed to stop process group %s\n", group)
+			}
+			reply, err := client.RemoveProcessGroup(group)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Fail to remove process group %s: %v\n", group, err)
+			} else if !reply.Success {
+				fmt.Fprintf(os.Stderr, "Fail to remove process group %s\n", group)
+			} else {
+				fmt.Printf("Process group %s is removed successfully\n", group)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (rc *UpdateCommand) ShouldOperateOnGroup(group string, groups []string) bool {
+	if len(groups) == 0 || slices.Contains(groups, "all") {
+		return true
+	}
+	return slices.Contains(groups, group)
+}
+
+// Execute shutdown the supervisor
+func (sc *ShutdownCommand) Execute(args []string) error {
+
+	client := ctlCommand.createRPCClient()
+
+	if reply, err := client.Shutdown(); err == nil {
 		if reply.Value {
-			fmt.Printf("Shut Down\n")
+			fmt.Printf("Succeed to shutdown\n")
 		} else {
-			fmt.Printf("Hmmm! Something gone wrong?!\n")
+			fmt.Printf("Fail to shutdown\n")
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
+
+	return nil
 }
 
-// reload all the programs in the supervisord
-func (x *CtlCommand) reload(rpcc *xmlrpcclient.XMLRPCClient) {
-	if reply, err := rpcc.Restart(); err == nil {
+// Execute stop the running programs and reload the supervisor configuration
+func (rc *ReloadCommand) Execute(args []string) error {
+
+	client := ctlCommand.createRPCClient()
+
+	if reply, err := client.Restart(); err == nil {
 
 		if reply.Success {
 			fmt.Printf("Supervisord is reloaded successfully\n")
@@ -434,158 +665,194 @@ func (x *CtlCommand) reload(rpcc *xmlrpcclient.XMLRPCClient) {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
+	return nil
 }
 
-// reload all the programs in the supervisord
-func (x *CtlCommand) reread(rpcc *xmlrpcclient.XMLRPCClient) {
-	if reply, err := rpcc.ReloadConfig(); err == nil {
+func (rc *RereadCommand) Execute(args []string) error {
 
+	client := ctlCommand.createRPCClient()
+	if reply, err := client.ReloadConfig(); err == nil {
 		if len(reply.AddedGroup) > 0 {
 			fmt.Printf("Added Groups: %s\n", strings.Join(reply.AddedGroup, ","))
+		} else {
+			fmt.Printf("No new groups added\n")
 		}
 		if len(reply.ChangedGroup) > 0 {
 			fmt.Printf("Changed Groups: %s\n", strings.Join(reply.ChangedGroup, ","))
+		} else {
+			fmt.Printf("No groups changed\n")
 		}
 		if len(reply.RemovedGroup) > 0 {
 			fmt.Printf("Removed Groups: %s\n", strings.Join(reply.RemovedGroup, ","))
+		} else {
+			fmt.Printf("No groups removed\n")
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Fail to reread the configuration")
 	}
+	return nil
 }
 
-// send signal to one or more processes
-func (x *CtlCommand) signal(rpcc *xmlrpcclient.XMLRPCClient, sigName string, processes []string) {
-	for _, process := range processes {
+// Execute send signal to program
+func (rc *SignalCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
+
+	for _, process := range rc.Args.Programs {
 		if process == "all" {
-			reply, err := rpcc.SignalAll(process)
+			reply, err := client.SignalAll(rc.Args.Signal)
 			if err == nil {
-				x.showProcessInfo(&reply, make(map[string]bool))
+				showProcessStatus(reply.ProcessStatuses)
 			} else {
-				fmt.Printf("Fail to send signal %s to all process", sigName)
+				fmt.Printf("Fail to send signal %s to all process", rc.Args.Signal)
 				os.Exit(1)
+			}
+		} else if strings.HasSuffix(process, ":*") {
+			group := process[:len(process)-2]
+			reply, err := client.SignalProcessGroup(group, rc.Args.Signal)
+			if err == nil {
+				showProcessStatus(reply.ProcessStatuses)
+			} else {
+				fmt.Printf("Fail to send signal %s to group %s\n", rc.Args.Signal, group)
 			}
 		} else {
-			reply, err := rpcc.SignalProcess(sigName, process)
+			reply, err := client.SignalProcess(rc.Args.Signal, process)
 			if err == nil && reply.Success {
-				fmt.Printf("Succeed to send signal %s to process %s\n", sigName, process)
+				fmt.Printf("Succeed to send signal %s to process %s\n", rc.Args.Signal, process)
 			} else {
-				fmt.Printf("Fail to send signal %s to process %s\n", sigName, process)
+				fmt.Printf("Fail to send signal %s to process %s\n", rc.Args.Signal, process)
 				os.Exit(1)
 			}
 		}
 	}
+	return nil
 }
 
-// get the pid of running program
-func (x *CtlCommand) getPid(rpcc *xmlrpcclient.XMLRPCClient, process string) {
-	procInfo, err := rpcc.GetProcessInfo(process)
-	if err != nil {
-		fmt.Printf("program '%s' not found\n", process)
-		os.Exit(1)
+// Execute get the pid of program
+func (pc *PidCommand) Execute(args []string) error {
+	client := ctlCommand.createRPCClient()
+
+	switch pc.Args.Program {
+	case "":
+		reply, err := client.GetSupervisordPID()
+		if err != nil {
+			fmt.Printf("Fail to get PID of supervisord with error:%v\n", err)
+			os.Exit(1)
+		} else {
+			fmt.Printf("%d\n", reply.Pid)
+		}
+	case "all":
+		reply, err := client.GetAllProcessInfo()
+		if err != nil {
+			fmt.Printf("Fail to get PID of all programs with error:%v\n", err)
+			os.Exit(1)
+		} else {
+			for _, processInfo := range reply.Value {
+				fmt.Printf("%s %d\n", processInfo.Name, processInfo.Pid)
+			}
+		}
+	default:
+		procInfo, err := client.GetProcessInfo(pc.Args.Program)
+		if err != nil {
+			fmt.Printf("program '%s' not found\n", pc.Args.Program)
+			os.Exit(1)
+		} else {
+			fmt.Printf("%d\n", procInfo.Pid)
+		}
+	}
+	return nil
+}
+
+// Execute tail the stdout/stderr of a program through http interface
+func (lc *LogtailCommand) Execute(args []string) error {
+
+	client := ctlCommand.createRPCClient()
+	logType := "stdout"
+	if lc.Args.LogType != "" {
+		logType = lc.Args.LogType
+	}
+
+	if lc.Continuous {
+		client := http.Client{Timeout: 30 * time.Second}
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/logtail/%s/%s", ctlCommand.getServerURL(), lc.Args.Program, logType), http.NoBody)
+		if err != nil {
+			fmt.Printf("Fail to create request to %s\n", ctlCommand.getServerURL())
+			return err
+		}
+		if ctlCommand.getUser() != "" && ctlCommand.getPassword() != "" {
+			req.SetBasicAuth(ctlCommand.getUser(), ctlCommand.getPassword())
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("Fail to connect to supervisord with error:%v\n", err)
+			return err
+		}
+		defer resp.Body.Close()
+
+		buffer := make([]byte, 1024)
+		for {
+			n, err := resp.Body.Read(buffer)
+			if err != nil {
+				return err
+			}
+			if lc.Args.LogType == "stdout" {
+				os.Stdout.Write(buffer[:n])
+			} else {
+				os.Stderr.Write(buffer[:n])
+			}
+		}
+
 	} else {
-		fmt.Printf("%d\n", procInfo.Pid)
-	}
-}
-
-func (x *CtlCommand) getProcessInfo(rpcc *xmlrpcclient.XMLRPCClient, process string) (types.ProcessInfo, error) {
-	return rpcc.GetProcessInfo(process)
-}
-
-// check if group name should be displayed
-func (x *CtlCommand) showGroupName() bool {
-	val, ok := os.LookupEnv("SUPERVISOR_GROUP_DISPLAY")
-	if !ok {
-		return false
-	}
-
-	val = strings.ToLower(val)
-	return val == "yes" || val == "true" || val == "y" || val == "t" || val == "1"
-}
-
-func (x *CtlCommand) showProcessInfo(reply *xmlrpcclient.AllProcessInfoReply, processesMap map[string]bool) {
-	for _, pinfo := range reply.Value {
-		description := pinfo.Description
-		if strings.ToLower(description) == "<string></string>" {
-			description = ""
-		}
-		if x.inProcessMap(&pinfo, processesMap) {
-			processName := pinfo.GetFullName()
-			if !x.showGroupName() {
-				processName = pinfo.Name
+		if logType == "stdout" {
+			log, err := client.ReadProcessStdoutLog(lc.Args.Program, -1600, 0)
+			if err != nil {
+				fmt.Printf("Fail to tail log of program %s: %v\n", lc.Args.Program, err)
+				os.Exit(1)
 			}
-			fmt.Printf("%s%-33s%-10s%s%s\n", x.getANSIColor(strings.ToUpper(pinfo.Statename)), processName, pinfo.Statename, description, "\x1b[0m")
-		}
-	}
-}
-
-func (x *CtlCommand) inProcessMap(procInfo *types.ProcessInfo, processesMap map[string]bool) bool {
-	if len(processesMap) <= 0 {
-		return true
-	}
-	for procName := range processesMap {
-		if procName == procInfo.Name || procName == procInfo.GetFullName() {
-			return true
-		}
-
-		// check the wildcast '*'
-		pos := strings.Index(procName, ":")
-		if pos != -1 {
-			groupName := procName[0:pos]
-			programName := procName[pos+1:]
-			if programName == "*" && groupName == procInfo.Group {
-				return true
+			os.Stdout.WriteString(log.LogData)
+		} else {
+			log, err := client.ReadProcessStderrLog(lc.Args.Program, -1600, 0)
+			if err != nil {
+				fmt.Printf("Fail to tail log of program %s: %v\n", lc.Args.Program, err)
+				os.Exit(1)
 			}
+			os.Stdout.WriteString(log.LogData)
 		}
+
 	}
-	return false
+
+	return nil
 }
 
-func (x *CtlCommand) logTail(rpcc *xmlrpcclient.XMLRPCClient, program string, logType string) {
-	log, err := rpcc.TailProcessLog(program, 0, 10240, logType)
-	if err != nil {
-		fmt.Printf("Fail to tail log of program %s: %v\n", program, err)
-		os.Exit(1)
-	}
-	os.Stdout.WriteString(log.LogData)
+func (fc *ForegroundCommand) Execute(args []string) error {
 
-}
+	client := ctlCommand.createRPCClient()
 
-func (x *CtlCommand) foreground(rpcc *xmlrpcclient.XMLRPCClient, program string) {
-	procInfo, err := x.getProcessInfo(rpcc, program)
+	procInfo, err := client.GetProcessInfo(fc.Args.Program)
 	if err != nil {
-		fmt.Printf("Fail to get process info of program %s: %v\n", program, err)
+		fmt.Printf("Fail to get process info of program %s: %v\n", fc.Args.Program, err)
 		os.Exit(1)
 	}
 	if strings.ToUpper(procInfo.Statename) != "RUNNING" {
-		fmt.Printf("Program '%s' is not running\n", program)
+		fmt.Printf("Program '%s' is not running\n", fc.Args.Program)
 		os.Exit(1)
 	}
-
-	x.logTail(rpcc, program, "stdout")
 
 	os.Stdout.WriteString("\n\nEnter input to send to the program's stdin (Ctrl+C to exit):\n")
-	reply, err := rpcc.CreateForground(program)
-	if err != nil {
-		fmt.Printf("Fail to create foreground for program %s: %v\n", program, err)
-		os.Exit(1)
-	}
 
 	// run the program in foreground
 	go func() {
-		client := x.createRPCClient()
+		logtailCommand := LogtailCommand{Continuous: true}
+		logtailCommand.Args.Program = fc.Args.Program
+		logtailCommand.Args.LogType = "stdout"
+		logtailCommand.Execute(make([]string, 0))
+	}()
 
-		for {
-			stdoutLog, err := client.GetForgroundStdout(program, reply.Id)
-			if err != nil {
-				fmt.Printf("Fail to tail stdout log of program %s: %v\n", program, err)
-				os.Exit(1)
-			}
-			os.Stdout.WriteString(stdoutLog.LogData)
-
-			time.Sleep(1 * time.Second)
-		}
+	go func() {
+		logtailCommand := LogtailCommand{Continuous: true}
+		logtailCommand.Args.Program = fc.Args.Program
+		logtailCommand.Args.LogType = "stderr"
+		logtailCommand.Execute(make([]string, 0))
 	}()
 
 	for {
@@ -595,140 +862,13 @@ func (x *CtlCommand) foreground(rpcc *xmlrpcclient.XMLRPCClient, program string)
 			os.Exit(1)
 		}
 
-		_, err = rpcc.SendProcessStdin(program, string(line)+"\n")
+		_, err = client.SendProcessStdin(fc.Args.Program, string(line)+"\n")
 		if err != nil {
-			fmt.Printf("Fail to send input to program %s: %v\n", program, err)
+			fmt.Printf("Fail to send input to program %s: %v\n", fc.Args.Program, err)
 			os.Exit(1)
 		}
 	}
 
-}
-
-func (x *CtlCommand) getANSIColor(statename string) string {
-	switch statename {
-	case "RUNNING":
-		// green
-		return "\x1b[0;32m"
-	case "BACKOFF", "FATAL":
-		// red
-		return "\x1b[0;31m"
-	default:
-		// yellow
-		return "\x1b[1;33m"
-	}
-}
-
-func (ac *AddCommand) Execute(args []string) error {
-	ctlCommand.add(ctlCommand.createRPCClient(), ac.Args.Programs)
-	return nil
-}
-
-func (rc *RemoveCommand) Execute(args []string) error {
-	ctlCommand.remove(ctlCommand.createRPCClient(), rc.Args.Programs)
-	return nil
-}
-
-func (cc *ClearCommand) Execute(args []string) error {
-
-	client := ctlCommand.createRPCClient()
-	logTypes := []string{"stdout", "stderr"}
-	for _, program := range cc.Args.Programs {
-		for _, logType := range logTypes {
-			reply, err := client.ClearProcessLog(program, logType)
-			if err != nil {
-				fmt.Printf("Fail to clear %s log of program %s: %v\n", logType, program, err)
-			} else {
-				if reply.Success {
-					fmt.Printf("Succeed to clear %s log of program %s\n", logType, program)
-				} else {
-					fmt.Printf("Fail to clear %s log of program %s\n", logType, program)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// Execute implements flags.Commander interface to get status of program
-func (sc *StatusCommand) Execute(args []string) error {
-	ctlCommand.status(ctlCommand.createRPCClient(), sc.Args.Programs)
-	return nil
-}
-
-// Execute start the given programs
-func (sc *StartCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "start", sc.Args.Programs)
-	return nil
-}
-
-// Execute stop the given programs
-func (sc *StopCommand) Execute(args []string) error {
-	ctlCommand.startStopProcesses(ctlCommand.createRPCClient(), "stop", sc.Args.Programs)
-	return nil
-}
-
-// Execute start the given process group
-func (sc *StartGroupCommand) Execute(args []string) error {
-	ctlCommand.startStopProcessGroups(ctlCommand.createRPCClient(), "start", sc.Args.Groups)
-	return nil
-}
-
-func (sc *StopGroupCommand) Execute(args []string) error {
-	ctlCommand.startStopProcessGroups(ctlCommand.createRPCClient(), "stop", sc.Args.Groups)
-	return nil
-}
-
-// Execute restart the programs
-func (rc *RestartCommand) Execute(args []string) error {
-	ctlCommand.restartProcesses(ctlCommand.createRPCClient(), rc.Args.Programs)
-	return nil
-}
-
-// Execute update the supervisord configuration and start programs
-func (rc *UpdateCommand) Execute(args []string) error {
-	ctlCommand.update(ctlCommand.createRPCClient(), rc.Args.Groups)
-	return nil
-}
-
-// Execute shutdown the supervisor
-func (sc *ShutdownCommand) Execute(args []string) error {
-	ctlCommand.shutdown(ctlCommand.createRPCClient())
-	return nil
-}
-
-// Execute stop the running programs and reload the supervisor configuration
-func (rc *ReloadCommand) Execute(args []string) error {
-	ctlCommand.reload(ctlCommand.createRPCClient())
-	return nil
-}
-
-func (rc *RereadCommand) Execute(args []string) error {
-	ctlCommand.reread(ctlCommand.createRPCClient())
-	return nil
-}
-
-// Execute send signal to program
-func (rc *SignalCommand) Execute(args []string) error {
-	//sigName, processes := args[0], args[1:]
-	ctlCommand.signal(ctlCommand.createRPCClient(), rc.Args.Signal, rc.Args.Programs)
-	return nil
-}
-
-// Execute get the pid of program
-func (pc *PidCommand) Execute(args []string) error {
-	ctlCommand.getPid(ctlCommand.createRPCClient(), pc.Args.Program)
-	return nil
-}
-
-// Execute tail the stdout/stderr of a program through http interface
-func (lc *LogtailCommand) Execute(args []string) error {
-	ctlCommand.logTail(ctlCommand.createRPCClient(), lc.Args.Program, lc.LogType)
-	return nil
-}
-
-func (fc *ForegroundCommand) Execute(args []string) error {
-	ctlCommand.foreground(ctlCommand.createRPCClient(), fc.Args.Program)
-	return nil
 }
 
 func init() {
@@ -760,14 +900,6 @@ func init() {
 		"stop programs",
 		"stop one or more programs",
 		&stopCommand)
-	_, _ = ctlCmd.AddCommand("start-group",
-		"start a group of programs",
-		"start one or more program groups",
-		&startGroupCommand)
-	_, _ = ctlCmd.AddCommand("stop-group",
-		"stop a group of programs",
-		"stop one or more program groups",
-		&stopGroupCommand)
 	_, _ = ctlCmd.AddCommand("restart",
 		"restart programs",
 		"restart one or more programs",
@@ -796,14 +928,10 @@ func init() {
 		"get the pid of specified program",
 		"get the pid of specified program",
 		&pidCommand)
-	_, _ = ctlCmd.AddCommand("logtail",
+	_, _ = ctlCmd.AddCommand("tail",
 		"get the standard output&standard error of the program",
 		"get the standard output&standard error of the program",
 		&logtailCommand)
-	_, _ = ctlCmd.AddCommand("foreground",
-		"run the program in foreground",
-		"run the program in foreground",
-		&foregroundCommand)
 	_, _ = ctlCmd.AddCommand("fg",
 		"run the program in foreground",
 		"run the program in foreground",

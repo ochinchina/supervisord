@@ -1,6 +1,12 @@
 github.com/gorilla/rpc v1.2.1 h1:yC+LMV5esttgpVvNORL/xX4jvTTEUE30UZhZ5JF7K9k=
 github.com/gorilla/rpc v1.2.1/go.mod h1:uNpOihAlF5xRFLuTYhfR0yfCTm0WTQSQttkMSptRfGk=
-github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c h1:6xgMUqscagnZicBedm1h4T3q6IQHbrrZp7bker+toOI=
-github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c/go.mod h1:/gFmJ8Das0jFgYxzt/RkvAO62T/ZPcyTaZlOkEBu/jw=
+github.com/ochinchina/gorilla-xmlrpc v1.0.4 h1:jjhc9glo2yCb7/habcJM0fQQ+/8eivkbX0M7eZvoxTs=
+github.com/ochinchina/gorilla-xmlrpc v1.0.4/go.mod h1:skzPPLq9I8i1WS5rFO9fSz8WottmFXbKBgzj271R3ZE=
+github.com/ochinchina/supervisord/types v0.0.0-20260827023808-368eb5d6ad92 h1:xkRgslUx2W4Y9ApezrLCxWmi2LCgzrWFpHTlFgs2tjQ=
+github.com/ochinchina/supervisord/types v0.0.0-20260827023808-368eb5d6ad92/go.mod h1:ArRhw87ZjjViCRytndATQgidDqXhhlC42z7Ny9fHjrM=
 github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 h1:DE4LcMKyqAVa6a0CGmVxANbnVb7stzMmPkQiieyNmfQ=
 github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31/go.mod h1:qgYeAmZ5ZIpBWTGllZSQnw97Dj+woV0toclVaRGI8pc=
+github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
+github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
+go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=

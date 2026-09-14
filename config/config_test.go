@@ -172,7 +172,8 @@ func TestToRegex(t *testing.T) {
 }
 
 func TestConfigWithInclude(t *testing.T) {
-	dir, _ := ioutil.TempDir("", "tmp")
+	dir := os.TempDir()
+	//dir, _ := ioutil.TempDir("", "tmp")
 
 	ioutil.WriteFile(filepath.Join(dir, "file1"), []byte("[program:cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
 	ioutil.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program:ls]\ncommand=ls\n"), os.ModePerm)
@@ -209,4 +210,31 @@ func TestDefaultParams(t *testing.T) {
 		t.Error("autorestart value should be true")
 	}
 
+}
+
+func TestConfigSub(t *testing.T) {
+	config1, _ := parse([]byte("[program:test1]\ncommand=/bin/ls\n[program:test2]\ncommand=/bin/pwd\n[program:test3]\ncommand=/bin/echo\n[group:test]\nprograms=test1,test2\n"))
+	config2, _ := parse([]byte("[program:test1]\ncommand=/bin/ls\n[program:test3]\ncommand=/bin/pwd\n[program:test4]\ncommand=/bin/echo\n[group:test]\nprograms=test2,test1\n"))
+
+	diff, _ := config2.Sub(config1)
+
+	if len(diff.AddedPrograms) != 1 || diff.AddedPrograms[0] != "test4" {
+		t.Error("Fail to get added programs")
+	}
+
+	if len(diff.AddedGroups) != 1 || diff.AddedGroups[0] != "test4" {
+		t.Error("Fail to get added programs")
+	}
+
+	if len(diff.RemovedPrograms) != 1 || diff.RemovedPrograms[0] != "test2" {
+		t.Error("Fail to get removed programs")
+	}
+
+	if len(diff.ChangedPrograms) != 1 || diff.ChangedPrograms[0] != "test3" {
+		t.Error("Fail to get changed programs")
+	}
+
+	if len(diff.ChangedGroups) != 1 || diff.ChangedGroups[0] != "test3" {
+		t.Error("Fail to get changed programs")
+	}
 }

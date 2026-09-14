@@ -117,7 +117,7 @@
 
             </div>
 
-            <!-- Displayed when Node is Offline / Reloading -->
+            <!-- Displayed when Node is Offline / ReStarting -->
             <div x-show="node.status !== 'ONLINE'" class="py-2 text-center text-xs text-gray-400 italic">
               Metrics unavailable while node is <span x-text="node.status.toLowerCase()"></span>
             </div>
@@ -125,10 +125,10 @@
             <!-- Node Controls -->
             <div class="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-200">
               <button 
-                @click="reloadNode(node.name)"
+                @click="restartNode(node.name)"
                 :disabled="node.status === 'OFFLINE'"
                 class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 rounded text-xs font-semibold disabled:opacity-50 transition">
-                Reload
+                Restart
               </button>
               <button 
                 @click="shutdownNode(node.name)"
@@ -367,6 +367,7 @@
           try {
             const response = await fetch('/supervisor/listNodes');
             if (!response.ok) {
+              this.nodes = [];
               throw new Error('Failed to fetch nodes');
             }
             const data = await response.json();
@@ -380,6 +381,7 @@
               
             }));
           } catch (error) {
+            this.nodes = [];
             console.error('Error fetching nodes:', error);
             //alert(`Error fetching nodes: ${error.message}`);
           }
@@ -389,6 +391,7 @@
           try {
             const response = await fetch('/program/list');
             if (!response.ok) {
+              this.processes = [];
               throw new Error('Failed to fetch processes');
             }
             const data = await response.json();
@@ -400,6 +403,7 @@
               description: proc.description
             }));
           } catch (error) {
+            this.processes = [];
             console.error('Error fetching processes:', error);
           }
         },
@@ -562,20 +566,20 @@
         },
 
         // Node Level Operations
-        async reloadNode(nodeName) {
+        async restartNode(nodeName) {
           try {
-            const response = await fetch(`/supervisor/${nodeName}/reload`, { method: 'POST' });
+            const response = await fetch(`/supervisor/${nodeName}/restart`, { method: 'POST' });
             if (!response.ok) {
-              throw new Error(`Failed to reload supervisor on node ${nodeName}`);
+              throw new Error(`Failed to restart supervisor on node ${nodeName}`);
             }
             const r = await response.json();
             if (!r.success) {
-              throw new Error(`Failed to reload supervisor on node ${nodeName}`);
+              throw new Error(`Failed to restart supervisor on node ${nodeName}`);
             }
-            alert(`Supervisor on node ${nodeName} reloaded successfully.`);
+            alert(`Supervisor on node ${nodeName} restarted successfully.`);
           } catch (error) {
-            console.error('Error reloading supervisor:', error);
-            alert(`Error reloading supervisor: ${error.message}`);
+            console.error('Error restarting supervisor:', error);
+            alert(`Error restarting supervisor: ${error.message}`);
           } finally {
             await this.loadNodes();
             await this.loadProcesses();
@@ -626,12 +630,7 @@
           this.logModal.processName = proc.name;
           this.logModal.type = type;
           this.logModal.content = await this.tailLog(proc, type);
-          /*this.logModal.content = `[INFO] Connecting to host [${proc.node}]...\n` +
-            `[INFO] Initializing ${proc.name} log output stream...\n` +
-            `[DEBUG] Fetching trailing log entries for stream '${type}'\n` +
-            `[LOG] ${new Date().toISOString()} - Process running on node ${proc.node} in state [${proc.state}]\n` +
-            (type === 'stderr' ? `[ERROR] Mock standard error output stream log line.` : `[STDOUT] Application initialized successfully.`);
-            */
+          
           this.logModal.open = true;
         }
       };

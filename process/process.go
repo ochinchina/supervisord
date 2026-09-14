@@ -15,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ochinchina/filechangemonitor"
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/events"
@@ -236,41 +235,32 @@ type Process struct {
 	// true if process is starting
 	inStart bool
 	// true if the process is stopped by user
-	stopByUser           *atomic.Bool
-	retryTimes           *atomic.Int32
-	lock                 sync.RWMutex
-	stdin                io.WriteCloser
-	StdoutLog            logger.Logger
-	StderrLog            logger.Logger
-	livenessChecker      *LivenessChecker
-	foregroundLogManager *logger.ForegroundLogManager
+	stopByUser      *atomic.Bool
+	retryTimes      *atomic.Int32
+	lock            sync.RWMutex
+	stdin           io.WriteCloser
+	StdoutLog       logger.Logger
+	StderrLog       logger.Logger
+	livenessChecker *LivenessChecker
 }
 
 // NewProcess creates new Process object
 func NewProcess(supervisorID string, config *config.Entry) *Process {
 
 	proc := &Process{supervisorID: supervisorID,
-		config:               config,
-		cmd:                  nil,
-		startTime:            time.Unix(0, 0),
-		stopTime:             time.Unix(0, 0),
-		state:                NewAtomicState(Stopped),
-		inStart:              false,
-		stopByUser:           &atomic.Bool{},
-		retryTimes:           &atomic.Int32{},
-		livenessChecker:      nil,
-		foregroundLogManager: nil,
+		config:          config,
+		cmd:             nil,
+		startTime:       time.Unix(0, 0),
+		stopTime:        time.Unix(0, 0),
+		state:           NewAtomicState(Stopped),
+		inStart:         false,
+		stopByUser:      &atomic.Bool{},
+		retryTimes:      &atomic.Int32{},
+		livenessChecker: nil,
 	}
 	proc.config = config
 	proc.cmd = nil
 	proc.livenessChecker = NewLivenessChecker(proc.GetName(), config)
-	proc.foregroundLogManager = logger.NewForegroundLogManager(60, func(id string) {
-		proc.lock.Lock()
-		defer proc.lock.Unlock()
-		proc.StdoutLog.RemoveLogListener(id)
-		proc.StderrLog.RemoveLogListener(id)
-
-	})
 	proc.addToCron()
 	return proc
 }
@@ -1326,41 +1316,4 @@ func (p *Process) GetStatus() string {
 		return p.cmd.ProcessState.String()
 	}
 	return "running"
-}
-
-func (p *Process) CreateForground() (string, error) {
-	// Implementation of creating foreground process
-	// Return an ID and error if any
-	id := uuid.New().String() // Generate a unique ID for the foreground process
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	log.WithFields(log.Fields{"program": p.GetName()}).Info("Creating foreground process")
-	err := p.foregroundLogManager.CreateForegroundLog(id)
-	if err != nil {
-		return "", err
-	}
-	err = p.StdoutLog.AddLogListener(id, func(logData []byte) {
-		p.foregroundLogManager.AddLog(id, logData)
-	})
-	if err != nil {
-		return "", err
-	}
-
-	err = p.StderrLog.AddLogListener(id, func(logData []byte) {
-		p.foregroundLogManager.AddLog(id, logData)
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return id, nil
-}
-
-func (p *Process) GetForgroundStdout(id string) (string, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	log.WithFields(log.Fields{"program": p.GetName(), "id": id}).Info("Getting foreground stdout")
-	logData, err := p.foregroundLogManager.GetLog(id)
-
-	return logData, err
 }

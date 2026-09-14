@@ -14,6 +14,7 @@ import (
 
 	"github.com/ochinchina/supervisord/events"
 	"github.com/ochinchina/supervisord/faults"
+	log "github.com/sirupsen/logrus"
 )
 
 type ChainLogTail struct {
@@ -57,150 +58,6 @@ func (clt *ChainLogTail) EmitLogTail(log []byte) {
 	}
 }
 
-type ForegroundLog struct {
-	lock    sync.Mutex
-	buffer  *ring.Ring
-	timeout int64
-	expire  int64
-}
-
-func NewForegroundLog(size int) *ForegroundLog {
-	return &ForegroundLog{buffer: ring.New(size),
-		timeout: 60,
-		expire:  time.Now().Unix() + 60}
-}
-
-func (ltb *ForegroundLog) AddLog(log []byte) {
-	ltb.lock.Lock()
-	defer ltb.lock.Unlock()
-	ltb.buffer.Value = string(log)
-	ltb.buffer = ltb.buffer.Next()
-}
-
-func (ltb *ForegroundLog) GetLog() string {
-	ltb.lock.Lock()
-	defer ltb.lock.Unlock()
-	logs := make([]string, 0)
-	ltb.buffer.Do(func(p interface{}) {
-		if p != nil {
-			logs = append(logs, p.(string))
-		}
-	})
-	ltb.buffer = ring.New(ltb.buffer.Len())
-	return strings.Join(logs, "\n")
-}
-
-func (ltb *ForegroundLog) UpdateExpire() {
-	ltb.lock.Lock()
-	defer ltb.lock.Unlock()
-	ltb.expire = time.Now().Unix() + ltb.timeout
-}
-
-func (ltb *ForegroundLog) IsExpired() bool {
-	ltb.lock.Lock()
-	defer ltb.lock.Unlock()
-	return time.Now().Unix() > ltb.expire
-}
-
-type ForegroundLogManager struct {
-	lock          sync.Mutex
-	logs          map[string]*ForegroundLog
-	timeout       int64
-	clearCallback func(string)
-}
-
-func NewForegroundLogManager(timeout int64, clearCallback func(string)) *ForegroundLogManager {
-	return &ForegroundLogManager{logs: make(map[string]*ForegroundLog), timeout: timeout, clearCallback: clearCallback}
-}
-
-func (ltbm *ForegroundLogManager) CreateForegroundLog(id string) error {
-	ltbm.lock.Lock()
-	defer ltbm.lock.Unlock()
-	if _, exists := ltbm.logs[id]; exists {
-		return errors.New("foreground log with this ID already exists")
-	}
-	ltbm.logs[id] = NewForegroundLog(1000)
-	return nil
-}
-
-func (ltbm *ForegroundLogManager) AddLog(id string, log []byte) error {
-	ltbm.lock.Lock()
-	defer ltbm.lock.Unlock()
-	foregroundLog, exists := ltbm.logs[id]
-	if !exists {
-		return errors.New("foreground log not found")
-	}
-	foregroundLog.AddLog(log)
-	return nil
-}
-
-func (ltbm *ForegroundLogManager) GetLog(id string) (string, error) {
-	ltbm.lock.Lock()
-	defer ltbm.lock.Unlock()
-	ltbm.clearExpiredBuffers()
-	foregroundLog, exists := ltbm.logs[id]
-	if !exists {
-		return "", errors.New("foreground log not found")
-	}
-	foregroundLog.UpdateExpire()
-	return foregroundLog.GetLog(), nil
-}
-
-func (ltbm *ForegroundLogManager) clearExpiredBuffers() {
-	keysToDelete := make([]string, 0)
-	for id, buffer := range ltbm.logs {
-		if buffer.IsExpired() {
-			keysToDelete = append(keysToDelete, id)
-		}
-	}
-
-	for _, id := range keysToDelete {
-		delete(ltbm.logs, id)
-		if ltbm.clearCallback != nil {
-			ltbm.clearCallback(id)
-		}
-	}
-}
-
-type LogListenerManager struct {
-	sync.Mutex
-	listeners map[string]func(log []byte)
-}
-
-func NewLogListenerManager() *LogListenerManager {
-	return &LogListenerManager{listeners: make(map[string]func(log []byte))}
-}
-
-func (llm *LogListenerManager) AddLogListener(id string, logListener func(log []byte)) error {
-	llm.Lock()
-	defer llm.Unlock()
-	_, exists := llm.listeners[id]
-	if exists {
-		return errors.New("log listener with this ID already exists")
-	}
-	llm.listeners[id] = logListener
-	return nil
-}
-
-func (llm *LogListenerManager) RemoveLogListener(id string) error {
-	llm.Lock()
-	defer llm.Unlock()
-	_, exists := llm.listeners[id]
-	if !exists {
-		return errors.New("log listener with this ID does not exist")
-	}
-	delete(llm.listeners, id)
-	return nil
-}
-
-func (llm *LogListenerManager) EmitLog(log []byte) {
-	llm.Lock()
-	defer llm.Unlock()
-	for _, listener := range llm.listeners {
-		listener(log)
-	}
-}
-
 // Logger the log interface to log program stdout/stderr logs to file
 type Logger interface {
 	io.WriteCloser
@@ -209,8 +66,6 @@ type Logger interface {
 	ReadTailLog(offset int64, length int64) (string, int64, bool, error)
 	ClearCurLogFile() error
 	ClearAllLogFile() error
-	AddLogListener(id string, logListener func(log []byte)) error
-	RemoveLogListener(id string) error
 }
 
 // LogEventEmitter the interface to emit log events
@@ -221,28 +76,26 @@ type LogEventEmitter interface {
 // FileLogger log program stdout/stderr to file
 type FileLogger struct {
 	name                  string
+	currentLogFileName    string
 	maxSize               int64
 	backups               int
 	fileSize              int64
 	fileNameWithTimestamp bool
 	file                  *os.File
 	logEventEmitter       LogEventEmitter
-	logListenerManager    *LogListenerManager
 	locker                sync.Locker
 }
 
 // SysLogger log program stdout/stderr to syslog
 type SysLogger struct {
 	NullLogger
-	logWriter          io.WriteCloser
-	logEventEmitter    LogEventEmitter
-	logListenerManager *LogListenerManager
+	logWriter       io.WriteCloser
+	logEventEmitter LogEventEmitter
 }
 
 // NullLogger discard the program stdout/stderr log
 type NullLogger struct {
-	logEventEmitter    LogEventEmitter
-	logListenerManager *LogListenerManager
+	logEventEmitter LogEventEmitter
 }
 
 // NullLocker no lock
@@ -257,28 +110,26 @@ type ChanLogger struct {
 
 // CompositeLogger dispatch the log message to other loggers
 type CompositeLogger struct {
-	lock               sync.Mutex
-	loggers            []Logger
-	logListenerManager *LogListenerManager
+	lock    sync.Mutex
+	loggers []Logger
 }
 
 type MemoryLogger struct {
-	lock               sync.Mutex
-	logEventEmitter    LogEventEmitter
-	logs               *ring.Ring
-	logListenerManager *LogListenerManager
+	lock            sync.Mutex
+	logEventEmitter LogEventEmitter
+	logs            *ring.Ring
 }
 
 // NewFileLogger creates FileLogger object
 func NewFileLogger(name string, maxSize int64, backups int, fileNameWithTimestamp bool, logEventEmitter LogEventEmitter, locker sync.Locker) *FileLogger {
 	logger := &FileLogger{name: name,
+		currentLogFileName:    "",
 		maxSize:               maxSize,
 		backups:               backups,
 		fileSize:              0,
 		file:                  nil,
 		fileNameWithTimestamp: fileNameWithTimestamp,
 		logEventEmitter:       logEventEmitter,
-		logListenerManager:    NewLogListenerManager(),
 		locker:                locker}
 	logger.backupFiles()
 	logger.openFile(false)
@@ -299,12 +150,33 @@ func (l *FileLogger) openFile(trunc bool) error {
 		l.file.Close()
 	}
 	if l.fileNameWithTimestamp {
-		fileName := fmt.Sprintf("%s.%s", l.name, time.Now().Format("2006-01-02T15-04-05"))
-		var err error
-		l.file, err = os.Create(fileName)
-		if err != nil {
-			fmt.Printf("Fail to open log file --%s-- with error %v\n", fileName, err)
+		l.currentLogFileName = fmt.Sprintf("%s.%s", l.name, time.Now().Format("2006-01-02T15-04-05"))
+
+		// if the size of latest one is less than maxSize, reuse it
+		files := l.getTimestampedFiles()
+		n := len(files)
+		if n > 0 {
+			fileInfo, err := os.Stat(files[n-1])
+			if err == nil && fileInfo.Size() < l.maxSize {
+				l.currentLogFileName = files[n-1]
+			}
 		}
+
+		var err error
+		fileInfo, err := os.Stat(l.currentLogFileName)
+		if trunc || err != nil {
+			l.file, err = os.Create(l.currentLogFileName)
+			if err != nil {
+				log.WithField("error", err).Errorf("Fail to create log file %s", l.currentLogFileName)
+			}
+		} else {
+			l.fileSize = fileInfo.Size()
+			l.file, err = os.OpenFile(l.currentLogFileName, os.O_RDWR|os.O_APPEND, 0666)
+			if err != nil {
+				log.WithField("error", err).Errorf("Fail to open log file %s", l.currentLogFileName)
+			}
+		}
+
 		return err
 	} else {
 		var err error
@@ -323,46 +195,60 @@ func (l *FileLogger) openFile(trunc bool) error {
 	}
 }
 
+func (l *FileLogger) getTimestampedFiles() []string {
+	absPath, err := filepath.Abs(l.name)
+	if err != nil {
+		absPath = l.name
+	}
+
+	entries, err := os.ReadDir(filepath.Dir(absPath))
+	if err != nil {
+		fmt.Printf("Fail to read log directory --%s-- with error %v\n", filepath.Dir(absPath), err)
+		return make([]string, 0)
+	} else {
+		files := make([]string, 0)
+		for _, entry := range entries {
+
+			if l.isTimestampedFileName(entry.Name()) {
+				files = append(files, filepath.Join(filepath.Dir(absPath), entry.Name()))
+			}
+		}
+
+		sort.Strings(files)
+
+		return files
+	}
+
+}
 func (l *FileLogger) isTimestampedFileName(fileName string) bool {
+
 	if !l.fileNameWithTimestamp {
 		return false
 	}
-	if !strings.HasPrefix(fileName, l.name) {
+	baseName := filepath.Base(l.name)
+	if !strings.HasPrefix(fileName, baseName) || fileName == baseName || len(fileName) <= len(baseName)+1 {
 		return false
 	}
 
-	timestampPart := fileName[len(l.name)+1:]
+	timestampPart := fileName[len(baseName)+1:]
 	_, err := time.Parse("2006-01-02T15-04-05", timestampPart)
+
 	return err == nil
 }
 
 func (l *FileLogger) backupFiles() {
-	if l.fileNameWithTimestamp {
-		absPath, err := filepath.Abs(l.name)
-		if err != nil {
-			absPath = l.name
-		}
-		entries, err := os.ReadDir(filepath.Dir(absPath))
-		if err != nil {
-			fmt.Printf("Fail to read log directory --%s-- with error %v\n", filepath.Dir(absPath), err)
-		} else {
-			files := make([]string, 0)
-			for _, entry := range entries {
-				if l.isTimestampedFileName(entry.Name()) {
-					files = append(files, filepath.Join(filepath.Dir(absPath), entry.Name()))
-				}
-			}
 
-			if len(files) > l.backups {
-				sort.Strings(files)
-				for _, f := range files[:len(files)-l.backups+1] {
-					err := os.Remove(f)
-					if err != nil {
-						fmt.Printf("Fail to remove log file --%s-- with error %v\n", f, err)
-					}
+	if l.fileNameWithTimestamp {
+		files := l.getTimestampedFiles()
+		if len(files) > l.backups {
+			for _, f := range files[:len(files)-l.backups+1] {
+				err := os.Remove(f)
+				if err != nil {
+					fmt.Printf("Fail to remove log file --%s-- with error %v\n", f, err)
 				}
 			}
 		}
+
 	} else {
 		for i := l.backups - 1; i > 0; i-- {
 			src := fmt.Sprintf("%s.%d", l.name, i)
@@ -437,18 +323,17 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	if l.backups <= 0 {
 		return "", faults.NewFault(faults.NoFile, "NO_FILE")
 	}
-	if offset < 0 && length != 0 {
-		return "", faults.NewFault(faults.BadArguments, "BAD_ARGUMENTS")
-	}
-	if offset >= 0 && length < 0 {
-		return "", faults.NewFault(faults.BadArguments, "BAD_ARGUMENTS")
-	}
 
 	l.locker.Lock()
 	defer l.locker.Unlock()
-	f, err := os.Open(l.name)
+	name := l.name
+	if l.fileNameWithTimestamp {
+		name = l.currentLogFileName
+	}
+	f, err := os.Open(name)
 
 	if err != nil {
+		log.WithField("error", err).Errorf("Fail to open log file %s", name)
 		return "", faults.NewFault(faults.Failed, "FAILED")
 	}
 	defer f.Close()
@@ -456,42 +341,47 @@ func (l *FileLogger) ReadLog(offset int64, length int64) (string, error) {
 	// check the length of file
 	statInfo, err := f.Stat()
 	if err != nil {
+		log.WithField("error", err).Errorf("Fail to get file info for %s", name)
 		return "", faults.NewFault(faults.Failed, "FAILED")
 	}
 
 	fileLen := statInfo.Size()
 
-	if offset < 0 { // offset < 0 && length == 0
-		offset = fileLen + offset
-		if offset < 0 {
-			offset = 0
+	if offset < 0 {
+		if length != 0 {
+			return "", faults.NewFault(faults.BadArguments, "BAD_ARGUMENTS")
 		}
-		length = fileLen - offset
-	} else if length == 0 { // offset >= 0 && length == 0
-		if offset > fileLen {
+		absOffset := offset * -1
+
+		pos := max(fileLen-absOffset, 0)
+		length = fileLen - pos
+		b := make([]byte, length)
+		n, err := f.ReadAt(b, pos)
+		if err != nil {
+			log.WithField("error", err).Errorf("Fail to read log file %s at offset %d with length %d", name, pos, length)
+			return "", faults.NewFault(faults.Failed, "FAILED")
+		}
+		return string(b[:n]), nil
+
+	} else {
+		if length < 0 {
+			return "", faults.NewFault(faults.BadArguments, "BAD_ARGUMENTS")
+		}
+		if fileLen <= offset {
 			return "", nil
 		}
-		length = fileLen - offset
-	} else { // offset >= 0 && length > 0
-
-		// if the offset exceeds the length of file
-		if offset >= fileLen {
-			return "", nil
-		}
-
-		// compute actual bytes should be read
-
-		if offset+length > fileLen {
+		if length == 0 || length > fileLen-offset {
 			length = fileLen - offset
 		}
+		b := make([]byte, length)
+		n, err := f.ReadAt(b, offset)
+		if err != nil {
+			log.WithField("error", err).Errorf("Fail to read log file %s at offset %d with length %d", name, offset, length)
+			return "", faults.NewFault(faults.Failed, "FAILED")
+		}
+		return string(b[:n]), nil
 	}
 
-	b := make([]byte, length)
-	n, err := f.ReadAt(b, offset)
-	if err != nil {
-		return "", faults.NewFault(faults.Failed, "FAILED")
-	}
-	return string(b[:n]), nil
 }
 
 // ReadTailLog tails current log file
@@ -499,19 +389,20 @@ func (l *FileLogger) ReadTailLog(offset int64, length int64) (string, int64, boo
 	if l.backups <= 0 {
 		return "", 0, false, faults.NewFault(faults.NoFile, "NO_FILE")
 	}
-	if offset < 0 {
-		return "", offset, false, fmt.Errorf("offset should not be less than 0")
-	}
-	if length < 0 {
-		return "", offset, false, fmt.Errorf("length should be not be less than 0")
-	}
+
 	l.locker.Lock()
 	defer l.locker.Unlock()
 
+	name := l.name
+	if l.fileNameWithTimestamp {
+		name = l.currentLogFileName
+	}
+
 	// open the file
-	f, err := os.Open(l.name)
+	f, err := os.Open(name)
 	if err != nil {
-		return "", 0, false, err
+		log.WithFields(log.Fields{"error": err, "name": name}).Errorf("Fail to open log file %s", name)
+		return "", 0, false, faults.NewFault(faults.Failed, "Failed")
 	}
 
 	defer f.Close()
@@ -519,27 +410,40 @@ func (l *FileLogger) ReadTailLog(offset int64, length int64) (string, int64, boo
 	// get the length of file
 	statInfo, err := f.Stat()
 	if err != nil {
-		return "", 0, false, err
+		log.WithFields(log.Fields{"error": err, "name": name}).Errorf("Fail to get file info for %s", name)
+		return "", 0, false, faults.NewFault(faults.Failed, "Failed")
 	}
 
 	fileLen := statInfo.Size()
+	overflow := false
 
-	// check if offset exceeds the length of file
-	if offset >= fileLen {
-		return "", fileLen, true, nil
+	if fileLen > offset+length {
+		overflow = true
+		offset = fileLen - 1
 	}
 
-	// get the length
 	if offset+length > fileLen {
-		length = fileLen - offset
+		if offset > fileLen-1 {
+			length = 0
+		}
+		offset = fileLen - length
 	}
-
+	if offset < 0 {
+		offset = 0
+	}
+	if length < 0 {
+		length = 0
+	}
+	if length == 0 {
+		return "", offset, overflow, nil
+	}
 	b := make([]byte, length)
 	n, err := f.ReadAt(b, offset)
 	if err != nil {
-		return "", offset, false, err
+		return "", 0, false, faults.NewFault(faults.Failed, "Failed")
 	}
-	return string(b[:n]), offset + int64(n), false, nil
+
+	return string(b[:n]), offset + int64(n), overflow, nil
 
 }
 
@@ -547,8 +451,6 @@ func (l *FileLogger) ReadTailLog(offset int64, length int64) (string, int64, boo
 func (l *FileLogger) Write(p []byte) (int, error) {
 	l.locker.Lock()
 	defer l.locker.Unlock()
-
-	l.logListenerManager.EmitLog(p)
 
 	l.logEventEmitter.emitLogEvent(string(p))
 
@@ -588,23 +490,9 @@ func (l *FileLogger) Close() error {
 	return nil
 }
 
-func (l *FileLogger) AddLogListener(id string, listener func([]byte)) error {
-	l.locker.Lock()
-	defer l.locker.Unlock()
-
-	return l.logListenerManager.AddLogListener(id, listener)
-}
-
-func (l *FileLogger) RemoveLogListener(id string) error {
-	l.locker.Lock()
-	defer l.locker.Unlock()
-	return l.logListenerManager.RemoveLogListener(id)
-}
-
 // Write log to syslog
 func (sl *SysLogger) Write(b []byte) (int, error) {
 	sl.logEventEmitter.emitLogEvent(string(b))
-	sl.logListenerManager.EmitLog(b)
 	if sl.logWriter == nil {
 		return 0, errors.New("not connect to syslog server")
 	}
@@ -621,7 +509,7 @@ func (sl *SysLogger) Close() error {
 
 // NewNullLogger creates NullLogger object
 func NewNullLogger(logEventEmitter LogEventEmitter) *NullLogger {
-	return &NullLogger{logEventEmitter: logEventEmitter, logListenerManager: NewLogListenerManager()}
+	return &NullLogger{logEventEmitter: logEventEmitter}
 }
 
 // SetPid sets pid of program
@@ -631,7 +519,6 @@ func (l *NullLogger) SetPid(pid int) {
 
 // Write log to NullLogger
 func (l *NullLogger) Write(p []byte) (int, error) {
-	l.logListenerManager.EmitLog(p)
 	l.logEventEmitter.emitLogEvent(string(p))
 	return len(p), nil
 }
@@ -659,14 +546,6 @@ func (l *NullLogger) ClearCurLogFile() error {
 // ClearAllLogFile returns error for NullLogger
 func (l *NullLogger) ClearAllLogFile() error {
 	return faults.NewFault(faults.NoFile, "NO_FILE")
-}
-
-func (l *NullLogger) RemoveLogListener(id string) error {
-	return l.logListenerManager.RemoveLogListener(id)
-}
-
-func (l *NullLogger) AddLogListener(id string, listener func([]byte)) error {
-	return l.logListenerManager.AddLogListener(id, listener)
 }
 
 // NewChanLogger creates ChanLogger object
@@ -729,16 +608,15 @@ func (l *NullLocker) Unlock() {
 // StdLogger stdout/stderr logger implementation
 type StdLogger struct {
 	NullLogger
-	logEventEmitter    LogEventEmitter
-	writer             io.Writer
-	logListenerManager *LogListenerManager
+	logEventEmitter LogEventEmitter
+	writer          io.Writer
 }
 
 // NewStdoutLogger creates StdLogger object
 func NewStdoutLogger(logEventEmitter LogEventEmitter) *StdLogger {
 	return &StdLogger{logEventEmitter: logEventEmitter,
-		writer:             os.Stdout,
-		logListenerManager: NewLogListenerManager()}
+		writer: os.Stdout,
+	}
 }
 
 // Write output to stdout/stderr
@@ -747,23 +625,14 @@ func (l *StdLogger) Write(p []byte) (int, error) {
 	if err != nil {
 		l.logEventEmitter.emitLogEvent(string(p))
 	}
-	l.logListenerManager.EmitLog(p)
 	return n, err
-}
-
-func (l *StdLogger) AddLogListener(id string, listener func([]byte)) error {
-	return l.logListenerManager.AddLogListener(id, listener)
-}
-
-func (l *StdLogger) RemoveLogListener(id string) error {
-	return l.logListenerManager.RemoveLogListener(id)
 }
 
 // NewStderrLogger creates stderr logger
 func NewStderrLogger(logEventEmitter LogEventEmitter) *StdLogger {
 	return &StdLogger{logEventEmitter: logEventEmitter,
-		writer:             os.Stderr,
-		logListenerManager: NewLogListenerManager()}
+		writer: os.Stderr,
+	}
 }
 
 // LogCaptureLogger capture the log for further analysis
@@ -824,13 +693,6 @@ func (l *LogCaptureLogger) ClearCurLogFile() error {
 // ClearAllLogFile clears all log files
 func (l *LogCaptureLogger) ClearAllLogFile() error {
 	return l.underlineLogger.ClearAllLogFile()
-}
-
-func (l *LogCaptureLogger) AddLogListener(id string, listener func([]byte)) error {
-	return l.underlineLogger.AddLogListener(id, listener)
-}
-func (l *LogCaptureLogger) RemoveLogListener(id string) error {
-	return l.underlineLogger.RemoveLogListener(id)
 }
 
 // NullLogEventEmitter will not emit log to any listener
@@ -922,9 +784,8 @@ func (bw *BackgroundWriteCloser) Close() error {
 
 func NewMemoryLogger(n int, logEventEmitter LogEventEmitter) *MemoryLogger {
 	return &MemoryLogger{
-		logs:               ring.New(n),
-		logEventEmitter:    logEventEmitter,
-		logListenerManager: NewLogListenerManager(),
+		logs:            ring.New(n),
+		logEventEmitter: logEventEmitter,
 	}
 }
 
@@ -934,7 +795,6 @@ func (ml *MemoryLogger) Write(p []byte) (n int, err error) {
 	ml.logs.Value = string(p)
 	ml.logs = ml.logs.Next()
 	ml.logEventEmitter.emitLogEvent(string(p))
-	ml.logListenerManager.EmitLog(p)
 	return len(p), nil
 }
 
@@ -1008,22 +868,9 @@ func (ml *MemoryLogger) ClearAllLogFile() error {
 	return nil
 }
 
-func (ml *MemoryLogger) AddLogListener(id string, listener func([]byte)) error {
-	ml.lock.Lock()
-	defer ml.lock.Unlock()
-	return ml.logListenerManager.AddLogListener(id, listener)
-}
-
-func (ml *MemoryLogger) RemoveLogListener(id string) error {
-	ml.lock.Lock()
-	defer ml.lock.Unlock()
-	return ml.logListenerManager.RemoveLogListener(id)
-}
-
 // NewCompositeLogger creates new CompositeLogger object (pool of loggers)
 func NewCompositeLogger(loggers []Logger) *CompositeLogger {
-	return &CompositeLogger{loggers: loggers,
-		logListenerManager: NewLogListenerManager()}
+	return &CompositeLogger{loggers: loggers}
 }
 
 // AddLogger adds logger to CompositeLogger pool
@@ -1050,7 +897,6 @@ func (cl *CompositeLogger) Write(p []byte) (n int, err error) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
 
-	cl.logListenerManager.EmitLog(p)
 	for i, logger := range cl.loggers {
 		if i == 0 {
 			n, err = logger.Write(p)
@@ -1104,20 +950,6 @@ func (cl *CompositeLogger) ClearCurLogFile() error {
 // ClearAllLogFile clear all the files of first logger in CompositeLogger pool
 func (cl *CompositeLogger) ClearAllLogFile() error {
 	return cl.loggers[0].ClearAllLogFile()
-}
-
-func (cl *CompositeLogger) AddLogListener(id string, listener func([]byte)) error {
-	cl.lock.Lock()
-	defer cl.lock.Unlock()
-
-	return cl.logListenerManager.AddLogListener(id, listener)
-}
-
-func (cl *CompositeLogger) RemoveLogListener(id string) error {
-	cl.lock.Lock()
-	defer cl.lock.Unlock()
-
-	return cl.logListenerManager.RemoveLogListener(id)
 }
 
 // NewLogger creates logger for a program with parameters
@@ -1185,7 +1017,7 @@ func NewReformatLog(output io.Writer) *ReformatLog {
 }
 
 func (rl *ReformatLog) Write(p []byte) (n int, err error) {
-	if p == nil || len(p) == 0 || p[0] == '{' {
+	if len(p) == 0 || p[0] == '{' {
 		return rl.output.Write(p)
 	}
 	message := string(p)

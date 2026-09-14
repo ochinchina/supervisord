@@ -16,7 +16,6 @@ import (
 	"github.com/ochinchina/supervisord/logger"
 	"github.com/ochinchina/supervisord/process"
 	"github.com/ochinchina/supervisord/types"
-	"github.com/ochinchina/supervisord/util"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -99,10 +98,14 @@ type ProcessTailLog struct {
 
 // NewSupervisor create a Supervisor object with supervisor configuration file
 func NewSupervisor(configFile string) *Supervisor {
-	return &Supervisor{activeConfig: config.NewConfig(configFile),
+	s := &Supervisor{activeConfig: config.NewConfig(configFile),
 		pendingConfig: nil,
 		procMgr:       process.NewManager(),
 		xmlRPC:        NewXMLRPC()}
+
+	s.setSupervisordInfo()
+
+	return s
 }
 
 // GetConfig get the loaded supervisor configuration
@@ -210,6 +213,28 @@ func (s *Supervisor) IsRestarting() bool {
 	return s.restarting.Load()
 }
 
+func stateToFaults(state process.State) int {
+	switch state {
+	case process.Starting:
+		return faults.StillRunning
+	case process.Running:
+		return faults.Success
+	case process.Stopping:
+		return faults.StillRunning
+	case process.Stopped:
+		return faults.NotRunning
+	case process.Backoff:
+		return faults.StillRunning
+	case process.Exited:
+		return faults.NotRunning
+	case process.Fatal:
+		return faults.Failed
+	case process.Unknown:
+		return faults.Failed
+	}
+	return faults.Failed
+}
+
 func getProcessInfo(nodename string, proc *process.Process) *types.ProcessInfo {
 
 	return &types.ProcessInfo{
@@ -258,7 +283,7 @@ func (s *Supervisor) GetProcessInfo(r *http.Request, args *struct{ Name string }
 	log.Info("Get process info of: ", args.Name)
 	proc := s.procMgr.Find(args.Name)
 	if proc == nil {
-		return fmt.Errorf("BAD_NAME no process named %s", args.Name)
+		return faults.NewFault(faults.BadName, fmt.Sprintf("no process named %s", args.Name))
 	}
 
 	reply.ProcInfo = *getProcessInfo(s.getNodeName(), proc)
@@ -270,16 +295,23 @@ func (s *Supervisor) StartProcess(r *http.Request, args *StartProcessArgs, reply
 	procs := s.procMgr.FindMatch(args.Name)
 
 	if len(procs) <= 0 {
-		return fmt.Errorf("fail to find process %s", args.Name)
+		return faults.NewFault(faults.BadName, fmt.Sprintf("no process named %s", args.Name))
 	}
+
 	for _, proc := range procs {
+		if proc.IsRunning() && len(procs) == 1 {
+			reply.Success = false
+			return faults.NewFault(faults.AlreadyStarted, fmt.Sprintf("process %s is already running", args.Name))
+		}
 		proc.Start(args.Wait)
 	}
 
 	for _, proc := range procs {
 		if !proc.IsRunning() {
-			reply.Success = false
-			return fmt.Errorf("fail to start process %s", args.Name)
+			log.WithFields(log.Fields{"program": proc.GetName()}).Error("fail to start process")
+			if len(procs) == 1 {
+				return faults.NewFault(faults.Failed, fmt.Sprintf("Fail to start process %s", proc.GetName()))
+			}
 		}
 	}
 
@@ -290,31 +322,30 @@ func (s *Supervisor) StartProcess(r *http.Request, args *StartProcessArgs, reply
 // StartAllProcesses start all the programs
 func (s *Supervisor) StartAllProcesses(r *http.Request, args *struct {
 	Wait bool `default:"true"`
-}, reply *struct{ RPCTaskResults []RPCTaskResult }) error {
+}, reply *struct{ ProcessStatuses []types.ProcessStatus }) error {
 
 	finishedProcCh := make(chan *process.Process)
 
 	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
-		proc.Start(args.Wait)
+		if !proc.IsRunning() {
+			proc.Start(args.Wait)
+		}
 	}, finishedProcCh)
 
-	for i := 0; i < n; i++ {
-		proc, ok := <-finishedProcCh
-		if ok {
-			processInfo := *getProcessInfo(s.getNodeName(), proc)
-			reply.RPCTaskResults = append(reply.RPCTaskResults, RPCTaskResult{
-				Name:        processInfo.Name,
-				Group:       processInfo.Group,
-				Status:      faults.Success,
-				Description: "OK",
-			})
-		}
+	for range n {
+		proc, _ := <-finishedProcCh
+		reply.ProcessStatuses = append(reply.ProcessStatuses, types.ProcessStatus{
+			Name:        proc.GetName(),
+			Group:       proc.GetGroup(),
+			Status:      faults.Failed,
+			Description: "Fail to start",
+		})
 	}
 	return nil
 }
 
 // StartProcessGroup start all the processes in one group
-func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
+func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ ProcessStatuses []types.ProcessStatus }) error {
 	log.WithFields(log.Fields{"group": args.Name}).Info("start process group")
 	finishedProcCh := make(chan *process.Process)
 
@@ -325,9 +356,14 @@ func (s *Supervisor) StartProcessGroup(r *http.Request, args *StartProcessArgs, 
 	}, finishedProcCh)
 
 	for range n {
-		proc, ok := <-finishedProcCh
-		if ok && proc.GetGroup() == args.Name {
-			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
+		proc, _ := <-finishedProcCh
+		if proc.GetGroup() == args.Name && !proc.IsRunning() {
+			reply.ProcessStatuses = append(reply.ProcessStatuses, types.ProcessStatus{
+				Name:        proc.GetName(),
+				Group:       proc.GetGroup(),
+				Status:      faults.Failed,
+				Description: "Fail to start",
+			})
 		}
 	}
 
@@ -339,15 +375,20 @@ func (s *Supervisor) StopProcess(r *http.Request, args *StartProcessArgs, reply 
 	log.WithFields(log.Fields{"program": args.Name}).Info("stop process")
 	procs := s.procMgr.FindMatch(args.Name)
 	if len(procs) <= 0 {
-		return fmt.Errorf("fail to find process %s", args.Name)
+		return faults.NewFault(faults.BadName, fmt.Sprintf("no process named %s", args.Name))
 	}
 	for _, proc := range procs {
+		if !proc.IsRunning() && len(procs) == 1 {
+			return faults.NewFault(faults.NotRunning, fmt.Sprintf("Process %s is stopped already", args.Name))
+		}
 		proc.Stop(args.Wait)
 	}
 	for _, proc := range procs {
 		if proc.IsRunning() {
-			reply.Success = false
-			return fmt.Errorf("fail to stop process %s", args.Name)
+			log.WithFields(log.Fields{"program": proc.GetName()}).Error("fail to stop process")
+			if len(procs) == 1 {
+				return faults.NewFault(faults.Failed, fmt.Sprintf("Fail to stop process %s", proc.GetName()))
+			}
 		}
 	}
 	reply.Success = true
@@ -355,19 +396,26 @@ func (s *Supervisor) StopProcess(r *http.Request, args *StartProcessArgs, reply 
 }
 
 // StopProcessGroup stop all processes in one group
-func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
+func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, reply *struct{ ProcessStatuses []types.ProcessStatus }) error {
 	log.WithFields(log.Fields{"group": args.Name}).Info("stop process group")
 	finishedProcCh := make(chan *process.Process)
+
 	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
-		if proc.GetGroup() == args.Name {
+		if proc.GetGroup() == args.Name && !proc.IsRunning() {
+
 			proc.Stop(args.Wait)
 		}
 	}, finishedProcCh)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		proc, ok := <-finishedProcCh
-		if ok && proc.GetGroup() == args.Name {
-			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
+		if ok && proc.GetGroup() == args.Name && proc.IsRunning() {
+			reply.ProcessStatuses = append(reply.ProcessStatuses, types.ProcessStatus{
+				Name:        proc.GetName(),
+				Group:       proc.GetGroup(),
+				Status:      faults.Failed,
+				Description: "Fail to stop",
+			})
 		}
 	}
 	return nil
@@ -376,24 +424,27 @@ func (s *Supervisor) StopProcessGroup(r *http.Request, args *StartProcessArgs, r
 // StopAllProcesses stop all programs managed by supervisor
 func (s *Supervisor) StopAllProcesses(r *http.Request, args *struct {
 	Wait bool `default:"true"`
-}, reply *struct{ RPCTaskResults []RPCTaskResult }) error {
+}, reply *struct{ ProcessStatuses []types.ProcessStatus }) error {
 	finishedProcCh := make(chan *process.Process)
 
 	n := s.procMgr.AsyncForEachProcess(func(proc *process.Process) {
-		proc.Stop(args.Wait)
+		if proc.IsRunning() {
+			proc.Stop(args.Wait)
+
+		}
 	}, finishedProcCh)
 
-	for i := 0; i < n; i++ {
-		proc, ok := <-finishedProcCh
-		if ok {
-			processInfo := *getProcessInfo(s.getNodeName(), proc)
-			reply.RPCTaskResults = append(reply.RPCTaskResults, RPCTaskResult{
-				Name:        processInfo.Name,
-				Group:       processInfo.Group,
-				Status:      faults.Success,
-				Description: "OK",
+	for range n {
+		proc, _ := <-finishedProcCh
+		if proc.IsRunning() {
+			reply.ProcessStatuses = append(reply.ProcessStatuses, types.ProcessStatus{
+				Name:        proc.GetName(),
+				Group:       proc.GetGroup(),
+				Status:      faults.Failed,
+				Description: "Fail to start",
 			})
 		}
+
 	}
 	return nil
 }
@@ -413,29 +464,47 @@ func (s *Supervisor) SignalProcess(r *http.Request, args *types.ProcessSignal, r
 }
 
 // SignalProcessGroup send signal to all processes in one group
-func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
+func (s *Supervisor) SignalProcessGroup(r *http.Request, args *types.ProcessSignal, reply *struct{ ProcessStatuses []types.ProcessStatus }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		if proc.GetGroup() == args.Name {
-			_ = proc.Signal(args.Signal, true)
+			err := proc.Signal(args.Signal, true)
+
+			status := faults.Success
+			description := "OK"
+			if err != nil {
+				status = faults.Failed
+				description = "Failed"
+			}
+			reply.ProcessStatuses = append(reply.ProcessStatuses, types.ProcessStatus{
+				Name:        proc.GetName(),
+				Group:       proc.GetGroup(),
+				Status:      status,
+				Description: description,
+			})
 		}
 	})
 
-	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		if proc.GetGroup() == args.Name {
-			reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
-		}
-	})
 	return nil
 }
 
 // SignalAllProcesses send signal to all the processes in the supervisor
-func (s *Supervisor) SignalAllProcesses(r *http.Request, args *types.ProcessSignal, reply *struct{ AllProcessInfo []types.ProcessInfo }) error {
+func (s *Supervisor) SignalAllProcesses(r *http.Request, args *struct{ Signal string }, reply *struct{ ProcessStatuses []types.ProcessStatus }) error {
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		_ = proc.Signal(args.Signal, true)
+		err := proc.Signal(args.Signal, true)
+		status := faults.Success
+		description := "OK"
+		if err != nil {
+			status = faults.Failed
+			description = "Failed"
+		}
+		reply.ProcessStatuses = append(reply.ProcessStatuses, types.ProcessStatus{
+			Name:        proc.GetName(),
+			Group:       proc.GetGroup(),
+			Status:      status,
+			Description: description,
+		})
 	})
-	s.procMgr.ForEachProcess(func(proc *process.Process) {
-		reply.AllProcessInfo = append(reply.AllProcessInfo, *getProcessInfo(s.getNodeName(), proc))
-	})
+
 	return nil
 }
 
@@ -492,6 +561,8 @@ func (s *Supervisor) Reload(action ReloadAction) error {
 		os.Exit(1)
 	}
 
+	s.setSupervisordInfo()
+
 	prevEntries := prevConfig.GetAllEntries()
 
 	// Remove the programs that are removed from configuration file
@@ -528,7 +599,6 @@ func (s *Supervisor) Reload(action ReloadAction) error {
 		}
 	}
 
-	s.setSupervisordInfo()
 	s.startEventListeners()
 	s.startHTTPServer()
 	s.startAutoStartPrograms()
@@ -550,18 +620,6 @@ func (s *Supervisor) WaitForExit() {
 		}
 
 		time.Sleep(2 * time.Second)
-	}
-}
-
-func (s *Supervisor) createPrograms(prevPrograms []string) {
-
-	programs := s.activeConfig.GetProgramNames()
-	for _, entry := range s.activeConfig.GetPrograms() {
-		s.procMgr.CreateProcess(s.GetSupervisorID(), entry)
-	}
-	removedPrograms := util.Sub(prevPrograms, programs)
-	for _, p := range removedPrograms {
-		s.procMgr.Remove(p)
 	}
 }
 
@@ -726,7 +784,7 @@ func toLogLevel(level string) log.Level {
 }
 
 // ReloadConfig reloads supervisord configuration file
-func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *types.ReloadConfigResult) error {
+func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *struct{ Value [][][]string }) error {
 	log.Info("start to reload config")
 	s.pendingConfig = config.NewConfig(s.activeConfig.GetConfigFile())
 
@@ -739,48 +797,15 @@ func (s *Supervisor) ReloadConfig(r *http.Request, args *struct{}, reply *types.
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	newGroupEntries := s.pendingConfig.GetGroupEntries()
+	result, err := s.pendingConfig.Sub(s.activeConfig)
 
-	addedGroup := make([]string, 0)
-	changedGroup := make([]string, 0)
-	removedGroup := make([]string, 0)
-
-	// Compare the new group entries with the old group entries to find out which groups are added, changed
-	for _, newGroupEntry := range newGroupEntries {
-		newGroupName := newGroupEntry.GetGroupName()
-		newPrograms := newGroupEntry.GetPrograms()
-		if oldGroupEntry, oldExist := s.activeConfig.GetEntry(newGroupName); oldExist {
-			oldPrograms := oldGroupEntry.GetPrograms()
-			if !util.IsSameStringArray(newPrograms, oldPrograms) {
-				changedGroup = append(changedGroup, newGroupName)
-			}
-		} else {
-			addedGroup = append(addedGroup, newGroupName)
-		}
+	if err != nil {
+		log.Error("failed to compare config: ", err)
+		return err
 	}
 
-	// Compare the old group entries with the new group entries to find out which groups are removed
-	oldGroupEntries := s.activeConfig.GetGroupEntries()
-	for _, oldGroupEntry := range oldGroupEntries {
-		if _, ok := s.pendingConfig.GetEntry(oldGroupEntry.GetGroupName()); !ok {
-			removedGroup = append(removedGroup, oldGroupEntry.GetGroupName())
-		}
-	}
+	reply.Value = [][][]string{[][]string{result.AddedGroups, result.ChangedGroups, result.RemovedGroups}}
 
-	if len(addedGroup) > 0 {
-		log.WithFields(log.Fields{"groups": strings.Join(addedGroup, ",")}).Info("added groups")
-	}
-
-	if len(changedGroup) > 0 {
-		log.WithFields(log.Fields{"groups": strings.Join(changedGroup, ",")}).Info("changed groups")
-	}
-
-	if len(removedGroup) > 0 {
-		log.WithFields(log.Fields{"groups": strings.Join(removedGroup, ",")}).Info("removed groups")
-	}
-	reply.AddedGroup = addedGroup
-	reply.ChangedGroup = changedGroup
-	reply.RemovedGroup = removedGroup
 	return err
 }
 
@@ -791,44 +816,28 @@ func (s *Supervisor) AddProcessGroup(r *http.Request, args *struct{ Name string 
 
 	reply.Success = false
 
-	newConfig := config.NewConfig(s.activeConfig.GetConfigFile())
-	_, err := newConfig.Load()
-	if err != nil {
-		log.Error("failed to load config: ", err)
-		return err
-	}
+	programEntries := s.pendingConfig.GetProgramEntriesInGroup(args.Name)
 
-	groupEntries := newConfig.GetGroupEntries()
-
-	for _, groupEntry := range groupEntries {
-		if groupEntry.GetGroupName() == args.Name {
-			programs := groupEntry.GetPrograms()
-			for _, program := range programs {
-				oldEntry, oldExist := s.activeConfig.GetEntry(program)
-				newEntry, _ := newConfig.GetEntry(program)
-				if newEntry != nil {
-					if !oldExist || !newEntry.IsSame(oldEntry) {
-						log.WithFields(log.Fields{"program": program, "group": groupEntry}).Info("the program is added or changed and will be created")
-						proc := s.procMgr.Remove(program)
-						// stop the old one
-						if proc != nil {
-							proc.Stop(true)
-						}
-						s.activeConfig.AddEntry(newEntry)
-
-						// create the new one and start it
-						proc = s.procMgr.CreateProcess(s.GetSupervisorID(), newEntry)
-						if proc != nil {
-							proc.Start(true)
-						}
-					}
-				}
+	for _, programEntry := range programEntries {
+		reply.Success = true
+		oldEntry, oldExist := s.activeConfig.GetEntry(programEntry.GetProgramName())
+		if !oldExist || !programEntry.IsSame(oldEntry) {
+			log.WithFields(log.Fields{"program": programEntry.GetProgramName(), "group": args.Name}).Info("the program is added or changed and will be created")
+			proc := s.procMgr.Remove(programEntry.GetProgramName())
+			// stop the old one
+			if proc != nil {
+				proc.Stop(true)
 			}
-			reply.Success = true
-			return nil
+			s.activeConfig.AddEntry(programEntry)
+
+			// create the new one but not start it, the client should call StartProcessGroup to start it
+			_ = s.procMgr.CreateProcess(s.GetSupervisorID(), programEntry)
+
 		}
 	}
-
+	if len(programEntries) > 0 {
+		return nil
+	}
 	return fmt.Errorf("no such group %s", args.Name)
 }
 
@@ -839,26 +848,19 @@ func (s *Supervisor) RemoveProcessGroup(r *http.Request, args *struct{ Name stri
 
 	reply.Success = false
 
-	groupEntries := s.activeConfig.GetGroupEntries()
+	gprogramEntries := s.activeConfig.GetProgramEntriesInGroup(args.Name)
 
-	for _, groupEntry := range groupEntries {
-		if groupEntry.GetGroupName() == args.Name {
-			programs := groupEntry.GetPrograms()
-			for _, program := range programs {
-				_, oldExist := s.activeConfig.RemoveEntry(program)
-				if oldExist {
-					log.WithFields(log.Fields{"program": program, "group": groupEntry}).Info("the program will be removed")
-					proc := s.procMgr.Remove(program)
-					// stop the old one
-					if proc != nil {
-						proc.Stop(true)
-					}
-				}
-			}
-			s.activeConfig.RemoveEntry(groupEntry.GetGroupName())
-			reply.Success = true
-			return nil
+	for _, programEntry := range gprogramEntries {
+		reply.Success = true
+		log.WithFields(log.Fields{"program": programEntry.GetProgramName(), "group": args.Name}).Info("the program is removed and will be stopped")
+		s.activeConfig.RemoveProgram(programEntry.GetProgramName())
+		proc := s.procMgr.Remove(programEntry.GetProgramName())
+		if proc != nil {
+			proc.Stop(true)
 		}
+	}
+	if len(gprogramEntries) > 0 {
+		return nil
 	}
 
 	return fmt.Errorf("no such group %s", args.Name)
@@ -914,72 +916,38 @@ func (s *Supervisor) TailProcessStderrLog(r *http.Request, args *ProcessLogReadI
 
 // ClearProcessLogs clears log of given program
 func (s *Supervisor) ClearProcessLogs(r *http.Request, args *struct{ Name string }, reply *struct{ Success bool }) error {
-	if args.Name == "" || args.Name == "all" {
-		s.procMgr.ForEachProcess(func(proc *process.Process) {
-			_ = proc.StdoutLog.ClearAllLogFile()
-			_ = proc.StderrLog.ClearAllLogFile()
-		})
-		reply.Success = true
-		return nil
-	} else {
-		proc := s.procMgr.Find(args.Name)
-		if proc == nil {
-			return fmt.Errorf("no such process %s", args.Name)
-		}
 
-		err1 := proc.StdoutLog.ClearAllLogFile()
-		err2 := proc.StderrLog.ClearAllLogFile()
-		reply.Success = err1 == nil && err2 == nil
-		if err1 != nil {
-			return err1
-		}
-		return err2
+	procs := s.procMgr.FindMatch(args.Name)
+
+	if len(procs) <= 0 {
+		reply.Success = false
+		return fmt.Errorf("no such process %s", args.Name)
 	}
+
+	for _, proc := range procs {
+		_ = proc.StdoutLog.ClearAllLogFile()
+		_ = proc.StderrLog.ClearAllLogFile()
+	}
+	reply.Success = true
+	return nil
+
 }
 
 // ClearAllProcessLogs clears logs of all programs
-func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply *struct{ RPCTaskResults []RPCTaskResult }) error {
+func (s *Supervisor) ClearAllProcessLogs(r *http.Request, args *struct{}, reply *struct{ ProcessStatuses []types.ProcessStatus }) error {
 
 	s.procMgr.ForEachProcess(func(proc *process.Process) {
 		_ = proc.StdoutLog.ClearAllLogFile()
 		_ = proc.StderrLog.ClearAllLogFile()
-		procInfo := getProcessInfo(s.getNodeName(), proc)
-		reply.RPCTaskResults = append(reply.RPCTaskResults, RPCTaskResult{
-			Name:        procInfo.Name,
-			Group:       procInfo.Group,
+
+		reply.ProcessStatuses = append(reply.ProcessStatuses, types.ProcessStatus{
+			Name:        proc.GetName(),
+			Group:       proc.GetGroup(),
 			Status:      faults.Success,
-			Description: "OK",
+			Description: "Suceed to clear",
 		})
 	})
 
-	return nil
-}
-
-func (s *Supervisor) CreateForground(r *http.Request, args *struct{ Name string }, reply *struct{ Id string }) error {
-	proc := s.procMgr.Find(args.Name)
-	if proc == nil {
-		return fmt.Errorf("no such process %s", args.Name)
-	}
-
-	id, err := proc.CreateForground()
-	if err != nil {
-		return err
-	}
-	reply.Id = id
-	return nil
-}
-
-func (s *Supervisor) GetForgroundStdout(r *http.Request, args *struct{ Name, Id string }, reply *struct{ LogData string }) error {
-	proc := s.procMgr.Find(args.Name)
-	if proc == nil {
-		return fmt.Errorf("no such process with name %s", args.Name)
-	}
-
-	logData, err := proc.GetForgroundStdout(args.Id)
-	if err != nil {
-		return err
-	}
-	reply.LogData = logData
 	return nil
 }
 

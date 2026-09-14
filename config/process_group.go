@@ -36,8 +36,8 @@ func (pg *ProcessGroup) Sub(other *ProcessGroup) (added []string, changed []stri
 	removed = util.Sub(otherGroup, thisGroup)
 
 	for _, group := range thisGroup {
-		proc1 := pg.GetAllProcess(group)
-		proc2 := other.GetAllProcess(group)
+		proc1 := pg.GetAllProcessInGroup(group)
+		proc2 := other.GetAllProcessInGroup(group)
 		if len(proc2) > 0 && !util.IsSameStringArray(proc1, proc2) {
 			changed = append(changed, group)
 		}
@@ -70,7 +70,15 @@ func (pg *ProcessGroup) GetAllGroup() []string {
 }
 
 // GetAllProcess gets all the processes in a group
-func (pg *ProcessGroup) GetAllProcess(group string) []string {
+func (pg *ProcessGroup) GetAllProcess() []string {
+	result := make([]string, 0)
+	for procName, _ := range pg.processGroup {
+		result = append(result, procName)
+	}
+	return result
+}
+
+func (pg *ProcessGroup) GetAllProcessInGroup(group string) []string {
 	result := make([]string, 0)
 	for procName, groupName := range pg.processGroup {
 		if group == groupName {
@@ -85,6 +93,15 @@ func (pg *ProcessGroup) InGroup(procName string, group string) bool {
 	groupName, ok := pg.processGroup[procName]
 	if ok && group == groupName {
 		return true
+	}
+	return false
+}
+
+func (pg *ProcessGroup) IsGroup(name string) bool {
+	for _, groupName := range pg.processGroup {
+		if name == groupName {
+			return true
+		}
 	}
 	return false
 }
@@ -114,7 +131,7 @@ func (pg *ProcessGroup) String() string {
 	for _, group := range pg.GetAllGroup() {
 		buf.WriteString(group)
 		buf.WriteString(":")
-		buf.WriteString(strings.Join(pg.GetAllProcess(group), ","))
+		buf.WriteString(strings.Join(pg.GetAllProcessInGroup(group), ","))
 		buf.WriteString(";")
 	}
 	return buf.String()

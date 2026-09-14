@@ -31,13 +31,13 @@ func TestGetAllGroup(t *testing.T) {
 func TestGetAllProcessInGroup(t *testing.T) {
 	group := createTestGroup()
 
-	procs := group.GetAllProcess("group1")
+	procs := group.GetAllProcessInGroup("group1")
 
 	if len(procs) != 2 || !util.HasAllElements(util.StringArrayToInterfacArray(procs), []interface{}{"proc1_1", "proc1_2"}) {
 		t.Fail()
 	}
 
-	procs = group.GetAllProcess("group10")
+	procs = group.GetAllProcessInGroup("group10")
 	if len(procs) != 0 {
 		t.Fail()
 	}
@@ -56,7 +56,7 @@ func TestRemoveFromGroup(t *testing.T) {
 
 	group.Remove("proc2_1")
 
-	procs := group.GetAllProcess("group2")
+	procs := group.GetAllProcessInGroup("group2")
 
 	if len(procs) != 2 || !util.HasAllElements(util.StringArrayToInterfacArray(procs), []interface{}{"proc2_2", "proc2_3"}) {
 		t.Fail()

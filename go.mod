@@ -1,8 +1,6 @@
 module github.com/ochinchina/supervisord
 
-go 1.26.0
-
-toolchain go1.26.5
+go 1.27.0
 
 require (
 	github.com/gorilla/mux v1.8.1
@@ -12,34 +10,30 @@ require (
 	github.com/ochinchina/go-daemon v0.1.5
 	github.com/ochinchina/go-ini v1.0.1
 	github.com/ochinchina/go-reaper v0.0.0-20181016012355-6b11389e79fc
-	github.com/ochinchina/gorilla-xmlrpc v0.0.0-20171012055324-ecf2fe693a2c
-	github.com/sirupsen/logrus v1.10.0
-)
-
-require (
+	github.com/ochinchina/gorilla-xmlrpc v1.0.4
 	github.com/ochinchina/supervisord/config v0.0.0-00010101000000-000000000000
 	github.com/ochinchina/supervisord/events v0.0.0-20260817032106-ebc9ca97cf12
-	github.com/ochinchina/supervisord/faults v0.0.0-00010101000000-000000000000
+	github.com/ochinchina/supervisord/faults v0.0.0-20260827023808-368eb5d6ad92
 	github.com/ochinchina/supervisord/logger v0.0.0-00010101000000-000000000000
 	github.com/ochinchina/supervisord/process v0.0.0-00010101000000-000000000000
 	github.com/ochinchina/supervisord/types v0.0.0-00010101000000-000000000000
-	github.com/ochinchina/supervisord/util v0.0.0-00010101000000-000000000000
 	github.com/ochinchina/supervisord/xmlrpcclient v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.23.2
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/sirupsen/logrus v1.10.0
 )
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-envparse v0.1.0 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ochinchina/filechangemonitor v0.3.1 // indirect
 	github.com/ochinchina/supervisord/signals v0.0.0-00010101000000-000000000000 // indirect
+	github.com/ochinchina/supervisord/util v0.0.0-00010101000000-000000000000 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect

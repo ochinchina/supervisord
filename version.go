@@ -7,7 +7,7 @@ import (
 // VERSION the version of supervisor
 
 var (
-	version = "v0.7.3"
+	version = "v0.7.5"
 	commit  = ""
 )
 

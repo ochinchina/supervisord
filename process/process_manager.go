@@ -114,9 +114,9 @@ func (pm *Manager) Find(name string) *Process {
 // - program
 func (pm *Manager) FindMatch(name string) []*Process {
 	result := make([]*Process, 0)
-	if pos := strings.Index(name, ":"); pos != -1 {
-		groupName := name[0:pos]
-		programName := name[pos+1:]
+	if before, after, ok := strings.Cut(name, ":"); ok {
+		groupName := before
+		programName := after
 		pm.ForEachProcess(func(p *Process) {
 			if p.GetGroup() == groupName {
 				if programName == "*" || programName == p.GetName() {

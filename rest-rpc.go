@@ -138,8 +138,8 @@ func (sr *SupervisorRestful) CreateSupervisorHandler() http.Handler {
 	router.HandleFunc("/supervisor/listNodes", sr.ListNodes).Methods("GET")
 	router.HandleFunc("/supervisor/{node}/ping", sr.PingNode).Methods("GET")
 	router.HandleFunc("/supervisor/shutdown", sr.Shutdown).Methods("PUT", "POST")
-	router.HandleFunc("/supervisor/reload", sr.Reload).Methods("PUT", "POST")
-	router.HandleFunc("/supervisor/{node}/reload", sr.Reload).Methods("PUT", "POST")
+	router.HandleFunc("/supervisor/restart", sr.Restart).Methods("PUT", "POST")
+	router.HandleFunc("/supervisor/{node}/restart", sr.Restart).Methods("PUT", "POST")
 	router.HandleFunc("/supervisor/{node}/shutdown", sr.Shutdown).Methods("PUT", "POST")
 	return router
 }
@@ -471,6 +471,7 @@ func (sr *SupervisorRestful) StopProgram(w http.ResponseWriter, req *http.Reques
 func (sr *SupervisorRestful) _stopProgram(node, programName string) (bool, error) {
 	log.WithFields(log.Fields{"node": node, "program": programName}).Info("stop program")
 	stopArgs := StartProcessArgs{Name: programName, Wait: true}
+
 	result := struct{ Success bool }{false}
 	if node == "" || node == sr.supervisor.getNodeName() {
 		err := sr.supervisor.StopProcess(nil, &stopArgs, &result)
@@ -692,8 +693,8 @@ func (sr *SupervisorRestful) shutdownRemote(node string) (bool, error) {
 	return result.Success, nil
 }
 
-// Reload the supervisor configuration file through rest interface
-func (sr *SupervisorRestful) Reload(w http.ResponseWriter, req *http.Request) {
+// Restart the supervisor through rest interface
+func (sr *SupervisorRestful) Restart(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
 	params := mux.Vars(req)
@@ -702,21 +703,21 @@ func (sr *SupervisorRestful) Reload(w http.ResponseWriter, req *http.Request) {
 	if node == "" || node == sr.supervisor.getNodeName() {
 		log.Info("reload supervisor configuration")
 		args := struct{}{}
-		reply := types.ReloadConfigResult{}
+		reply := struct{ Ret bool }{Ret: true}
 
-		err := sr.supervisor.ReloadConfig(req, &args, &reply)
+		err := sr.supervisor.Restart(req, &args, &reply)
 		if err != nil {
-			log.Warn("reload error: ", err)
+			log.Warn("restart error: ", err)
 		}
-		r := map[string]bool{"success": err == nil}
+		r := map[string]bool{"success": reply.Ret}
 		w.WriteHeader(200)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(&r)
 	} else {
 		// reload the remote supervisor
-		success, err := sr.reloadRemote(node)
+		success, err := sr.restartRemote(node)
 		if !success || err != nil {
-			log.WithFields(log.Fields{"node": node}).Warn("failed to reload remote supervisor: ", err)
+			log.WithFields(log.Fields{"node": node}).Warn("failed to restart remote supervisor: ", err)
 		}
 		w.WriteHeader(200)
 		w.Header().Set("Content-Type", "application/json")
@@ -726,17 +727,17 @@ func (sr *SupervisorRestful) Reload(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (sr *SupervisorRestful) reloadRemote(node string) (bool, error) {
+func (sr *SupervisorRestful) restartRemote(node string) (bool, error) {
 
 	loginInfo, ok := sr.remoteSupervisors.GetNode(node)
 	if !ok {
 		return false, fmt.Errorf("not a valid node")
 	}
-	url := fmt.Sprintf("%s/supervisor/%s/reload", loginInfo.url, node)
+	url := fmt.Sprintf("%s/supervisor/%s/restart", loginInfo.url, node)
 	response, err := sr.httpPost(url, loginInfo.user, loginInfo.password, nil)
 	if err != nil {
-		log.WithFields(log.Fields{"node": node, "url": loginInfo.url}).Warn("failed to reload remote supervisor: ", err)
-		return false, fmt.Errorf("failed to reload remote supervisor: %v", err)
+		log.WithFields(log.Fields{"node": node, "url": loginInfo.url}).Warn("failed to restart remote supervisor: ", err)
+		return false, fmt.Errorf("failed to restart remote supervisor: %v", err)
 	}
 	defer response.Body.Close()
 

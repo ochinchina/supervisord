@@ -6,7 +6,6 @@ import (
 
 // ProcessInfo the running process information
 type ProcessInfo struct {
-	Node          string `xml:"node" json:"node"`
 	Name          string `xml:"name" json:"name"`
 	Group         string `xml:"group" json:"group"`
 	Description   string `xml:"description" json:"description"`
@@ -21,6 +20,7 @@ type ProcessInfo struct {
 	StdoutLogfile string `xml:"stdout_logfile" json:"stdout_logfile"`
 	StderrLogfile string `xml:"stderr_logfile" json:"stderr_logfile"`
 	Pid           int    `xml:"pid" json:"pid"`
+	Node          string `xml:"node" json:"node"`
 }
 
 // ReloadConfigResult the result of supervisor configuration reloading
@@ -32,8 +32,8 @@ type ReloadConfigResult struct {
 
 // ProcessSignal process signal includes program name and signal sent to it
 type ProcessSignal struct {
-	Name   string
-	Signal string
+	Name   string `xml:"name" json:"name"`
+	Signal string `xml:"signal" json:"signal"`
 }
 
 // BooleanReply any rpc result with BooleanReply type
@@ -45,6 +45,20 @@ type ProcessTailLog struct {
 	LogData  string
 	Offset   int
 	Overflow bool
+}
+
+type ProcessStatus struct {
+	Name        string `xml:"name" json:"name"`
+	Group       string `xml:"group" json:"group"`
+	Status      int    `xml:"status" json:"status"`
+	Description string `xml:"description" json:"description"`
+}
+
+func (p ProcessStatus) GetFullName() string {
+	if len(p.Group) > 0 && p.Group != p.Name {
+		return fmt.Sprintf("%s:%s", p.Group, p.Name)
+	}
+	return p.Name
 }
 
 // GetFullName returns full name of program including group and name

@@ -229,14 +229,14 @@ func (r *XMLRPCClient) ChangeProcessState(change string, processName string) (re
 	return
 }
 
-func (r *XMLRPCClient) ChangeProcessGroupState(change string, groupName string) (reply AllProcessInfoReply, err error) {
-	if !(change == "start" || change == "stop") {
-		err = fmt.Errorf("Incorrect required state")
-		return
-	}
+// StartProcessGroup start all the programs belong to the group
+func (r *XMLRPCClient) StartProcessGroup(group string, wait bool) (reply struct{ ProcessStatuses []types.ProcessStatus }, err error) {
 
-	ins := struct{ Value string }{groupName}
-	r.post(fmt.Sprintf("supervisor.%sProcessGroup", change), &ins, func(body io.ReadCloser, procError error) {
+	ins := struct {
+		Value string
+		Wait  bool
+	}{group, wait}
+	r.post("supervisor.startProcessGroup", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &reply)
@@ -246,14 +246,39 @@ func (r *XMLRPCClient) ChangeProcessGroupState(change string, groupName string) 
 	return
 }
 
-// ChangeAllProcessState requests to change all supervised programs to same state( start/stop )
-func (r *XMLRPCClient) ChangeAllProcessState(change string) (reply AllProcessInfoReply, err error) {
-	if !(change == "start" || change == "stop") {
-		err = fmt.Errorf("Incorrect required state")
-		return
-	}
-	ins := struct{ Wait bool }{true}
-	r.post(fmt.Sprintf("supervisor.%sAllProcesses", change), &ins, func(body io.ReadCloser, procError error) {
+// StopProcessGroup stop all the programs belong to the group
+func (r *XMLRPCClient) StopProcessGroup(group string, wait bool) (reply struct{ ProcessStatuses []types.ProcessStatus }, err error) {
+
+	ins := struct {
+		Value string
+		Wait  bool
+	}{group, wait}
+	r.post("supervisor.stopProcessGroup", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+
+	return
+}
+
+// StartAllProcess start all the processes managed by supervisord
+func (r *XMLRPCClient) StartAllProcess(wait bool) (reply struct{ ProcessStatuses []types.ProcessStatus }, err error) {
+	ins := struct{ Wait bool }{wait}
+	r.post("supervisor.startAllProcesses", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+	return
+}
+
+// StopAllProcess stop all the processes managed by supervisord
+func (r *XMLRPCClient) StopAllProcess(wait bool) (reply struct{ ProcessStatuses []types.ProcessStatus }, err error) {
+	ins := struct{ Wait bool }{wait}
+	r.post("supervisor.stopAllProcesses", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &reply)
@@ -285,10 +310,10 @@ func (r *XMLRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 	reply.ChangedGroup = make([]string, 0)
 	reply.RemovedGroup = make([]string, 0)
 	i := 0
-	xmlProcMgr.AddSwitchTypeProcessor("methodResponse/params/param/value/array/data", func() {
+	xmlProcMgr.AddSwitchTypeProcessor("methodResponse/params/param/value/array/data/value/array/data/value", func() {
 		i++
 	})
-	xmlProcMgr.AddLeafProcessor("methodResponse/params/param/value/array/data/value", func(value string) {
+	xmlProcMgr.AddLeafProcessor("methodResponse/params/param/value/array/data/value/array/data/value/array", func(value string) {
 		switch i {
 		case 0:
 			reply.AddedGroup = append(reply.AddedGroup, value)
@@ -298,10 +323,20 @@ func (r *XMLRPCClient) ReloadConfig() (reply types.ReloadConfigResult, err error
 			reply.RemovedGroup = append(reply.RemovedGroup, value)
 		}
 	})
+	result := struct{ Value [][][]string }{}
 	r.post("supervisor.reloadConfig", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
-			xmlProcMgr.ProcessXML(body)
+			//xmlProcMgr.ProcessXML(body)
+			err = xml.DecodeClientResponse(body, &result)
+			if err == nil {
+				if len(result.Value) > 0 && len(result.Value[0]) == 3 {
+					reply.AddedGroup = result.Value[0][0]
+					reply.ChangedGroup = result.Value[0][1]
+					reply.RemovedGroup = result.Value[0][2]
+				}
+			}
+
 		}
 	})
 	return
@@ -320,15 +355,29 @@ func (r *XMLRPCClient) SignalProcess(signal string, name string) (reply types.Bo
 }
 
 // SignalAll requests to send signal to all the programs
-func (r *XMLRPCClient) SignalAll(signal string) (reply AllProcessInfoReply, err error) {
+func (r *XMLRPCClient) SignalAll(signal string) (reply struct{ ProcessStatuses []types.ProcessStatus }, err error) {
 	ins := struct{ Signal string }{signal}
-	r.post("supervisor.signalProcess", &ins, func(body io.ReadCloser, procError error) {
+	r.post("supervisor.signalAllProcesses", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &reply)
 		}
 	})
 
+	return
+}
+
+func (r *XMLRPCClient) SignalProcessGroup(name, signal string) (reply struct{ ProcessStatuses []types.ProcessStatus }, err error) {
+	ins := struct {
+		Name   string
+		Signal string
+	}{Name: name, Signal: signal}
+	r.post("supervisor.signalProcessGroup", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
 	return
 }
 
@@ -408,7 +457,7 @@ func (r *XMLRPCClient) StopProcess(process string, wait bool) (reply types.Boole
 }
 
 // StartAllProcesses Start all processes listed in the configuration file
-func (r *XMLRPCClient) StartAllProcesses(wait bool) (reply AllProcStatusInfoReply, err error) {
+func (r *XMLRPCClient) StartAllProcesses(wait bool) (reply AllProcessInfoReply, err error) {
 	ins := struct{ Wait bool }{wait}
 	r.post("supervisor.startAllProcesses", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
@@ -420,7 +469,7 @@ func (r *XMLRPCClient) StartAllProcesses(wait bool) (reply AllProcStatusInfoRepl
 }
 
 // StopAllProcesses Stop all processes in the process list
-func (r *XMLRPCClient) StopAllProcesses(wait bool) (reply AllProcStatusInfoReply, err error) {
+func (r *XMLRPCClient) StopAllProcesses(wait bool) (reply AllProcessInfoReply, err error) {
 	ins := struct{ Wait bool }{wait}
 	r.post("supervisor.stopAllProcesses", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
@@ -429,6 +478,56 @@ func (r *XMLRPCClient) StopAllProcesses(wait bool) (reply AllProcStatusInfoReply
 		}
 	})
 	return
+}
+
+func (r *XMLRPCClient) ReadProcessStdoutLog(process string, offset int, length int) (reply struct{ LogData string }, err error) {
+	ins := struct {
+		Name   string
+		Offset int
+		Length int
+	}{
+		Name:   process,
+		Offset: offset,
+		Length: length,
+	}
+
+	r.post("supervisor.readProcessStdoutLog", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+
+			err = xml.DecodeClientResponse(body, &reply)
+			if reply.LogData == "<string></string>" {
+				reply.LogData = ""
+			}
+		}
+	})
+	return
+
+}
+
+func (r *XMLRPCClient) ReadProcessStderrLog(process string, offset int, length int) (reply struct{ LogData string }, err error) {
+	ins := struct {
+		Name   string
+		Offset int
+		Length int
+	}{
+		Name:   process,
+		Offset: offset,
+		Length: length,
+	}
+
+	r.post("supervisor.readProcessStderrLog", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+
+			err = xml.DecodeClientResponse(body, &reply)
+			if reply.LogData == "<string></string>" {
+				reply.LogData = ""
+			}
+		}
+	})
+	return
+
 }
 
 func (r *XMLRPCClient) TailProcessLog(process string, offset int, length int, logType string) (reply types.ProcessTailLog, err error) {
@@ -476,13 +575,13 @@ func (r *XMLRPCClient) SendProcessStdin(process string, text string) (reply type
 	return
 }
 
-func (r *XMLRPCClient) ClearProcessLog(process string, logType string) (reply types.BooleanReply, err error) {
+func (r *XMLRPCClient) ClearProcessLogs(process string) (reply types.BooleanReply, err error) {
 	ins := struct {
 		Name string
 	}{
 		Name: process,
 	}
-	r.post("supervisor.ClearProcessLogs", &ins, func(body io.ReadCloser, procError error) {
+	r.post("supervisor.clearProcessLogs", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &reply)
@@ -490,6 +589,19 @@ func (r *XMLRPCClient) ClearProcessLog(process string, logType string) (reply ty
 	})
 	return
 }
+
+func (r *XMLRPCClient) ClearAllProcessLogs() (reply struct{ ProcessStatuses []types.ProcessStatus }, err error) {
+	ins := struct {
+	}{}
+	r.post("supervisor.clearAllProcessLogs", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+	return
+}
+
 func (r *XMLRPCClient) ReadAndClearLog(process string, offset int, length int, logType string) (reply types.ProcessTailLog, err error) {
 	ins := struct {
 		Name   string
@@ -576,6 +688,18 @@ func (r *XMLRPCClient) RemoveProcessGroup(group string) (reply struct{ Success b
 		Name: group,
 	}
 	r.post("supervisor.removeProcessGroup", &ins, func(body io.ReadCloser, procError error) {
+		err = procError
+		if err == nil {
+			err = xml.DecodeClientResponse(body, &reply)
+		}
+	})
+	return
+}
+
+func (r *XMLRPCClient) GetSupervisordPID() (reply struct{ Pid int }, err error) {
+	ins := struct {
+	}{}
+	r.post("supervisor.getPID", &ins, func(body io.ReadCloser, procError error) {
 		err = procError
 		if err == nil {
 			err = xml.DecodeClientResponse(body, &reply)
