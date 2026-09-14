@@ -2,12 +2,5 @@ go 1.27.0
 
 use (
 	.
-	./config
-	./events
-	./faults
-	./process
-	./signals
-	./types
-	./util
 	./xmlrpcclient
 )
