@@ -24,8 +24,9 @@ jobs:
             goarch: arm
             output_name: supervisord_linux_arm
           - goos: linux
-            goarch: armv5l
-            output_name: supervisord_linux_armv5l
+            goarch: arm
+            goarm: "5"
+            output_name: supervisord_linux_armv5
           - goos: linux
             goarch: arm64
             output_name: supervisord_linux_arm64
