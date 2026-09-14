@@ -33,7 +33,7 @@ func TestBaseCheckFail(t *testing.T) {
 
 func TestTcpCheckOk(t *testing.T) {
 	go func() {
-		listener, err := net.Listen("tcp", ":8999")
+		listener, err := net.Listen("tcp", ":8997")
 		if err == nil {
 			defer listener.Close()
 			conn, err := listener.Accept()
@@ -45,7 +45,7 @@ func TestTcpCheckOk(t *testing.T) {
 			}
 		}
 	}()
-	checker := NewTCPChecker("127.0.0.1", 8999, []string{"Hello", "world"}, 10)
+	checker := NewTCPChecker("127.0.0.1", 8997, []string{"Hello", "world"}, 10)
 	if !checker.Check() {
 		t.Fail()
 	}
@@ -71,18 +71,21 @@ func TestTcpCheckFail(t *testing.T) {
 }
 
 func TestHttpCheckOk(t *testing.T) {
+	listener, err := net.Listen("tcp", ":8999")
+	if err != nil {
+		t.Errorf("Fail to listen on :8999")
+		return
+	}
+	defer listener.Close()
 	go func() {
-		listener, err := net.Listen("tcp", ":8999")
-		if err == nil {
+		http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer listener.Close()
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("this is an response"))
+		}))
 
-			http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				defer listener.Close()
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("this is an response"))
-			}))
-
-		}
 	}()
+
 	checker := NewHTTPChecker("http://127.0.0.1:8999", 2)
 	if !checker.Check() {
 		t.Fail()
@@ -90,18 +93,25 @@ func TestHttpCheckOk(t *testing.T) {
 }
 
 func TestHttpCheckFail(t *testing.T) {
-	go func() {
-		listener, err := net.Listen("tcp", ":8999")
-		if err == nil {
-			http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				defer listener.Close()
-				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte("not found"))
-			}))
+	listener, err := net.Listen("tcp", ":8998")
+	if err != nil {
+		t.Errorf("Fail to listen on :8998")
+		return
+	}
+	defer listener.Close()
 
-		}
+	go func() {
+
+		http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("not found"))
+		}))
+
 	}()
-	checker := NewHTTPChecker("http://127.0.0.1:8999", 2)
+
+	checker := NewHTTPChecker("http://127.0.0.1:8998", 2)
+
 	if checker.Check() {
 		t.Fail()
 	}
