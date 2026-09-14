@@ -25,4 +25,6 @@ jobs:
       - name: Build
         run: go build -v -x ./...
       - name: Test
+        env:
+          CGO_ENABLED: 1
         run: go test -v -x ./...
