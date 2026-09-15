@@ -92,6 +92,9 @@ jobs:
         with:
           go-version: '1.27'
 
+      - name: Create dist directory
+        run: |
+          mkdir -p dist
       - name: Build Binary
         env:
           GOOS: ${{ matrix.goos }}
@@ -99,8 +102,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           VERSION="${{ inputs.tag_name || github.ref_name }}"
-          COMMIT=$(git rev-parse --short HEAD)
-          mkdir -p dist
+          COMMIT=$(git rev-parse --short HEAD)          
           
           go build -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
             -o dist/${{ matrix.output_name }}
