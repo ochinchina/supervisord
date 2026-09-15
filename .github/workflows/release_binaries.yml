@@ -100,6 +100,7 @@ jobs:
         run: |
           VERSION="${{ inputs.tag_name || github.ref_name }}"
           COMMIT=$(git rev-parse --short HEAD)
+          mkdir -p dist
           
           go build -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
             -o dist/${{ matrix.output_name }}
