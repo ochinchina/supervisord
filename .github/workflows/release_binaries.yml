@@ -28,6 +28,14 @@ jobs:
             goarm: "5"
             output_name: supervisord_linux_armv5
           - goos: linux
+            goarch: arm
+            goarm: "6"
+            output_name: supervisord_linux_armv6
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+            output_name: supervisord_linux_armv7
+          - goos: linux
             goarch: arm64
             output_name: supervisord_linux_arm64
           - goos: linux
@@ -57,6 +65,14 @@ jobs:
           - goos: freebsd
             goarch: arm64
             output: supervisord_freebsd_arm64
+          - goos: freebsd
+            goarch: arm
+            goarm: "5"
+            output: supervisord_freebsd_arm5
+          - goos: freebsd
+            goarch: arm
+            goarm: "6"
+            output: supervisord_freebsd_arm6                        
           - goos: freebsd
             goarch: arm
             goarm: "7"

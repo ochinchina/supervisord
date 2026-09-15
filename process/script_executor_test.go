@@ -162,8 +162,8 @@ func TestExecuteHTTP_URLOnlyNoParams(t *testing.T) {
 	se := NewScriptExecutor("http://127.0.0.1:1/noop")
 	// URL only with no extra fields — the code returns nil without making a request
 	err := se.Execute()
-	if err != nil {
-		t.Errorf("expected no error for URL-only script, got %v", err)
+	if err == nil {
+		t.Errorf("expected error for URL-only script")
 	}
 }
 
@@ -176,8 +176,8 @@ func TestExecuteHTTP_ServerError(t *testing.T) {
 	se := NewScriptExecutor(ts.URL + " -d data")
 	err := se.Execute()
 	// current implementation does not treat HTTP status errors as errors
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+	if err == nil {
+		t.Errorf("expected error")
 	}
 }
 

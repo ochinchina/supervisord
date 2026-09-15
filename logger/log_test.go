@@ -6,9 +6,9 @@ import (
 )
 
 func TestWriteSingleLog(t *testing.T) {
-	logger := NewFileLogger("test.log", int64(50), 2, true, NewNullLogEventEmitter(), NewNullLocker())
-	for i := 0; i < 10; i++ {
-		logger.Write([]byte(fmt.Sprintf("this is a test %d\n", i)))
+	logger := NewFileLogger("test.log", int64(50), 2, false, NewNullLogEventEmitter(), NewNullLocker())
+	for i := range 10 {
+		fmt.Fprintf(logger, "this is a test %d\n", i)
 	}
 	logger.Close()
 }
