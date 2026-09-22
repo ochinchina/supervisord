@@ -63,13 +63,13 @@ redirect_stderr=false
 stdout_logfile=AUTO
 stdout_logfile_maxbytes=50MB
 stdout_logfile_backups=10
-stdout_logfile_timestamp_suffix=tue
+stdout_logfile_timestamp_suffix=false
 stdout_capture_maxbytes=0
 stdout_events_enabled=true
 stderr_logfile=AUTO
 stderr_logfile_maxbytes=50MB
 stderr_logfile_backups=10
-stderr_logfile_timestamp_suffix=tue
+stderr_logfile_timestamp_suffix=false
 stderr_capture_maxbytes=0
 stderr_events_enabled=false
 environment=KEY="val",KEY2="val2"
