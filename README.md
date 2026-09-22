@@ -150,6 +150,7 @@ Supervised program settings configured in [program:programName] section and incl
 - **exitcodes**. The list of “expected” exit codes for this program used with autorestart. If the autorestart parameter is set to unexpected, and the process exits in any other way than as a result of a supervisor stop request, supervisord will restart the process if it exits with an exit code that is not defined in this list.
 - **stopsignal**. Signal to send to command to gracefully stop it. If more than one stopsignal is configured, when stoping the program, the supervisor will send the signals to the program one by one with interval "stopwaitsecs". If the program does not exit after all the signals sent to the program, supervisord will kill the program.
 - **stopwaitsecs**. Amount of time to wait before sending SIGKILL to supervised command to make it stop ungracefully.
+- **stdin**. Use the `string://`, `file://`, or `command://` methods to set the standard input value.
 - **stdout_logfile**. Where STDOUT of supervised command should be redirected. (Particular values described lower in this file).
 - **stdout_logfile_maxbytes**. Log size after exceed which log will be rotated.
 - **stdout_logfile_backups**. Number of rotated log-files to preserve.
