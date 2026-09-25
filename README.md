@@ -33,6 +33,8 @@ command = /your/program args
 $ supervisord -c supervisor.conf
 ```
 
+supervisord runs in the foreground unless `-d` is given. For compatibility with Python supervisord it also accepts `-n`/`--nodaemon` (run in the foreground; overrides `-d`) and `-e`/`--loglevel <level>` (overrides `loglevel` in the configuration file).
+
 Please note that config-file location autodetected in this order:
 
 1. $CWD/supervisord.conf

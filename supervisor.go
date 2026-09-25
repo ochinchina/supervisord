@@ -740,6 +740,12 @@ func (s *Supervisor) setSupervisordInfo() {
 		if err != nil {
 			logFile, err = process.PathExpand(logFile)
 		}
+		// -e/--loglevel overrides loglevel in the configuration file
+		loglevel := supervisordConf.GetString("loglevel", "info")
+		if options.LogLevel != "" {
+			loglevel = options.LogLevel
+			log.SetLevel(toLogLevel(loglevel))
+		}
 		if logFile == "/dev/stdout" {
 			return
 		}
@@ -749,7 +755,6 @@ func (s *Supervisor) setSupervisordInfo() {
 			logfileMaxbytes := int64(supervisordConf.GetBytes("logfile_maxbytes", 50*1024*1024))
 			logfileBackups := supervisordConf.GetInt("logfile_backups", 10)
 			fileNameWithTimestamp := supervisordConf.GetBool("logfile_timestamp_suffix", true)
-			loglevel := supervisordConf.GetString("loglevel", "info")
 			props := make(map[string]string)
 			s.logger = logger.NewLogger("supervisord", logFile, &sync.Mutex{}, logfileMaxbytes, logfileBackups, fileNameWithTimestamp, props, logEventEmitter)
 			log.SetLevel(toLogLevel(loglevel))

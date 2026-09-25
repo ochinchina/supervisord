@@ -31,7 +31,7 @@ func (p *program) Start(s service.Service) error {
 
 func (p *program) run() {
 	log.SetOutput(logger.NewReformatLog(os.Stdout))
-	if options.Daemon {
+	if options.shouldDaemonize() {
 		logFile := getSupervisordLogFile(options.Configuration)
 		p.supervisor, _ = initServer()
 		pidfile := p.supervisor.GetPidFile()

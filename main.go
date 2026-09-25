@@ -23,6 +23,16 @@ type Options struct {
 	Configuration string `short:"c" long:"configuration" description:"the configuration file"`
 	Daemon        bool   `short:"d" long:"daemon" description:"run as daemon"`
 	EnvFile       string `long:"env-file" description:"the environment file"`
+	// NoDaemon and LogLevel accept Python supervisord's -n and -e so that
+	// command lines written for it keep working.
+	NoDaemon bool   `short:"n" long:"nodaemon" description:"run in the foreground, the default; overrides -d"`
+	LogLevel string `short:"e" long:"loglevel" description:"log level (critical, error, warn, info, debug); overrides loglevel in the configuration file"`
+}
+
+// shouldDaemonize reports whether supervisord should detach; -n wins over -d
+// as it does in Python supervisord.
+func (o *Options) shouldDaemonize() bool {
+	return o.Daemon && !o.NoDaemon
 }
 
 func init() {
