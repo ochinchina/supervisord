@@ -172,8 +172,9 @@ func TestToRegex(t *testing.T) {
 }
 
 func TestConfigWithInclude(t *testing.T) {
-	dir := os.TempDir()
-	//dir, _ := ioutil.TempDir("", "tmp")
+	// a private directory: the test used os.TempDir() and then removed it,
+	// deleting everything in the system temp directory
+	dir := t.TempDir()
 
 	ioutil.WriteFile(filepath.Join(dir, "file1"), []byte("[program:cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
 	ioutil.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program:ls]\ncommand=ls\n"), os.ModePerm)
@@ -181,8 +182,6 @@ func TestConfigWithInclude(t *testing.T) {
 	fmt.Println(filepath.Join(dir, "file1"))
 	config := NewConfig(filepath.Join(dir, "file1"))
 	config.Load()
-
-	os.RemoveAll(filepath.Join(dir))
 
 	entry := config.GetProgram("ls")
 
