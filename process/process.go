@@ -69,6 +69,11 @@ func (s *AtomicState) CompareAndSwap(old, new State) bool {
 	return s.v.CompareAndSwap(int32(old), int32(new))
 }
 
+// Swap stores state and returns the previous state.
+func (s *AtomicState) Swap(state State) State {
+	return State(s.v.Swap(int32(state)))
+}
+
 func NewAtomicState(state State) *AtomicState {
 	atomicState := AtomicState{v: atomic.Int32{}}
 	atomicState.Store(state)
@@ -694,14 +699,17 @@ func (p *Process) setProgramRestartChangeMonitor(programPath string) {
 }
 
 // wait for the started program exit
-func (p *Process) waitForExit(startSecs int64) {
+// waitForExit waits for the program to exit, marks it Stopped and returns
+// the state it was in when it exited, so run can tell a program that exited
+// after a successful start (Running) from one that failed to start.
+func (p *Process) waitForExit(startSecs int64) State {
 	p.cmd.Wait()
 	if p.cmd.ProcessState != nil {
 		log.WithFields(log.Fields{"program": p.GetName()}).Infof("program stopped with status:%v", p.cmd.ProcessState)
 	} else {
 		log.WithFields(log.Fields{"program": p.GetName()}).Info("program stopped")
 	}
-	p.state.Store(Stopped)
+	stateAtExit := p.state.Swap(Stopped)
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.stopTime = time.Now()
@@ -714,7 +722,7 @@ func (p *Process) waitForExit(startSecs int64) {
 	if p.StderrLog != nil {
 		p.StderrLog.Close()
 	}
-
+	return stateAtExit
 }
 
 // fail to start the program
@@ -851,8 +859,9 @@ func (p *Process) run(finishCb func()) {
 		p.lock.Unlock()
 
 		procExitC := make(chan struct{})
+		var stateAtExit State
 		go func() {
-			p.waitForExit(startSecs)
+			stateAtExit = p.waitForExit(startSecs)
 			close(procExitC)
 		}()
 
@@ -869,6 +878,9 @@ func (p *Process) run(finishCb func()) {
 			time.Sleep(time.Duration(100) * time.Millisecond)
 		}
 
+		// the loop above only ends once the program has exited; wait for
+		// waitForExit to return so stateAtExit is set
+		<-procExitC
 		atomic.StoreInt32(&programExited, 1)
 		// wait for monitor thread exit
 		for atomic.LoadInt32(&monitorExited) == 0 {
@@ -880,8 +892,9 @@ func (p *Process) run(finishCb func()) {
 		// we break the restartRetry loop if:
 		// 1. process still in running after startSecs (although it's exited right now)
 		// 2. it's stopping by user (we unlocked before waitForExit, so the flag stopByUser will have a chance to change).
-		state := p.state.Load()
-		if state == Running || state == Stopping {
+		// waitForExit has already marked the program Stopped, so decide on
+		// the state it exited from.
+		if stateAtExit == Running || stateAtExit == Stopping {
 			if !p.stopByUser.Load() {
 				p.changeStateTo(Exited)
 				log.WithFields(log.Fields{"program": p.GetName()}).Info("program exited")
