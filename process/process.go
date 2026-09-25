@@ -1,6 +1,7 @@
 package process
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -636,9 +637,55 @@ func (p *Process) createProgramCommand() error {
 	p.setDir()
 	p.setLog()
 
-	p.stdin, _ = p.cmd.StdinPipe()
+	if err = p.setProgramStdin(); err != nil {
+		return err
+	}
+
+	p.stdin = nil
+	if p.cmd.Stdin == nil {
+		p.stdin, err = p.cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 
+}
+
+// setProgramStdin loads the configured stdin content before the program starts.
+func (p *Process) setProgramStdin() error {
+	var stdinType string
+	stdin := p.config.GetStringExpression("stdin", "")
+	for _, prefix := range []string{"string://", "file://", "command://"} {
+		if strings.HasPrefix(strings.ToLower(stdin), prefix) {
+			stdinType = strings.TrimSuffix(prefix, "://")
+			stdin = stdin[len(prefix):]
+			break
+		}
+	}
+	if stdin == "" && !p.config.HasParameter("stdin") {
+		return nil
+	}
+
+	var (
+		content []byte
+		err     error
+	)
+	switch stdinType {
+	case "", "string":
+		content = []byte(stdin)
+	case "file":
+		content, err = os.ReadFile(stdin)
+	case "command":
+		content, err = executeCommand(stdin)
+	default:
+		return fmt.Errorf("unsupported stdin type %q", stdinType)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to load stdin: %w", err)
+	}
+	p.cmd.Stdin = bytes.NewReader(content)
+	return nil
 }
 
 func (p *Process) setProgramRestartChangeMonitor(programPath string) {
