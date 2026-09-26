@@ -61,27 +61,27 @@ jobs:
           # --- FreeBSD Targets ---
           - goos: freebsd
             goarch: amd64
-            output: supervisord_freebsd_amd64
+            output_name: supervisord_freebsd_amd64
           - goos: freebsd
             goarch: arm64
-            output: supervisord_freebsd_arm64
+            output_name: supervisord_freebsd_arm64
           - goos: freebsd
             goarch: arm
             goarm: "5"
-            output: supervisord_freebsd_arm5
+            output_name: supervisord_freebsd_arm5
           - goos: freebsd
             goarch: arm
             goarm: "6"
-            output: supervisord_freebsd_arm6                        
+            output_name: supervisord_freebsd_arm6                        
           - goos: freebsd
             goarch: arm
             goarm: "7"
-            output: supervisord_freebsd_arm7
+            output_name: supervisord_freebsd_arm7
 
           # --- AIX Targets ---
           - goos: aix
             goarch: ppc64
-            output: supervisord_aix_ppc64            
+            output_name: supervisord_aix_ppc64            
 
     steps:
       - name: Checkout repository
