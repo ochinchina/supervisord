@@ -1344,6 +1344,9 @@ func (p *Process) Stop(wait bool) {
 
 	go func() {
 		p.sendSignals(sigs, stopasgroup, waitsecs)
+		// The exit is recorded (state Stopped) just after the process is reaped;
+		// don't mistake that short window for "still running" and force a kill.
+		p.waitUntilStopped(time.Second)
 		if !p.IsRunning() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is stopped after sending stop signal")
 		}
@@ -1351,6 +1354,7 @@ func (p *Process) Stop(wait bool) {
 		if p.IsRunning() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("force to kill the program")
 			p.sendSignals([]string{"KILL"}, killasgroup, killwaitsecs)
+			p.waitUntilStopped(time.Second)
 		}
 		if !p.IsRunning() {
 			log.WithFields(log.Fields{"program": p.GetName()}).Info("program is stopped after sending stop signal")
@@ -1362,6 +1366,14 @@ func (p *Process) Stop(wait bool) {
 		for p.IsRunning() {
 			time.Sleep(1 * time.Second)
 		}
+	}
+}
+
+// waitUntilStopped waits up to timeout for the program to leave the running states.
+func (p *Process) waitUntilStopped(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for p.IsRunning() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

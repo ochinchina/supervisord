@@ -87,15 +87,30 @@ func Kill(process *os.Process, sigs []string, sigChildren bool, stopWaitSecs int
 		if err != nil {
 			continue
 		}
-		select {
-		// return if the process has exited
-		case <-signalChan:
+		if waitForExit(process.Pid, signalChan, time.Duration(stopWaitSecs)*time.Second) {
 			return nil
-		case <-time.After(time.Duration(stopWaitSecs) * time.Second):
-			continue
 		}
-
 	}
 	return nil
 
+}
+
+// waitForExit waits until the process pid has exited (and been reaped), or the
+// timeout passes. SIGCHLD is delivered when *any* child exits, so it's only a
+// hint to check again; the process itself is polled with kill(pid, 0).
+func waitForExit(pid int, sigchld <-chan os.Signal, timeout time.Duration) bool {
+	deadline := time.After(timeout)
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		if syscall.Kill(pid, 0) == syscall.ESRCH {
+			return true
+		}
+		select {
+		case <-sigchld:
+		case <-tick.C:
+		case <-deadline:
+			return false
+		}
+	}
 }
