@@ -51,6 +51,8 @@ func init() {
 		}
 	}
 	log.SetLevel(log.DebugLevel)
+
+	enableConsoleVT()
 }
 
 var options Options
