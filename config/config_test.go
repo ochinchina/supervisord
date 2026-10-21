@@ -2,13 +2,11 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
-
-	"github.com/ochinchina/supervisord/util"
 )
 
 func createTmpFile() (string, error) {
@@ -89,21 +87,21 @@ func TestGetStringValueFromConfig(t *testing.T) {
 func TestGetEnvValueFromConfig(t *testing.T) {
 	config, _ := parse([]byte("[program:test]\na=A=\"env1\",B=env2"))
 	entry := config.GetProgram("test")
-	envs := make([]interface{}, 0)
+	envs := make([]any, 0)
 	for _, e := range entry.GetEnv("a") {
 		envs = append(envs, e)
 	}
-	if len(envs) != 2 || !util.InArray("A=env1", envs) || !util.InArray("B=env2", envs) {
+	if len(envs) != 2 || !slices.Contains(envs, "A=env1") || !slices.Contains(envs, "B=env2") {
 		t.Error("Fail to get env value")
 	}
 
 	config, _ = parse([]byte("[program:test]\na=A=env1,B=\"env2\""))
 	entry = config.GetProgram("test")
-	envs = make([]interface{}, 0)
+	envs = make([]any, 0)
 	for _, e := range entry.GetEnv("a") {
 		envs = append(envs, e)
 	}
-	if len(envs) != 2 || !util.InArray("A=env1", envs) || !util.InArray("B=env2", envs) {
+	if len(envs) != 2 || !slices.Contains(envs, "A=env1") || !slices.Contains(envs, "B=env2") {
 		t.Error("Fail to get env value")
 	}
 
@@ -176,8 +174,8 @@ func TestConfigWithInclude(t *testing.T) {
 	// deleting everything in the system temp directory
 	dir := t.TempDir()
 
-	ioutil.WriteFile(filepath.Join(dir, "file1"), []byte("[program:cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
-	ioutil.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program:ls]\ncommand=ls\n"), os.ModePerm)
+	os.WriteFile(filepath.Join(dir, "file1"), []byte("[program:cat]\ncommand=pwd\nA=abc\n[include]\nfiles=*.conf"), os.ModePerm)
+	os.WriteFile(filepath.Join(dir, "file2.conf"), []byte("[program:ls]\ncommand=ls\n"), os.ModePerm)
 
 	fmt.Println(filepath.Join(dir, "file1"))
 	config := NewConfig(filepath.Join(dir, "file1"))

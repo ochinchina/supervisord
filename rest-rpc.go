@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"sort"
 	"sync"
@@ -65,9 +66,7 @@ func (nlm *NodeLoginManager) GetAllNode() map[string]*NodeLoginInfo {
 	nlm.Lock()
 	defer nlm.Unlock()
 	nodesCopy := make(map[string]*NodeLoginInfo)
-	for name, node := range nlm.nodes {
-		nodesCopy[name] = node
-	}
+	maps.Copy(nodesCopy, nlm.nodes)
 	return nodesCopy
 }
 

@@ -115,8 +115,8 @@ func (z *zipFS) Open(name string) (http.File, error) {
 	}
 
 	// directory
-	if strings.HasSuffix(name, "/") {
-		dirKey := strings.TrimSuffix(name, "/") + "/"
+	if before, ok := strings.CutSuffix(name, "/"); ok {
+		dirKey := before + "/"
 		return &zipHTTPFile{isDir: true, name: dirKey, entries: z.dirEntries(dirKey)}, nil
 	}
 
@@ -238,4 +238,4 @@ func (z *zipFileInfo) Mode() os.FileMode {
 }
 func (z *zipFileInfo) ModTime() time.Time { return z.modTime }
 func (z *zipFileInfo) IsDir() bool        { return z.isDir }
-func (z *zipFileInfo) Sys() interface{}   { return nil }
+func (z *zipFileInfo) Sys() any           { return nil }

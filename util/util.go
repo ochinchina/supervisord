@@ -1,19 +1,11 @@
 package util
 
-// InArray returns true if the elem is in the array arr
-func InArray(elem interface{}, arr []interface{}) bool {
-	for _, e := range arr {
-		if e == elem {
-			return true
-		}
-	}
-	return false
-}
+import "slices"
 
 // HasAllElements returns true if the array arr1 contains all elements of array arr2
-func HasAllElements(arr1 []interface{}, arr2 []interface{}) bool {
+func HasAllElements(arr1 []any, arr2 []any) bool {
 	for _, e2 := range arr2 {
-		if !InArray(e2, arr1) {
+		if !slices.Contains(arr1, e2) {
 			return false
 		}
 	}
@@ -21,8 +13,8 @@ func HasAllElements(arr1 []interface{}, arr2 []interface{}) bool {
 }
 
 // StringArrayToInterfacArray converts []string to []interface
-func StringArrayToInterfacArray(arr []string) []interface{} {
-	result := make([]interface{}, 0)
+func StringArrayToInterfacArray(arr []string) []any {
+	result := make([]any, 0)
 	for _, s := range arr {
 		result = append(result, s)
 	}
@@ -52,13 +44,7 @@ func IsSameStringArray(arr1 []string, arr2 []string) bool {
 		return false
 	}
 	for _, s := range arr1 {
-		exist := false
-		for _, s2 := range arr2 {
-			if s2 == s {
-				exist = true
-				break
-			}
-		}
+		exist := slices.Contains(arr2, s)
 		if !exist {
 			return false
 		}

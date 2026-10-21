@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"maps"
 	"strings"
 
 	"github.com/ochinchina/supervisord/util"
@@ -21,9 +22,7 @@ func NewProcessGroup() *ProcessGroup {
 // Clone clones process group
 func (pg *ProcessGroup) Clone() *ProcessGroup {
 	newPg := NewProcessGroup()
-	for k, v := range pg.processGroup {
-		newPg.processGroup[k] = v
-	}
+	maps.Copy(newPg.processGroup, pg.processGroup)
 	return newPg
 }
 

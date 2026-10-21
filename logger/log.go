@@ -817,7 +817,7 @@ func (ml *MemoryLogger) ReadLog(offset int64, length int64) (string, error) {
 	ml.lock.Lock()
 	defer ml.lock.Unlock()
 	var logs string = ""
-	ml.logs.Do(func(p interface{}) {
+	ml.logs.Do(func(p any) {
 		if p != nil {
 			logs = logs + "\n" + p.(string)
 		}
@@ -828,10 +828,7 @@ func (ml *MemoryLogger) ReadLog(offset int64, length int64) (string, error) {
 	if length <= 0 {
 		return logs, nil
 	}
-	end := offset + length
-	if end > int64(len(logs)) {
-		end = int64(len(logs))
-	}
+	end := min(offset+length, int64(len(logs)))
 	return logs[offset:end], nil
 }
 
@@ -839,7 +836,7 @@ func (ml *MemoryLogger) ReadTailLog(offset int64, length int64) (string, int64, 
 	ml.lock.Lock()
 	defer ml.lock.Unlock()
 	var logs []string = make([]string, 0)
-	ml.logs.Do(func(p interface{}) {
+	ml.logs.Do(func(p any) {
 		if p != nil {
 			logs = append(logs, p.(string))
 		}
@@ -847,10 +844,7 @@ func (ml *MemoryLogger) ReadTailLog(offset int64, length int64) (string, int64, 
 	if offset > 0 && offset >= int64(len(logs)) {
 		return "", offset, true, nil
 	}
-	end := offset + length
-	if end > int64(len(logs)) {
-		end = int64(len(logs))
-	}
+	end := min(offset+length, int64(len(logs)))
 	return strings.Join(logs[offset:end], ""), end, end == int64(len(logs)), nil
 }
 

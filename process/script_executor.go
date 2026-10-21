@@ -83,8 +83,8 @@ func (se *ScriptExecutor) loadData(options map[string]string) []byte {
 	if data == "" {
 		return make([]byte, 0)
 	}
-	if strings.HasPrefix(data, "@") {
-		dataFile := strings.TrimPrefix(data, "@")
+	if after, ok := strings.CutPrefix(data, "@"); ok {
+		dataFile := after
 		if fileExists(dataFile) {
 			content, err := os.ReadFile(dataFile)
 			if err == nil {

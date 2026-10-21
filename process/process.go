@@ -1053,7 +1053,7 @@ func mergeKeyValueArrays(arr1, arr2 []string) []string {
 
 	// 处理第一个数组，保留所有元素
 	for _, item := range arr1 {
-		if key := strings.SplitN(item, "=", 2)[0]; key != "" {
+		if key, _, _ := strings.Cut(item, "="); key != "" {
 			keySet[key] = true
 		}
 		result = append(result, item)
@@ -1061,7 +1061,7 @@ func mergeKeyValueArrays(arr1, arr2 []string) []string {
 
 	// 处理第二个数组，跳过已存在的键
 	for _, item := range arr2 {
-		if key := strings.SplitN(item, "=", 2)[0]; key != "" {
+		if key, _, _ := strings.Cut(item, "="); key != "" {
 			if !keySet[key] {
 				result = append(result, item)
 			}
