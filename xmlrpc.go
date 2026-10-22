@@ -175,8 +175,8 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	logtailHandler := NewLogtail(s).CreateHandler()
 	mux.Handle("/logtail/", newHTTPBasicAuth(user, password, logtailHandler))
 
-	webguiHandler := NewSupervisorWebgui(s).CreateHandler()
-	mux.Handle("/", newHTTPBasicAuth(user, password, webguiHandler))
+	// webgui assets
+	mux.Handle("/", newHTTPBasicAuth(user, password, http.FileServer(HTTP)))
 
 	// conf 文件
 	confHandler := NewConfApi(s).CreateHandler()
