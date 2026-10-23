@@ -12,8 +12,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/ochinchina/supervisord/types"
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 	log "github.com/sirupsen/logrus"
 )
 
