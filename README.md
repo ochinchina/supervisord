@@ -130,7 +130,7 @@ Following parameters configured in "supervisord" section:
 - **logfile**. Where to put log of supervisord itself.
 - **logfile_maxbytes**. Rotate log-file after it exceeds this length.
 - **logfile_backups**. Number of rotated log-files to preserve.
-- **logfile_timestamp_suffix**. if it is true, the log file suffix will be in format 2006-01-02T15:04:05, otherwise the log file suffix will be in number from 1 to **logfile_backups**, default is true
+- **logfile_timestamp_suffix**. if it is true, the log file suffix will be in format 2006-01-02T15:04:05, otherwise the log file suffix will be in number from 1 to **logfile_backups**, default is false. Log files that are not regular files, such as /dev/fd/1, never get a suffix
 - **loglevel**. Logging verbosity, can be trace, debug, info, warning, error, fatal and panic (according to documentation of module used for this feature). Defaults to info.
 - **pidfile**. Full path to file containing process id of current supervisord instance.
 - **minfds**. Reserve al least this amount of file descriptors on supervisord startup. (Rlimit nofiles).
@@ -156,12 +156,12 @@ Supervised program settings configured in [program:programName] section and incl
 - **stdout_logfile**. Where STDOUT of supervised command should be redirected. (Particular values described lower in this file).
 - **stdout_logfile_maxbytes**. Log size after exceed which log will be rotated.
 - **stdout_logfile_backups**. Number of rotated log-files to preserve.
-- **stdout_logfile_timestamp_suffix**. if it is true, the log file suffix will be in format 2006-01-02T15-04-05, otherwise the log file suffix will be in number from 1 to **stdout_logfile_backups**, default is true
+- **stdout_logfile_timestamp_suffix**. if it is true, the log file suffix will be in format 2006-01-02T15-04-05, otherwise the log file suffix will be in number from 1 to **stdout_logfile_backups**, default is false. Log files that are not regular files, such as /dev/fd/1, never get a suffix
 - **redirect_stderr**. Should STDERR be redirected to STDOUT.
 - **stderr_logfile**. Where STDERR of supervised command should be redirected. (Particular values described lower in this file).
 - **stderr_logfile_maxbytes**. Log size after exceed which log will be rotated.
 - **stderr_logfile_backups**. Number of rotated log-files to preserve.
-- **stderr_logfile_timestamp_suffix**. if it is true, the log file suffix will be in format 2006-01-02T15-04-05, otherwise the log file suffix will be in number from 1 to **stderr_logfile_backups**, default is true
+- **stderr_logfile_timestamp_suffix**. if it is true, the log file suffix will be in format 2006-01-02T15-04-05, otherwise the log file suffix will be in number from 1 to **stderr_logfile_backups**, default is false. Log files that are not regular files, such as /dev/fd/1, never get a suffix
 - **environment**. List of VARIABLE=value to be passed to supervised program. It has higher priority than `envFiles`.
 - **envFiles**. List of .env files to be loaded and passed to supervised program. 
 - **priority**. The relative priority of the program in the start and shutdown ordering

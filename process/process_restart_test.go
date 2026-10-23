@@ -111,3 +111,27 @@ autorestart=unexpected
 		time.Sleep(50 * time.Millisecond)
 	}
 }
+
+// Without stdout_logfile_timestamp_suffix the log keeps the configured file
+// name, as in Python supervisor and earlier releases.
+func TestStdoutLogfileKeepsNameByDefault(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "out.log")
+	p := newTestProcess(t, "talker", fmt.Sprintf(`[program:talker]
+command=/bin/sh -c "echo hello; sleep 5"
+stdout_logfile=%s
+`, logFile))
+	p.Start(false)
+	defer p.Stop(true)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if b, err := os.ReadFile(logFile); err == nil && strings.Contains(string(b), "hello") {
+			break
+		}
+		if time.Now().After(deadline) {
+			files, _ := filepath.Glob(logFile + "*")
+			t.Fatalf("no output in %s within 5s; log files: %v", logFile, files)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}

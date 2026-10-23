@@ -994,12 +994,28 @@ func createLogger(programName string, logFile string, locker sync.Locker, maxByt
 			}
 		}
 		if len(logFile) > 0 {
+			// a timestamp suffix only makes sense for a regular file; for a
+			// device, pipe or socket such as /dev/fd/1 the suffixed name
+			// cannot be opened and the program's output would be lost
+			if fileNameWithTimestamp && !isRegularOrMissing(logFile) {
+				fileNameWithTimestamp = false
+			}
 			return NewFileLogger(logFile, maxBytes, backups, fileNameWithTimestamp, logEventEmitter, locker)
 		}
 		return NewNullLogger(logEventEmitter)
 
 	}
 
+}
+
+// isRegularOrMissing reports whether path is a regular file or does not exist
+// yet, following symbolic links such as /dev/fd/1 or /proc/self/fd/1.
+func isRegularOrMissing(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return os.IsNotExist(err)
+	}
+	return fi.Mode().IsRegular()
 }
 
 type ReformatLog struct {

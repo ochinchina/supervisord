@@ -754,7 +754,7 @@ func (s *Supervisor) setSupervisordInfo() {
 		if err == nil {
 			logfileMaxbytes := int64(supervisordConf.GetBytes("logfile_maxbytes", 50*1024*1024))
 			logfileBackups := supervisordConf.GetInt("logfile_backups", 10)
-			fileNameWithTimestamp := supervisordConf.GetBool("logfile_timestamp_suffix", true)
+			fileNameWithTimestamp := supervisordConf.GetBool("logfile_timestamp_suffix", false)
 			props := make(map[string]string)
 			s.logger = logger.NewLogger("supervisord", logFile, &sync.Mutex{}, logfileMaxbytes, logfileBackups, fileNameWithTimestamp, props, logEventEmitter)
 			log.SetLevel(toLogLevel(loglevel))
