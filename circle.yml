@@ -1,9 +1,0 @@
-deployment:
-  master:
-    branch: [master]
-    commands:
-      - go version
-      - go get github.com/mitchellh/gox
-      - go get github.com/tcnksm/ghr
-      - gox -output "dist/supervisord_{{.OS}}_{{.Arch}}" -osarch="linux/amd64 linux/386 darwin/amd64"
-      - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace v1.0.0 dist/

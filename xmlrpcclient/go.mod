@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/ochinchina/gorilla-xmlrpc v1.0.4
-	github.com/ochinchina/supervisord/types v0.0.0-20260827023808-368eb5d6ad92
+	github.com/ochinchina/supervisord/types v0.0.0-20260914122518-a64219542f0d
 )
 
 require (
