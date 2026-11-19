@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha1" //nolint:gosec
+	"crypto/subtle"
 	"encoding/hex"
 	"io"
 	"net"
@@ -44,21 +45,32 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username, password, ok := r.BasicAuth()
-	if ok && username == h.user {
-		if strings.HasPrefix(h.password, "{SHA}") {
-			hash := sha1.New() //nolint:gosec
-			io.WriteString(hash, password)
-			if hex.EncodeToString(hash.Sum(nil)) == h.password[5:] {
-				h.handler.ServeHTTP(w, r)
-				return
-			}
-		} else if password == h.password {
+	if ok {
+		// check both so a wrong username costs the same as a wrong password
+		userOK := secureCompare(username, h.user)
+		passwordOK := h.checkPassword(password)
+		if userOK && passwordOK {
 			h.handler.ServeHTTP(w, r)
 			return
 		}
 	}
 	w.Header().Set("WWW-Authenticate", "Basic realm=\"supervisor\"")
 	w.WriteHeader(401)
+}
+
+// checkPassword reports whether password matches the configured password,
+// which is either plaintext or "{SHA}" followed by the hex SHA-1 digest
+func (h *httpBasicAuth) checkPassword(password string) bool {
+	if strings.HasPrefix(h.password, "{SHA}") {
+		sum := sha1.Sum([]byte(password)) //nolint:gosec
+		return secureCompare(hex.EncodeToString(sum[:]), h.password[5:])
+	}
+	return secureCompare(password, h.password)
+}
+
+// secureCompare compares two strings in constant time
+func secureCompare(a, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 // NewXMLRPC create a new XML RPC object
