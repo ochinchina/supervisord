@@ -1,0 +1,3 @@
+trust:
+  packages:
+    - gomod:golang.org/x/sys
