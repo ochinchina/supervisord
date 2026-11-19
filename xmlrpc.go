@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // XMLRPC mange the XML RPC servers
@@ -58,9 +59,24 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(401)
 }
 
+// isBcryptHash reports whether password is a bcrypt hash such as the ones
+// produced by "htpasswd -B"
+func isBcryptHash(password string) bool {
+	for _, prefix := range []string{"$2a$", "$2b$", "$2y$"} {
+		if strings.HasPrefix(password, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // checkPassword reports whether password matches the configured password,
-// which is either plaintext or "{SHA}" followed by the hex SHA-1 digest
+// which is either a bcrypt hash, "{SHA}" followed by the hex SHA-1 digest,
+// or plaintext
 func (h *httpBasicAuth) checkPassword(password string) bool {
+	if isBcryptHash(h.password) {
+		return bcrypt.CompareHashAndPassword([]byte(h.password), []byte(password)) == nil
+	}
 	if strings.HasPrefix(h.password, "{SHA}") {
 		sum := sha1.Sum([]byte(password)) //nolint:gosec
 		return secureCompare(hex.EncodeToString(sum[:]), h.password[5:])
@@ -162,6 +178,9 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	if p.isHTTPServerStartedOnProtocol(protocol) {
 		startedCb()
 		return
+	}
+	if user != "" && strings.HasPrefix(password, "{SHA}") {
+		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Warn("{SHA} password is an unsalted SHA-1 digest and unsuitable for password storage, use a bcrypt hash (htpasswd -nB) instead")
 	}
 	// Unregister any previously registered collector before creating a new one
 	// so that config reloads don't accumulate stale collectors.

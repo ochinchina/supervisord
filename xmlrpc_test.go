@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // basicAuthStatus sends one request through an httpBasicAuth configured with
@@ -52,6 +54,33 @@ func TestBasicAuth(t *testing.T) {
 	for _, tt := range tests {
 		if got := basicAuthStatus(t, tt.user, tt.password, tt.creds); got != tt.want {
 			t.Errorf("%s: status = %d, want %d", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestBasicAuthBcrypt(t *testing.T) {
+	hash, err := bcrypt.GenerateFromPassword([]byte("thepassword"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// GenerateFromPassword emits $2a$; htpasswd -B emits $2y$ and other
+	// tools $2b$, which are the same algorithm.
+	for _, prefix := range []string{"$2a$", "$2b$", "$2y$"} {
+		password := prefix + string(hash[len(prefix):])
+		tests := []struct {
+			name  string
+			creds [2]string
+			want  int
+		}{
+			{"ok", [2]string{"test1", "thepassword"}, http.StatusOK},
+			{"wrong password", [2]string{"test1", "wrong"}, http.StatusUnauthorized},
+			{"wrong user", [2]string{"test2", "thepassword"}, http.StatusUnauthorized},
+			{"hash sent as password", [2]string{"test1", password}, http.StatusUnauthorized},
+		}
+		for _, tt := range tests {
+			if got := basicAuthStatus(t, "test1", password, &tt.creds); got != tt.want {
+				t.Errorf("%s %s: status = %d, want %d", prefix, tt.name, got, tt.want)
+			}
 		}
 	}
 }
