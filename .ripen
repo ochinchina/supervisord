@@ -1,0 +1,5 @@
+trust:
+  packages:
+    - gomod:golang.org/x/sys
+    - gomod:golang.org/x/crypto
+    - docker:library/golang

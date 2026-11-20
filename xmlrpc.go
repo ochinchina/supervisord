@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha1" //nolint:gosec
+	"crypto/subtle"
 	"encoding/hex"
 	"io"
 	"net"
@@ -17,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // XMLRPC mange the XML RPC servers
@@ -44,21 +46,47 @@ func (h *httpBasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username, password, ok := r.BasicAuth()
-	if ok && username == h.user {
-		if strings.HasPrefix(h.password, "{SHA}") {
-			hash := sha1.New() //nolint:gosec
-			io.WriteString(hash, password)
-			if hex.EncodeToString(hash.Sum(nil)) == h.password[5:] {
-				h.handler.ServeHTTP(w, r)
-				return
-			}
-		} else if password == h.password {
+	if ok {
+		// check both so a wrong username costs the same as a wrong password
+		userOK := secureCompare(username, h.user)
+		passwordOK := h.checkPassword(password)
+		if userOK && passwordOK {
 			h.handler.ServeHTTP(w, r)
 			return
 		}
 	}
 	w.Header().Set("WWW-Authenticate", "Basic realm=\"supervisor\"")
 	w.WriteHeader(401)
+}
+
+// isBcryptHash reports whether password is a bcrypt hash such as the ones
+// produced by "htpasswd -B"
+func isBcryptHash(password string) bool {
+	for _, prefix := range []string{"$2a$", "$2b$", "$2y$"} {
+		if strings.HasPrefix(password, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// checkPassword reports whether password matches the configured password,
+// which is either a bcrypt hash, "{SHA}" followed by the hex SHA-1 digest,
+// or plaintext
+func (h *httpBasicAuth) checkPassword(password string) bool {
+	if isBcryptHash(h.password) {
+		return bcrypt.CompareHashAndPassword([]byte(h.password), []byte(password)) == nil
+	}
+	if strings.HasPrefix(h.password, "{SHA}") {
+		sum := sha1.Sum([]byte(password)) //nolint:gosec
+		return secureCompare(hex.EncodeToString(sum[:]), h.password[5:])
+	}
+	return secureCompare(password, h.password)
+}
+
+// secureCompare compares two strings in constant time
+func secureCompare(a, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 // NewXMLRPC create a new XML RPC object
@@ -150,6 +178,9 @@ func (p *XMLRPC) startHTTPServer(user string, password string, protocol string, 
 	if p.isHTTPServerStartedOnProtocol(protocol) {
 		startedCb()
 		return
+	}
+	if user != "" && strings.HasPrefix(password, "{SHA}") {
+		log.WithFields(log.Fields{"addr": listenAddr, "protocol": protocol}).Warn("{SHA} password is an unsalted SHA-1 digest and unsuitable for password storage, use a bcrypt hash (htpasswd -nB) instead")
 	}
 	// Unregister any previously registered collector before creating a new one
 	// so that config reloads don't accumulate stale collectors.

@@ -123,6 +123,14 @@ The TCP http server setting is in "inet_http_server" section.
 
 If both "inet_http_server" and "unix_http_server" are not set up in the configuration file, no http server will be started.
 
+Basic auth is enabled when both **username** and **password** are set. The **password** can be given as:
+
+- a bcrypt hash (recommended), as produced by `htpasswd -nbB <user> <password> | cut -d: -f2`, for example `password=$2y$05$...`. Python supervisord does not support this format and would treat the value as a plaintext password.
+- `{SHA}` followed by the hex SHA-1 digest of the password, for example `password={SHA}82ab876d1387bfafe46cc1c8a2ef074eae50cb1d` for "thepassword". This format is kept for compatibility with Python supervisord, but an unsalted SHA-1 digest is weak and a warning is logged at startup when it is used.
+- plaintext
+
+The **password** in the "supervisorctl" section is sent by the client and must always be plaintext.
+
 ## Supervisord daemon settings
 
 Following parameters configured in "supervisord" section:
